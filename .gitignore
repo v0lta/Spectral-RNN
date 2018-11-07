@@ -2,8 +2,9 @@
 ./logs_*
 logs/
 logs_np_fft/
-logs_np_fft_3/
-logs_np_fft_4/
+logs_tf_fft/
+logs_tf_fft_3/
+logs_tf_fft_4/
 logs_tf_fft_explore/
 logs_tf_fft_explore_large/
 logs_tf_fft_large_pa_64_ws_128/
