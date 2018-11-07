@@ -10,6 +10,7 @@ logs_tf_fft_explore_large/
 logs_tf_fft_large_pa_64_ws_128/
 logs_tf_fft_test/
 music_net/numpy/
+music_net/
 q.log
 
 # Byte-compiled / optimized / DLL files
