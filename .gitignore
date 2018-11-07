@@ -1,5 +1,15 @@
 
 ./logs_*
+logs/
+logs_np_fft/
+logs_np_fft_3/
+logs_np_fft_4/
+logs_tf_fft_explore/
+logs_tf_fft_explore_large/
+logs_tf_fft_large_pa_64_ws_128/
+logs_tf_fft_test/
+music_net/numpy
+q.log
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
