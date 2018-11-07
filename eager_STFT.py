@@ -216,7 +216,7 @@ if __name__ == "__main__":
     # Do some testing!
     # params
     batch_size = 100
-    window_size = 128
+    window_size = 64
     overlap = int(window_size*1/2)
     window = tf.constant(scisig.get_window('hann', window_size),
                          dtype=tf.float32)

@@ -312,13 +312,13 @@ def run_experiment(spikes_instead_of_states, base_dir, dimensions, cell_type,
 
 
 spikes_instead_of_states = True
-base_dir = 'logs_tf_fft_large_pa_64_ws_128/'
+base_dir = 'logs/tf_fft_sml/'
 if spikes_instead_of_states:
     dimensions = 1
 else:
     dimensions = 3
 cell_type = 'cgRNN'
-num_units = 220
+num_units = 160
 if cell_type == 'uRNN':
     circ_h = 4
     conv_h = 5
@@ -330,7 +330,7 @@ sample_prob = 1.0
 pred_samples = 256
 num_proj = dimensions
 learning_rate = 0.001
-iterations = 25000
+iterations = 50000
 GPUs = [0]
 batch_size = 200
 
@@ -344,13 +344,20 @@ steps = int(tmax/delta_t)+1
 fft = True
 if fft:
     window_function = 'hann'
-    window_size = 128
+    window_size = 32
     overlap = int(window_size*0.5)
     step_size = window_size - overlap
     fft_pred_samples = pred_samples // step_size + 1
     num_proj = int(window_size//2 + 1)  # the frequencies
     freq_loss = 'ad'  # 'mse, ad'
     num_units = 150
+else:
+    window_function = None
+    window_size = None
+    overlap = None
+    step_size = None
+    fft_pred_samples = None
+    freq_loss = None
 
 # num_units = 1024
 # num_units = 1108
@@ -365,7 +372,7 @@ if fft:
 if 1:
     for length_factor in [0, 1, 2, 3, 4]:
         tmp_fft = True
-        tmp_num_units = 1024
+        tmp_num_units = 150
         tmp_pred_samples = (length_factor*64) + pred_samples
         tmp_tmax = (length_factor*1.28*2) + tmax
         tmp_steps = int(tmp_tmax/delta_t) + 1
@@ -378,7 +385,7 @@ if 1:
     for length_factor in [0, 1, 2, 3, 4]:
         tmp_fft = False
         num_proj = dimensions
-        tmp_num_units = 1108
+        tmp_num_units = 220
         tmp_pred_samples = (length_factor*64) + pred_samples
         tmp_tmax = (length_factor*1.28*2) + tmax
         tmp_steps = int(tmp_tmax/delta_t) + 1
