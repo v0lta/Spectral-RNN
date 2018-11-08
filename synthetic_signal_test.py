@@ -6,7 +6,8 @@ from mpl_toolkits.mplot3d import Axes3D
 import tensorflow as tf
 import custom_cells as cc
 import custom_optimizers as co
-from RNN_wrapper import RnnWrapper
+from RNN_wrapper import LinearProjWrapper
+from RNN_wrapper import ResidualWrapper
 from RNN_wrapper import RnnInputWrapper
 import tensorflow.nn.rnn_cell as rnn_cell
 from tensorflow.contrib.rnn import LSTMStateTuple
@@ -38,7 +39,8 @@ def run_experiment(spikes_instead_of_states, base_dir, dimensions, cell_type,
                    num_units, sample_prob, pred_samples, num_proj, learning_rate,
                    iterations, GPUs, batch_size, tmax, delta_t, steps, fft,
                    window_function=None, window_size=None, overlap=None,
-                   step_size=None, fft_pred_samples=None, freq_loss=None):
+                   step_size=None, fft_pred_samples=None, freq_loss=None,
+                   use_residuals=False):
     graph = tf.Graph()
     with graph.as_default():
         global_step = tf.Variable(0, name='global_step', trainable=False)
@@ -63,7 +65,13 @@ def run_experiment(spikes_instead_of_states, base_dir, dimensions, cell_type,
                                              window_size, overlap)
 
                 in_data_fft = tf.transpose(in_data_fft, [0, 2, 3, 1])
-                in_data_fft = tf.squeeze(in_data_fft, axis=-1)
+                idft_shape = in_data_fft.shape.as_list()
+                if idft_shape[-1] == 1:
+                    in_data_fft = tf.squeeze(in_data_fft, axis=-1)
+                else:
+                    in_data_fft = tf.reshape(in_data_fft, [idft_shape[0],
+                                                           idft_shape[1],
+                                                           -1])
                 return in_data_fft
             data_encoder_freq = transpose_stft_squeeze(data_encoder_time, window)
             data_decoder_freq = transpose_stft_squeeze(data_decoder_time, window)
@@ -73,21 +81,30 @@ def run_experiment(spikes_instead_of_states, base_dir, dimensions, cell_type,
             cell = cc.StiefelGatedRecurrentUnit(num_units, num_proj=num_proj,
                                                 complex_input=fft,
                                                 complex_output=fft)
-            cell = RnnInputWrapper(cell=cell, sample_prob=sample_prob)
+            cell = RnnInputWrapper(1.0, cell)
+            if use_residuals:
+                cell = ResidualWrapper(cell=cell)
         elif cell_type == 'orthogonal':
             if fft:
                 uRNN = cc.UnitaryCell(num_units, activation=cc.mod_relu,
                                       real=not fft, num_proj=num_proj,
                                       complex_input=fft)
-                cell = RnnInputWrapper(cell=uRNN, sample_prob=sample_prob)
+                cell = RnnInputWrapper(1.0, uRNN)
+                if use_residuals:
+                    cell = ResidualWrapper(cell=cell)
             else:
                 oRNN = cc.UnitaryCell(num_units, activation=cc.relu,
                                       real=True, num_proj=num_proj)
-                cell = RnnInputWrapper(cell=oRNN, sample_prob=sample_prob)
+                cell = RnnInputWrapper(1.0, oRNN)
+                if use_residuals:
+                    cell = ResidualWrapper(cell=cell)
         else:
             assert fft is False, "GRUs do not process complex inputs."
             gru = rnn_cell.GRUCell(num_units)
-            cell = RnnWrapper(num_proj, cell=gru, sample_prob=sample_prob)
+            cell = LinearProjWrapper(num_proj, cell=gru, sample_prob=sample_prob)
+            cell = RnnInputWrapper(1.0, cell)
+            if use_residuals:
+                cell = ResidualWrapper(cell=cell)
 
         if fft:
             encoder_in = data_encoder_freq[:, :-1, :]
@@ -131,10 +148,13 @@ def run_experiment(spikes_instead_of_states, base_dir, dimensions, cell_type,
                                                     tf.imag(decoder_out))
 
             def expand_dims_and_transpose(input_tensor):
-                output = tf.expand_dims(input_tensor, -1)
+                if spikes_instead_of_states:
+                    output = tf.expand_dims(input_tensor, -1)
+                else:
+                    its = input_tensor.shape.as_list()
+                    output = tf.reshape(input_tensor, its[:2] + [-1] + [3])
                 output = tf.transpose(output, [0, 3, 1, 2])
                 return output
-            # debug_here()
             encoder_out = expand_dims_and_transpose(encoder_out)
             decoder_out = expand_dims_and_transpose(decoder_out)
             encoder_out = eagerSTFT.istft(encoder_out, window=window,
@@ -193,6 +213,7 @@ def run_experiment(spikes_instead_of_states, base_dir, dimensions, cell_type,
         '_bs_' + str(batch_size) + \
         '_ps_' + str(pred_samples) + \
         '_lr_' + str(learning_rate) + '_sp_' + str(sample_prob) + \
+        '_rc_' + str(use_residuals) + \
         '_pt_' + str(total_parameters)
 
     if fft:
@@ -230,8 +251,9 @@ def run_experiment(spikes_instead_of_states, base_dir, dimensions, cell_type,
                           data_encoder_gt, encoder_out,
                           data_decoder_gt, decoder_out, data_nd])
             stop = time.time()
-            print(it, 'loss', np_loss, 'time [s]', stop-start,
-                  'time until done [min]', (iterations-it)*(stop-start)/60.0)
+            if it % 10 == 0:
+                print(it, 'loss', np_loss, 'time [s]', stop-start,
+                      'time until done [min]', (iterations-it)*(stop-start)/60.0)
             # debug_here()
             summary_writer.add_summary(summary_to_file, global_step=np_global_step)
             if it % 100 == 0:
@@ -285,40 +307,40 @@ def run_experiment(spikes_instead_of_states, base_dir, dimensions, cell_type,
                 # plt.close()
                 # buf.close()
 
-                # if not spikes_instead_of_states:
-                #     fig = plt.figure()
-                #     ax = fig.gca(projection='3d')
-                #     ax.plot(encoder_out_np[0, :, 0],
-                #             encoder_out_np[0, :, 1],
-                #             encoder_out_np[0, :, 2])
-                #     ax.plot(encoder_out_gt_np[0, :, 0],
-                #             encoder_out_gt_np[0, :, 1],
-                #             encoder_out_gt_np[0, :, 2])
-                #     plt.title("fit vs. ground truth 3d")
-                #     buf = io.BytesIO()
-                #     plt.savefig(buf, format='png')
-                #     buf.seek(0)
-                #     summary_image = tf.Summary.Image(
-                #         encoded_image_string=buf.getvalue(),
-                #         height=int(plt.rcParams["figure.figsize"][0]*100),
-                #         width=int(plt.rcParams["figure.figsize"][1]*100))
-                #     summary_image = tf.Summary.Value(tag='prediction_error_3d',
-                #                                      image=summary_image)
-                #     summary_image = tf.Summary(value=[summary_image])
-                #     summary_writer.add_summary(summary_image,
-                #                                global_step=np_global_step)
-                #     plt.close()
-                #     buf.close()
+                if not spikes_instead_of_states:
+                    fig = plt.figure()
+                    ax = fig.gca(projection='3d')
+                    ax.plot(decoder_out_np[0, :, 0],
+                            decoder_out_np[0, :, 1],
+                            decoder_out_np[0, :, 2])
+                    ax.plot(data_decoder_np[0, :, 0],
+                            data_decoder_np[0, :, 1],
+                            data_decoder_np[0, :, 2])
+                    plt.title("fit vs. ground truth 3d")
+                    buf = io.BytesIO()
+                    plt.savefig(buf, format='png')
+                    buf.seek(0)
+                    summary_image = tf.Summary.Image(
+                        encoded_image_string=buf.getvalue(),
+                        height=int(plt.rcParams["figure.figsize"][0]*100),
+                        width=int(plt.rcParams["figure.figsize"][1]*100))
+                    summary_image = tf.Summary.Value(tag='prediction_error_3d',
+                                                     image=summary_image)
+                    summary_image = tf.Summary(value=[summary_image])
+                    summary_writer.add_summary(summary_image,
+                                               global_step=np_global_step)
+                    plt.close()
+                    buf.close()
 
 
-spikes_instead_of_states = True
-base_dir = 'logs/tf_fft_sml/'
+spikes_instead_of_states = False
+base_dir = 'logs/tf_fft_test/'
 if spikes_instead_of_states:
     dimensions = 1
 else:
     dimensions = 3
 cell_type = 'cgRNN'
-num_units = 160
+num_units = 180
 if cell_type == 'uRNN':
     circ_h = 4
     conv_h = 5
@@ -330,9 +352,10 @@ sample_prob = 1.0
 pred_samples = 256
 num_proj = dimensions
 learning_rate = 0.001
-iterations = 50000
+iterations = 5000
 GPUs = [0]
-batch_size = 200
+batch_size = 400
+use_residuals = True
 
 # data parameters
 tmax = 10.24
@@ -348,7 +371,7 @@ if fft:
     overlap = int(window_size*0.5)
     step_size = window_size - overlap
     fft_pred_samples = pred_samples // step_size + 1
-    num_proj = int(window_size//2 + 1)  # the frequencies
+    num_proj = int(window_size//2 + 1)*dimensions  # the frequencies
     freq_loss = 'ad'  # 'mse, ad'
     num_units = 150
 else:
@@ -363,14 +386,14 @@ else:
 # num_units = 1108
 # fft = False
 # num_proj = dimensions
-# run_experiment(spikes_instead_of_states, base_dir, dimensions, cell_type,
-#                num_units, sample_prob, pred_samples, num_proj, learning_rate,
-#                iterations, GPUs, batch_size, tmax, delta_t, steps, fft,
-#                window_function, window_size, overlap, step_size, fft_pred_samples,
-#                freq_loss)
+run_experiment(spikes_instead_of_states, base_dir, dimensions, cell_type,
+               num_units, sample_prob, pred_samples, num_proj, learning_rate,
+               iterations, GPUs, batch_size, tmax, delta_t, steps, fft,
+               window_function, window_size, overlap, step_size, fft_pred_samples,
+               freq_loss)
 
-if 1:
-    for length_factor in [0, 1, 2, 3, 4]:
+if 0:
+    for length_factor in [0, 1, 2, 3]:
         tmp_fft = True
         tmp_num_units = 150
         tmp_pred_samples = (length_factor*64) + pred_samples
@@ -380,12 +403,12 @@ if 1:
                        tmp_num_units, sample_prob, tmp_pred_samples, num_proj,
                        learning_rate, iterations, GPUs, batch_size, tmp_tmax, delta_t,
                        tmp_steps, tmp_fft, window_function, window_size, overlap,
-                       step_size, fft_pred_samples, freq_loss)
+                       step_size, fft_pred_samples, freq_loss, use_residuals)
 
-    for length_factor in [0, 1, 2, 3, 4]:
+    for length_factor in [0, 1, 2, 3]:
         tmp_fft = False
         num_proj = dimensions
-        tmp_num_units = 220
+        tmp_num_units = 180
         tmp_pred_samples = (length_factor*64) + pred_samples
         tmp_tmax = (length_factor*1.28*2) + tmax
         tmp_steps = int(tmp_tmax/delta_t) + 1
@@ -393,4 +416,4 @@ if 1:
                        num_units, sample_prob, tmp_pred_samples, num_proj, learning_rate,
                        iterations, GPUs, batch_size, tmp_tmax, delta_t, tmp_steps,
                        tmp_fft, window_function, window_size, overlap, step_size,
-                       fft_pred_samples, freq_loss)
+                       fft_pred_samples, freq_loss, use_residuals)
