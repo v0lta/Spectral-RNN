@@ -53,9 +53,9 @@ tf.app.flags.DEFINE_boolean("cgru", False, "Specify if the complex GRU should be
 tf.app.flags.DEFINE_boolean("stiefel", False, "Use unitarity preserving weight updates.")
 tf.app.flags.DEFINE_boolean("fft", False, "Do frequency domain motion analysis.")
 tf.app.flags.DEFINE_integer("GPU", 0, "Choose a GPU.")
-tf.app.flags.DEFINE_integer("window_size", 30, "Set the fft window size.")
+tf.app.flags.DEFINE_integer("window_size", 32, "Set the fft window size.")
 tf.app.flags.DEFINE_string("window_fun", 'hann', "Chosse hann, hamming or None")
-tf.app.flags.DEFINE_integer("step_size", 5, "Set the fft window step size.")
+tf.app.flags.DEFINE_integer("step_size", 16, "Set the fft window step size.")
 
 
 FLAGS = tf.app.flags.FLAGS
@@ -99,8 +99,8 @@ def create_model(session, actions, sampling=False):
 
   model = seq2seq_model.Seq2SeqModel(
       FLAGS.architecture,
-      FLAGS.seq_length_in if not sampling else 61,
-      FLAGS.seq_length_out if not sampling else 64,
+      FLAGS.seq_length_in if not sampling else 36,
+      FLAGS.seq_length_out if not sampling else 24,
       FLAGS.size, # hidden layer size
       FLAGS.num_layers,
       FLAGS.max_gradient_norm,

@@ -696,16 +696,16 @@ class StiefelGatedRecurrentUnit(tf.nn.rnn_cell.RNNCell):
             cell_str += '_input_hilbert_'
         elif self._input_split_matmul:
             cell_str += '__input_split_matmul_'
-        cell_str += '_stiefel_' + str(self._stiefel)
+        cell_str += '_stfl_' + str(self._stiefel)
         if self._real is False and self._single_gate is False:
-            cell_str += '_gate_activation_' + self._gate_activation.__name__
+            cell_str += '_ga_' + self._gate_activation.__name__
         if self._single_gate:
-            cell_str += '_single_gate_'
+            cell_str += '_sg_'
         if self._real:
             cell_str += '_real_'
             if self._real_double:
                 cell_str += '_realDouble_'
-                cell_str += '_gate_activation_' + self._gate_activation.__name__
+                cell_str += '_ga_' + self._gate_activation.__name__
         return cell_str
 
     @property

@@ -49,13 +49,19 @@ def zero_ext(x, n, axis=-1):
     Generate a new ndarray that is a zero padded extension of `x` along
     an axis.
     """
-    if n < 1:
-        return x
-    zeros_shape = list(x.shape)
-    zeros_shape[axis] = n
-    zeros = tf.zeros(zeros_shape, dtype=x.dtype)
-    ext = tf.concat((zeros, x, zeros), axis=axis)
-    return ext
+    # debug_here()
+    # if n < 1:
+    #     return x
+    # zeros_shape = list(x.shape)
+    # zeros_shape[axis] = n
+    # zeros = tf.zeros(zeros_shape, dtype=x.dtype)
+    # ext = tf.concat((zeros, x, zeros), axis=axis)
+    # debug_here()
+    dim = len(x.shape)
+    paddings = np.zeros([dim, 2], dtype=np.int32)
+    paddings[axis] = n
+    ext2 = tf.pad(x, tf.constant(paddings, dtype=tf.int32))
+    return ext2
 
 
 def stft(data, window, nperseg, noverlap, nfft=None, sides=None, padded=True,
@@ -84,9 +90,16 @@ def stft(data, window, nperseg, noverlap, nfft=None, sides=None, padded=True,
         if padded:
             # Pad to integer number of windowed segments
             # I.e make x.shape[-1] = nperseg + (nseg-1)*nstep, with integer nseg
+            dim = len(data.shape)
             nadd = (-(data.shape[-1].value-nperseg) % nstep) % nperseg
-            zeros_shape = list(data.shape[:-1]) + [nadd]
-            data = tf.concat([data, tf.zeros(zeros_shape)], axis=-1)
+
+            if debug:
+                zeros_shape = list(data.shape[:-1]) + [nadd]
+            # zeros_shape = list(data.shape[:-1]) + [nadd]
+            # data = tf.concat([data, tf.zeros(zeros_shape)], axis=-1)
+            zeros = np.zeros([dim, 2], dtype=np.int32)
+            zeros[-1, 1] = nadd
+            data = tf.pad(data, tf.constant(zeros, dtype=tf.int32))
 
         # do what numpy's _fft_helper does.
         if nperseg == 1 and noverlap == 0:
@@ -112,6 +125,7 @@ def stft(data, window, nperseg, noverlap, nfft=None, sides=None, padded=True,
         result *= tf.complex(scale, tf.zeros_like(scale))
         # debug_here()
     if debug:
+        zeros_shape = list(data.shape[:-1]) + [nadd]
         data_np = np.concatenate((data.numpy(), np.zeros(zeros_shape)), axis=-1)
         strides = data_np.strides[:-1] + (step*data_np.strides[-1], data_np.strides[-1])
         result_np = np.lib.stride_tricks.as_strided(data_np, shape=shape,
@@ -125,7 +139,8 @@ def stft(data, window, nperseg, noverlap, nfft=None, sides=None, padded=True,
 
 
 def istft(Zxx, window, nperseg=None, noverlap=None, nfft=None,
-          input_onesided=True, boundary=True, debug=False):
+          input_onesided=True, boundary=True, epsilon=None,
+          debug=False):
     '''
         Perform the inverse Short Time Fourier transform (iSTFT),
         assuming a time_axis at -2 and a freq_axis at -1.
@@ -172,8 +187,13 @@ def istft(Zxx, window, nperseg=None, noverlap=None, nfft=None,
         xsubs_scaled = xsubs * tf.reduce_sum(window)
         unscaled = tfsignal.overlap_and_add(xsubs_scaled*window, nstep)
         norm = tfsignal.overlap_and_add(tf.stack([tf.square(window)]*nseg, 0), nstep)
-        scaled = tf.where(tf.ones_like(unscaled)*norm > 1e-4,
-                          unscaled/norm, unscaled)
+        if epsilon is None:
+            scaled = tf.where(tf.ones_like(unscaled)*norm > 1e-6,
+                              unscaled/norm, unscaled)
+        else:
+            # The epsilon SIGNIFICANTLY increases the reconstruciton error,
+            # but the where statement kills the gradient so thats that....
+            scaled = unscaled/(norm + epsilon)
 
         # Remove extension points
         if boundary:
@@ -215,17 +235,17 @@ if __name__ == "__main__":
 
     # Do some testing!
     # params
-    batch_size = 100
-    window_size = 64
-    overlap = int(window_size*1/2)
+    batch_size = 64
+    window_size = 12
+    overlap = int(window_size*2/3)
     window = tf.constant(scisig.get_window('hann', window_size),
                          dtype=tf.float32)
 
     # code
-    spikes, states = generate_data(batch_size=100, delta_t=0.01, tmax=10.23)
+    spikes, states = generate_data(batch_size=batch_size, delta_t=0.01, tmax=1.28)
     # plt.plot(spikes.numpy()[0, :, :])
     # plt.show()
-    if 1:
+    if 0:
         tmp_last_spikes = tf.transpose(spikes, [0, 2, 1])
         result_tf, result_np = stft(tmp_last_spikes, window, window_size, overlap,
                                     debug=True)
@@ -275,7 +295,7 @@ if __name__ == "__main__":
         plt.plot(scisig_np[0, 0, :])
         plt.show()
 
-    if 0:
+    if 1:
         # test the 3d version.
         fig = plt.figure()
         ax = fig.add_subplot(111, projection='3d')
@@ -309,11 +329,12 @@ if __name__ == "__main__":
         #                nperseg=window_size,
         #                noverlap=overlap,
         #                debug=True)
+        # debug_here()
         scaled = istft(result_tf,
                        window=window,
                        nperseg=window_size,
                        noverlap=overlap,
-                       debug=True)
+                       debug=True)  # epsilon=1e-3)
 
         _, scisig_np = scisig.istft(sci_res, window=window.numpy(),
                                     nperseg=window_size,

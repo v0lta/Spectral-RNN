@@ -19,8 +19,12 @@ import tensorflow as tf
 import tensorflow.contrib.signal as tfsignal
 import rnn_cell_extensions # my extensions of the tf repos
 import data_utils
+import sys
 from IPython.core.debugger import Tracer
 debug_here = Tracer()
+sys.path.insert(0, "../")
+import eager_STFT as eagerSTFT
+import scipy.signal as scisig
 
 
 class Seq2SeqModel(object):
@@ -100,6 +104,7 @@ class Seq2SeqModel(object):
       enc_in = tf.placeholder(dtype, shape=[None, source_seq_len-1, self.input_size], name="enc_in")
       dec_in = tf.placeholder(dtype, shape=[None, target_seq_len, self.input_size], name="dec_in")
       dec_out = tf.placeholder(dtype, shape=[None, target_seq_len, self.input_size], name="dec_out")
+      dyn_batch_size = tf.shape(enc_in)[0]
 
       self.encoder_inputs = enc_in
       self.decoder_inputs = dec_in
@@ -120,59 +125,33 @@ class Seq2SeqModel(object):
     if fft:
       assert cgru == True
       # if true do centering to avoid boundary problems.
-      center = True
-      if center:
-        pad_enc_in = tf.stack(enc_in, axis=-1)
-        pad_amount = 2 * (window_size - step_size)
-        print('padding with', [pad_amount // 2, pad_amount // 2])
-        # debug_here()
-        pad_enc_in = tf.pad(pad_enc_in,
-                       [[0, 0], [0, 0], [pad_amount // 2, pad_amount // 2]], 'REFLECT')
-      else:
-        pad_enc_in = tf.stack(enc_in, axis=-1)
-
-      # transform input and output.
-      if window_fun == 'hann':
-        w = functools.partial(tf.contrib.signal.hann_window, periodic=True)
-      elif window_fun == 'hamming':
-        w = functools.partial(tf.contrib.signal.hamming_window, periodic=True)
-      elif window_fun == 'None':
-        w = None
-      else:
-        raise ValueError("unknown window function.") 
-      fft_enc_in = tfsignal.stft(pad_enc_in, window_size, step_size,
-                                 window_fn=w)
-      print('fft_enc_in.shape', fft_enc_in.shape)
-      batch_size = tf.shape(fft_enc_in)[0]
-      freq_tensor_shape = fft_enc_in.get_shape().as_list()
-      frames_in = freq_tensor_shape[2]
-      fft_dim_in = freq_tensor_shape[1]*freq_tensor_shape[-1]
-      fft_enc_in = tf.transpose(fft_enc_in, [0, 2, 1, 3])
-      fft_enc_in = tf.reshape(fft_enc_in, [batch_size, frames_in, fft_dim_in],
-                              name='fft_enc_in_reshape')
-      fft_enc_in = tf.unstack(fft_enc_in, axis=1)
-      if center is True:
-        pad_dec_in = tf.stack(dec_in, axis=-1)
-        pad_dec_in = tf.pad(pad_dec_in,
-                       [[0, 0], [0, 0], [pad_amount // 2, pad_amount // 2]], 'REFLECT')
-      else:
-        pad_dec_in = tf.stack(dec_in, axis=-1)
-      fft_dec_in = tfsignal.stft(pad_dec_in, window_size, step_size,
-                                 window_fn=w)
-      print('fft_dec_in.shape', fft_dec_in.shape)
-      batch_size = tf.shape(fft_dec_in)[0]
-      freq_tensor_shape = fft_dec_in.get_shape().as_list()
-      frames_dec = freq_tensor_shape[2]
-      fft_unique_bins_dec = freq_tensor_shape[3]
-      assert self.input_size == freq_tensor_shape[1]
-      fft_dim_out = self.input_size*fft_unique_bins_dec
-      fft_dec_in = tf.transpose(fft_dec_in, [0, 2, 1, 3])
-      fft_dec_in = tf.reshape(fft_dec_in, [batch_size, frames_dec, fft_dim_out],
-                              name='fft_dec_in_reshape')
-      fft_dec_in = tf.unstack(fft_dec_in, axis=1)
-      enc_in = fft_enc_in
-      dec_in = fft_dec_in
-      assert fft_dim_in == fft_dim_out
+      window = tf.constant(scisig.get_window(window_fun, window_size),
+                           dtype=tf.float32)
+      overlap = window_size - step_size
+      
+      def transpose_stft_squeeze(in_data, window):
+          
+          # place the time dimension last.
+          tmp_in_data = tf.stack(in_data, -1)
+          print('ws, overlap', window_size, overlap)
+          in_data_fft = eagerSTFT.stft(tmp_in_data, window,
+                                       window_size, overlap)
+          dtft_shape = in_data_fft.shape.as_list()
+          # reshape into batch_size, time, freqs, dims 
+          in_data_fft = tf.transpose(in_data_fft, [0, 2, 1, 3])
+          # fold the different joints together.
+          in_data_fft = tf.reshape(in_data_fft, [dyn_batch_size,
+                                                 dtft_shape[2],
+                                                 dtft_shape[1]*dtft_shape[3]],
+                                                 name='stft_reshape')
+          return in_data_fft, dtft_shape
+      data_encoder_freq, _  = transpose_stft_squeeze(enc_in, window)
+      data_decoder_freq, dec_dtft_shape = transpose_stft_squeeze(dec_in, window)
+      fft_pred_samples = data_decoder_freq.shape[1].value
+      fft_dim_in = data_decoder_freq.shape[-1].value
+      # unstack the time dimension.
+      enc_in = tf.unstack(data_encoder_freq, axis=1)
+      dec_in = tf.unstack(data_decoder_freq, axis=1)
 
     # === Create the RNN that will keep the state ===
     print('rnn_size = {0}'.format( rnn_size ))
@@ -196,7 +175,7 @@ class Seq2SeqModel(object):
 
     # Finally, wrap everything in a residual layer if we want to model velocities
     if residual_velocities:
-        assert fft is False
+        # assert fft is False
         print('using resudial_velocities')
         cell = rnn_cell_extensions.ResidualWrapper( cell )
 
@@ -226,23 +205,26 @@ class Seq2SeqModel(object):
 
     if fft:
       # compute the inverse fft on the outputs and restore the shape.
-      spec_out = tf.reshape(tf.stack(outputs, -1),
-                            [batch_size, self.input_size, fft_unique_bins_dec, len(outputs)])
-      spec_out = tf.transpose(spec_out, [0, 1, 3, 2])
+      spec_out = tf.reshape(tf.stack(outputs, 1),
+                            [dyn_batch_size, len(outputs), self.input_size,  dec_dtft_shape[-1]],
+                            name='istft_reshape')
+      # arrange as batch_size, dim, time, freqs
+      spec_out = tf.transpose(spec_out, [0, 2, 1, 3])
+      outputs = eagerSTFT.istft(spec_out, window=window,
+                                nperseg=window_size, noverlap=overlap,
+                                epsilon=1e-4)
+      outputs = tf.unstack(outputs[:, :, :target_seq_len], axis=-1, name='result_unstack')
 
-      if w:
-          iw = tf.contrib.signal.inverse_stft_window_fn(step_size,
-                                                        forward_window_fn=w)
-      else:
-          iw = None
+      spec_loss = True
+      if spec_loss:
+        spec_dec_out = eagerSTFT.stft(tf.stack(dec_out, -1), window,
+                                         window_size, overlap)
+        with tf.name_scope('freq_ad_loss'):
+          freq_ad_loss = tf.losses.absolute_difference(tf.real(spec_dec_out),
+                                                       tf.real(spec_out)) \
+                         + tf.losses.absolute_difference(tf.imag(spec_dec_out),
+                                                         tf.imag(spec_out))
 
-      outputs = tfsignal.inverse_stft(spec_out, window_size, step_size,
-                                      window_fn=iw)
-      if center and pad_amount > 0:
-          outputs = outputs[:, :, pad_amount // 2:-pad_amount // 2]
-      outputs.set_shape([None, self.input_size, target_seq_len])
-      outputs = tf.unstack(outputs, axis=-1, name='result_unstack')
-      
     self.outputs = outputs
 
     with tf.name_scope("loss_angles"):
@@ -262,7 +244,10 @@ class Seq2SeqModel(object):
         opt = tf.train.GradientDescentOptimizer( self.learning_rate )
     
     # Update all the trainable parameters
-    gradients = tf.gradients( self.loss, params )
+    if spec_loss:
+      gradients = tf.gradients( freq_ad_loss, params )
+    else:  
+      gradients = tf.gradients( self.loss, params )
 
     clipped_gradients, norm = tf.clip_by_global_norm(gradients, max_gradient_norm)
     self.gradient_norms = norm

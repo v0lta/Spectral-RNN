@@ -36,11 +36,12 @@ def compute_parameter_total(trainable_variables):
 
 
 def run_experiment(spikes_instead_of_states, base_dir, dimensions, cell_type,
-                   num_units, sample_prob, pred_samples, num_proj, learning_rate,
-                   iterations, GPUs, batch_size, tmax, delta_t, steps, fft,
+                   num_units, sample_prob, pred_samples, num_proj, init_learning_rate,
+                   decay_steps, decay_rate, iterations, GPUs, batch_size,
+                   tmax, delta_t, steps, fft,
                    window_function=None, window_size=None, overlap=None,
                    step_size=None, fft_pred_samples=None, freq_loss=None,
-                   use_residuals=False):
+                   use_residuals=False, epsilon=None):
     graph = tf.Graph()
     with graph.as_default():
         global_step = tf.Variable(0, name='global_step', trainable=False)
@@ -72,9 +73,11 @@ def run_experiment(spikes_instead_of_states, base_dir, dimensions, cell_type,
                     in_data_fft = tf.reshape(in_data_fft, [idft_shape[0],
                                                            idft_shape[1],
                                                            -1])
-                return in_data_fft
-            data_encoder_freq = transpose_stft_squeeze(data_encoder_time, window)
-            data_decoder_freq = transpose_stft_squeeze(data_decoder_time, window)
+                return in_data_fft, idft_shape
+            data_encoder_freq, _ = transpose_stft_squeeze(data_encoder_time,
+                                                          window)
+            data_decoder_freq, dec_shape = transpose_stft_squeeze(data_decoder_time,
+                                                                  window)
             fft_pred_samples = data_decoder_freq.shape[1].value
 
         if cell_type == 'cgRNN':
@@ -114,7 +117,7 @@ def run_experiment(spikes_instead_of_states, base_dir, dimensions, cell_type,
             encoder_out_gt = data_encoder_time[:, 1:, :]
 
         with tf.variable_scope("encoder_decoder") as scope:
-            zero_state = cell.zero_state(batch_size)
+            zero_state = cell.zero_state(batch_size, dtype=dtype)
             zero_state = LSTMStateTuple(encoder_in[:, 0, :], zero_state[1])
             # debug_here()
             encoder_out, encoder_state = tf.nn.dynamic_rnn(cell, encoder_in,
@@ -136,16 +139,49 @@ def run_experiment(spikes_instead_of_states, base_dir, dimensions, cell_type,
                                                dtype=dtype)
 
         if fft:
-            if freq_loss == 'mse':
+            if (freq_loss == 'mse') or (freq_loss == 'mse_time'):
                 prd_loss = tf.losses.mean_squared_error(tf.real(data_decoder_freq),
                                                         tf.real(decoder_out)) \
                     + tf.losses.mean_squared_error(tf.imag(data_decoder_freq),
                                                    tf.imag(decoder_out))
-            elif freq_loss == 'ad':
+                tf.summary.scalar('mse', prd_loss)
+
+            elif (freq_loss == 'ad') or (freq_loss == 'ad_time'):
                 prd_loss = tf.losses.absolute_difference(tf.real(data_decoder_freq),
                                                          tf.real(decoder_out)) \
                     + tf.losses.absolute_difference(tf.imag(data_decoder_freq),
                                                     tf.imag(decoder_out))
+                tf.summary.scalar('ad', prd_loss)
+            elif freq_loss == 'norm_ad':
+                prd_loss = tf.losses.absolute_difference(tf.real(data_decoder_freq),
+                                                         tf.real(decoder_out)) \
+                    + tf.losses.absolute_difference(tf.imag(data_decoder_freq),
+                                                    tf.imag(decoder_out)) \
+                    + tf.linalg.norm(decoder_out, ord=1)
+                tf.summary.scalar('norm_ad', prd_loss)
+            elif freq_loss == 'log_ad':
+                def log_epsilon(fourier_coeff):
+                    epsilon = 1e-7
+                    return tf.log(tf.to_float(fourier_coeff) + epsilon)
+
+                prd_loss = log_epsilon(tf.losses.absolute_difference(
+                    tf.real(data_decoder_freq), tf.real(decoder_out))) \
+                    + log_epsilon(tf.losses.absolute_difference(
+                        tf.imag(data_decoder_freq), tf.imag(decoder_out)))
+                tf.summary.scalar('log_ad', prd_loss)
+            elif (freq_loss == 'log_mse') or (freq_loss == 'log_mse_time'):
+                # avoid taking a loss of zero using an epsilon.
+                def log_epsilon(fourier_coeff):
+                    epsilon = 1e-7
+                    return tf.log(tf.to_float(fourier_coeff) + epsilon)
+
+                prd_loss = log_epsilon(tf.losses.mean_squared_error(
+                    tf.real(data_decoder_freq),
+                    tf.real(decoder_out))) \
+                    + log_epsilon(tf.losses.mean_squared_error(
+                        tf.imag(data_decoder_freq),
+                        tf.imag(decoder_out)))
+                tf.summary.scalar('log_mse', prd_loss)
 
             def expand_dims_and_transpose(input_tensor):
                 if spikes_instead_of_states:
@@ -162,7 +198,7 @@ def run_experiment(spikes_instead_of_states, base_dir, dimensions, cell_type,
                                           noverlap=overlap)
             decoder_out = eagerSTFT.istft(decoder_out, window=window,
                                           nperseg=window_size,
-                                          noverlap=overlap)
+                                          noverlap=overlap, epsilon=epsilon)
             data_encoder_gt = expand_dims_and_transpose(encoder_out_gt)
             data_decoder_gt = expand_dims_and_transpose(data_decoder_freq)
             data_encoder_gt = eagerSTFT.istft(data_encoder_gt, window=window,
@@ -185,7 +221,18 @@ def run_experiment(spikes_instead_of_states, base_dir, dimensions, cell_type,
         if not fft:
             loss = time_loss
         else:
-            loss = prd_loss
+            if (freq_loss == 'ad_time') or \
+               (freq_loss == 'log_mse_time') or \
+               (freq_loss == 'mse_time'):
+                print('using freq and time based loss.')
+                loss = 0.01*prd_loss + time_loss
+            else:
+                loss = prd_loss
+
+        learning_rate = tf.train.exponential_decay(init_learning_rate, global_step,
+                                                   decay_steps, decay_rate,
+                                                   staircase=True)
+        tf.summary.scalar('learning_rate', learning_rate)
 
         if cell_type == 'orthogonal' or cell_type == 'cgRNN':
             optimizer = co.RMSpropNatGrad(learning_rate, global_step=global_step)
@@ -199,9 +246,8 @@ def run_experiment(spikes_instead_of_states, base_dir, dimensions, cell_type,
         # grad_summary = tf.histogram_summary(grads)
         # training_op = optimizer.minimize(loss, global_step=global_step)
         training_op = optimizer.apply_gradients(capped_gvs, global_step=global_step)
-        pred_loss_summary = tf.summary.scalar('time_loss', time_loss)
-        if fft:
-            pred_loss_summary = tf.summary.scalar(freq_loss, prd_loss)
+        tf.summary.scalar('time_loss', time_loss)
+        tf.summary.scalar('training_loss', loss)
 
         init_op = tf.global_variables_initializer()
         summary_sum = tf.summary.merge_all()
@@ -212,7 +258,10 @@ def run_experiment(spikes_instead_of_states, base_dir, dimensions, cell_type,
     param_str = '_' + cell.to_string() + '_fft_' + str(fft) + \
         '_bs_' + str(batch_size) + \
         '_ps_' + str(pred_samples) + \
-        '_lr_' + str(learning_rate) + '_sp_' + str(sample_prob) + \
+        '_lr_' + str(init_learning_rate) + \
+        '_dr_' + str(decay_rate) + \
+        '_ds_' + str(decay_steps) + \
+        '_sp_' + str(sample_prob) + \
         '_rc_' + str(use_residuals) + \
         '_pt_' + str(total_parameters)
 
@@ -223,6 +272,7 @@ def run_experiment(spikes_instead_of_states, base_dir, dimensions, cell_type,
         param_str += '_ffts_' + str(step_size)
         param_str += '_fftp_' + str(fft_pred_samples)
         param_str += '_fl_' + freq_loss
+        param_str += '_eps_' + str(epsilon)
 
     if spikes_instead_of_states:
         param_str += '_1d'
@@ -253,7 +303,7 @@ def run_experiment(spikes_instead_of_states, base_dir, dimensions, cell_type,
             stop = time.time()
             if it % 10 == 0:
                 print(it, 'loss', np_loss, 'time [s]', stop-start,
-                      'time until done [min]', (iterations-it)*(stop-start)/60.0)
+                      'time until done [h]', (iterations-it)*(stop-start)/3600.0)
             # debug_here()
             summary_writer.add_summary(summary_to_file, global_step=np_global_step)
             if it % 100 == 0:
@@ -316,6 +366,10 @@ def run_experiment(spikes_instead_of_states, base_dir, dimensions, cell_type,
                     ax.plot(data_decoder_np[0, :, 0],
                             data_decoder_np[0, :, 1],
                             data_decoder_np[0, :, 2])
+                    # mark the start.
+                    ax.scatter(data_decoder_np[0, 0, 0],
+                               data_decoder_np[0, 0, 1],
+                               data_decoder_np[0, 0, 2], 'o')
                     plt.title("fit vs. ground truth 3d")
                     buf = io.BytesIO()
                     plt.savefig(buf, format='png')
@@ -334,13 +388,13 @@ def run_experiment(spikes_instead_of_states, base_dir, dimensions, cell_type,
 
 
 spikes_instead_of_states = False
-base_dir = 'logs/tf_fft_test/'
+base_dir = 'logs/tf_fft_sml_mse/'
 if spikes_instead_of_states:
     dimensions = 1
 else:
     dimensions = 3
 cell_type = 'cgRNN'
-num_units = 180
+num_units = 160
 if cell_type == 'uRNN':
     circ_h = 4
     conv_h = 5
@@ -351,11 +405,13 @@ if cell_type == 'orthogonal':
 sample_prob = 1.0
 pred_samples = 256
 num_proj = dimensions
-learning_rate = 0.001
-iterations = 5000
+learning_rate = 0.01
+iterations = 20000
 GPUs = [0]
 batch_size = 400
-use_residuals = True
+use_residuals = False
+decay_rate = 0.9
+decay_steps = 10000
 
 # data parameters
 tmax = 10.24
@@ -367,13 +423,18 @@ steps = int(tmax/delta_t)+1
 fft = True
 if fft:
     window_function = 'hann'
-    window_size = 32
+    window_size = 64
     overlap = int(window_size*0.5)
     step_size = window_size - overlap
     fft_pred_samples = pred_samples // step_size + 1
     num_proj = int(window_size//2 + 1)*dimensions  # the frequencies
-    freq_loss = 'ad'  # 'mse, ad'
-    num_units = 150
+    freq_loss = 'log_mse_time'  # 'mse', 'mse_time', 'ad', 'ad_time', 'ad_norm', log_ad
+    num_units = 500
+
+    if freq_loss == 'ad_time':
+        epsilon = 1e-2
+    else:
+        epsilon = None
 else:
     window_function = None
     window_size = None
@@ -381,39 +442,47 @@ else:
     step_size = None
     fft_pred_samples = None
     freq_loss = None
+    epsilon = None
 
 # num_units = 1024
 # num_units = 1108
 # fft = False
 # num_proj = dimensions
-run_experiment(spikes_instead_of_states, base_dir, dimensions, cell_type,
-               num_units, sample_prob, pred_samples, num_proj, learning_rate,
-               iterations, GPUs, batch_size, tmax, delta_t, steps, fft,
-               window_function, window_size, overlap, step_size, fft_pred_samples,
-               freq_loss)
+if 1:
+    run_experiment(spikes_instead_of_states, base_dir, dimensions, cell_type,
+                   num_units, sample_prob, pred_samples, num_proj, learning_rate,
+                   decay_rate, decay_steps, iterations, GPUs, batch_size, tmax,
+                   delta_t, steps, fft, window_function, window_size, overlap,
+                   step_size, fft_pred_samples, freq_loss, epsilon)
 
 if 0:
-    for length_factor in [0, 1, 2, 3]:
+    for length_factor in [0, 1, 2]:
         tmp_fft = True
         tmp_num_units = 150
         tmp_pred_samples = (length_factor*64) + pred_samples
-        tmp_tmax = (length_factor*1.28*2) + tmax
+        tmp_tmax = tmax
         tmp_steps = int(tmp_tmax/delta_t) + 1
         run_experiment(spikes_instead_of_states, base_dir, dimensions, cell_type,
                        tmp_num_units, sample_prob, tmp_pred_samples, num_proj,
-                       learning_rate, iterations, GPUs, batch_size, tmp_tmax, delta_t,
+                       learning_rate, decay_rate, decay_steps,
+                       iterations, GPUs, batch_size, tmp_tmax, delta_t,
                        tmp_steps, tmp_fft, window_function, window_size, overlap,
-                       step_size, fft_pred_samples, freq_loss, use_residuals)
+                       step_size, fft_pred_samples, freq_loss, use_residuals, epsilon)
 
-    for length_factor in [0, 1, 2, 3]:
+if 0:
+    for length_factor in [0, 1, 2]:
         tmp_fft = False
         num_proj = dimensions
-        tmp_num_units = 180
+        if spikes_instead_of_states:
+            tmp_num_units = 160
+        else:
+            tmp_num_units = 180
         tmp_pred_samples = (length_factor*64) + pred_samples
-        tmp_tmax = (length_factor*1.28*2) + tmax
+        tmp_tmax = tmax
         tmp_steps = int(tmp_tmax/delta_t) + 1
         run_experiment(spikes_instead_of_states, base_dir, dimensions, cell_type,
-                       num_units, sample_prob, tmp_pred_samples, num_proj, learning_rate,
-                       iterations, GPUs, batch_size, tmp_tmax, delta_t, tmp_steps,
-                       tmp_fft, window_function, window_size, overlap, step_size,
-                       fft_pred_samples, freq_loss, use_residuals)
+                       tmp_num_units, sample_prob, tmp_pred_samples, num_proj,
+                       learning_rate, decay_rate, decay_steps,
+                       iterations, GPUs, batch_size, tmp_tmax, delta_t,
+                       tmp_steps, tmp_fft, window_function, window_size, overlap,
+                       step_size, fft_pred_samples, freq_loss, use_residuals, epsilon)

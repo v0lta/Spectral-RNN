@@ -60,7 +60,7 @@ class RnnInputWrapper(tf.nn.rnn_cell.RNNCell):
             raise TypeError("The parameter cell is not a RNNCell.")
 
     def to_string(self):
-        return '_input_wrapper_' + self._cell.to_string()
+        return '_iw_' + self._cell.to_string()
 
     def close(self):
         self._sample_prob = 0.0
@@ -74,7 +74,7 @@ class RnnInputWrapper(tf.nn.rnn_cell.RNNCell):
         return self._cell.output_size
 
     def zero_state(self, batch_size, dtype=tf.float32):
-        return self._cell.zero_state(batch_size)
+        return self._cell.zero_state(batch_size, dtype)
 
     def __call__(self, inputs, state, scope=None):
         """Run the cell and add a residual connection."""
@@ -94,7 +94,7 @@ class RnnInputWrapper(tf.nn.rnn_cell.RNNCell):
 
             condition = tf.greater(self._sample_prob, tf.random_uniform([]))
             inputs = tf.cond(condition, sel_input, sel_prev_output)
-    return self._cell(inputs, state, scope)
+        return self._cell(inputs, state, scope)
 
 
 class ResidualWrapper(tf.nn.rnn_cell.RNNCell):
@@ -121,6 +121,9 @@ class ResidualWrapper(tf.nn.rnn_cell.RNNCell):
     @property
     def output_size(self):
         return self._cell.output_size
+
+    def zero_state(self, batch_size, dtype=tf.float32):
+        return self._cell.zero_state(batch_size, dtype)
 
     def close(self):
         self._cell.close()
