@@ -428,7 +428,7 @@ if fft:
     step_size = window_size - overlap
     fft_pred_samples = pred_samples // step_size + 1
     num_proj = int(window_size//2 + 1)*dimensions  # the frequencies
-    freq_loss = 'log_mse_time'  # 'mse', 'mse_time', 'ad', 'ad_time', 'ad_norm', log_ad
+    freq_loss = 'log_mse'  # 'mse', 'mse_time', 'ad', 'ad_time', 'ad_norm', log_ad
     num_units = 500
 
     if freq_loss == 'ad_time':
