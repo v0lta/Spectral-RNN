@@ -11,6 +11,7 @@ logs_tf_fft_large_pa_64_ws_128/
 logs_tf_fft_test/
 music_exp/numpy/
 human_motion_exp/data/
+human_motion_exp/experiments/
 q.log
 
 # Byte-compiled / optimized / DLL files
@@ -127,3 +128,6 @@ dmypy.json
 
 # Pyre type checker
 .pyre/
+
+.mp4
+.h5
