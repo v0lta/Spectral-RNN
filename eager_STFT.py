@@ -3,14 +3,14 @@ import tensorflow as tf
 import tensorflow.contrib.signal as tfsignal
 import scipy.signal as scisig
 import matplotlib.pyplot as plt
-from IPython.core.debugger import Tracer
 from mpl_toolkits.mplot3d import Axes3D
-
+from IPython.core.debugger import Tracer
 debug_here = Tracer()
 
 
 def generate_data(tmax=20, delta_t=0.01, sigma=10.0,
-                  beta=8.0/3.0, rho=28.0, batch_size=100):
+                  beta=8.0/3.0, rho=28.0, batch_size=100,
+                  rnd=True):
     with tf.variable_scope('lorenz_generator'):
         # multi-dimensional data.
         def lorenz(x, t):
@@ -21,7 +21,11 @@ def generate_data(tmax=20, delta_t=0.01, sigma=10.0,
 
         state0 = tf.constant([8.0, 6.0, 30.0])
         state0 = tf.stack(batch_size*[state0], axis=0)
-        state0 += tf.random_uniform([batch_size, 3], -4, 4)
+        if rnd:
+            print('Lorenz initial state is random.')
+            state0 += tf.random_uniform([batch_size, 3], -4, 4)
+        else:
+            state0 += tf.constant([0.1, 0.2, 0.10])
         states = [state0]
         with tf.variable_scope("forward_euler"):
             for _ in range(int(tmax/delta_t)):

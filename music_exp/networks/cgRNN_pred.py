@@ -19,7 +19,7 @@ debug_here = Tracer()
 
 
 # where to store the logfiles.
-subfolder = 'cgRNN_only'
+subfolder = 'cgRNN_prd_tst'
 
 m = 128         # number of notes
 sampling_rate = 11000      # samples/second
@@ -29,7 +29,6 @@ labels_idx = 1      # second element of (X,Y) data tuple
 # Network parameters:
 c = 1               # number of context vectors
 batch_size = 5      # The number of data points to be processed in parallel.
-# d = [64]          # CNN filter depth.
 
 cell_size = 1024    # cell depth.
 RNN = True
@@ -52,9 +51,9 @@ fft_pred_samples = pred_samples // step_size + 1
 # Training parameters:
 learning_rate = 0.0001
 learning_rate_decay = 0.9
-decay_iterations = 50000
-iterations = 100000
-GPU = [7]
+decay_iterations = 5000
+iterations = 25000
+GPU = [0]
 
 
 def compute_parameter_total(trainable_variables):
