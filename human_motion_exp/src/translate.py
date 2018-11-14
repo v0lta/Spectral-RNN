@@ -284,7 +284,7 @@ def train():
             # function provided by Ashesh Jain (in matlab), available at
             # https://github.com/asheshjain399/RNNexp/blob/srnn/structural_rnn/CRFProblems/H3.6m/dataParser/Utils/motionGenerationError.m#L40-L54
             idx_to_use = np.where( np.std( gt_i, 0 ) > 1e-4 )[0]
-            
+
             euc_error = np.power( gt_i[:,idx_to_use] - eulerchannels_pred[:,idx_to_use], 2)
             euc_error = np.sum(euc_error, 1)
             euc_error = np.sqrt( euc_error )
@@ -574,7 +574,7 @@ def get_srnn_gts( actions, model, test_set, data_mean, data_std, dim_to_ignore, 
 
     srnn_gt_euler = []
     _, _, srnn_expmap = model.get_batch_srnn( test_set, action )
-
+    # debug_here()
     # expmap -> rotmat -> euler
     for i in np.arange( srnn_expmap.shape[0] ):
       denormed = data_utils.unNormalizeData(srnn_expmap[i,:,:], data_mean, data_std, dim_to_ignore, actions, one_hot )

@@ -95,8 +95,7 @@ class MusicNet(object):
                 batched_time_labels.append(labels)
                 batched += 1
             else:
-                pass
-                # print('skipping sample.')
+                print('skipping sample.')
 
         batch_time_music = np.array(batch_time_music)
         batched_time_labels = np.array(batched_time_labels)

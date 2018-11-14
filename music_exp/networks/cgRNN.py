@@ -14,12 +14,13 @@ from music_net_handler import MusicNet
 sys.path.insert(0, "../")
 import custom_cells as cc
 
+
 # import custom_optimizers as co
 debug_here = Tracer()
 
 
 # where to store the logfiles.
-subfolder = 'cgRNN_only'
+subfolder = 'cgRNN_split_conv'
 
 m = 128         # number of notes
 sampling_rate = 11000      # samples/second
@@ -44,7 +45,7 @@ assert len(filter_width) == len(stride)
 
 dense_size = 1024   # dense layer shape.
 cell_size = 1024    # cell depth.
-CNN = False
+CNN = True
 RNN = True
 stiefel = False
 dropout = False
@@ -60,7 +61,8 @@ learning_rate = 0.0001
 learning_rate_decay = 0.9
 decay_iterations = 50000
 iterations = 400000
-GPU = [7]
+GPU = [2]
+freq_splits = 2
 
 
 def compute_parameter_total(trainable_variables):
@@ -101,16 +103,41 @@ with train_graph.as_default():
 
     if CNN:
         with tf.variable_scope('complex_CNN'):
+            # Implement Angelas freq splits.
             xfd = tf.reshape(xf, [batch_size*c, -1])
             xfd = tf.expand_dims(xfd, -1)
 
             conv = [xfd]
             for layer_no, layer_d in enumerate(d):
-                conv_tmp = complex_conv1D(conv[-1], filter_width=filter_width[layer_no],
-                                          depth=layer_d, stride=stride[layer_no],
-                                          padding='VALID', scope='_layer' + str(layer_no))
+                if freq_splits > 1:
+                    freq_cnt = conv[-1].shape.as_list()[-2]
+                    segment_length = int(freq_cnt/freq_splits)
+                    frame_step = segment_length  # - filter_width[layer_no]
+                    frame_length = int(segment_length)  # + filter_width[layer_no]/2)
+                    freq_split_to_conv = tf.contrib.signal.frame(conv[-1], frame_length,
+                                                                 frame_step, axis=-2)
+                    freq_split_lst = tf.split(freq_split_to_conv, freq_splits, axis=1)
+                    conv_tmp_lst = []
+                    for split_no, freq_split in enumerate(freq_split_lst):
+                        conv_tmp_lst.append(
+                            complex_conv1D(tf.squeeze(freq_split, axis=1),
+                                           filter_width=filter_width[layer_no],
+                                           depth=layer_d, stride=stride[layer_no],
+                                           padding='SAME',
+                                           scope='_layer' + str(layer_no)
+                                           + '_split_' + str(split_no)))
+                    conv_tmp = tf.concat(conv_tmp_lst, axis=1)
+                    conv.append(cc.split_relu(conv_tmp))
+                else:
+                    conv_tmp = complex_conv1D(conv[-1],
+                                              filter_width=filter_width[layer_no],
+                                              depth=layer_d,
+                                              stride=stride[layer_no],
+                                              padding='VALID',
+                                              scope='_layer' + str(layer_no))
                 conv.append(cc.split_relu(conv_tmp))
                 print('conv2 shape', conv[-1].shape)
+            debug_here()
             flat = tf.reshape(conv[-1], [batch_size, c, -1])
             RNN_in = flat
     else:
@@ -202,9 +229,9 @@ print('parameters:', 'm', m, 'sampling_rate', sampling_rate, 'c', c,
       'batch_size', batch_size, 'filter_width', filter_width,
       'd', d, 'stride', stride, 'dense_size', dense_size,
       'window_size', window_size, 'fft_stride', fft_stride,
-      'learning_rate', learning_rate,
-      'learning_rate_decay', learning_rate_decay, 'iterations', iterations,
-      'GPU', GPU, 'CNN', CNN, 'dropout', dropout, 'parameter_total', parameter_total)
+      'learning_rate', learning_rate, 'learning_rate_decay', learning_rate_decay,
+      'iterations', iterations, 'GPU', GPU, 'CNN', CNN,
+      'dropout', dropout, 'parameter_total', parameter_total)
 
 
 def lst_to_str(lst):

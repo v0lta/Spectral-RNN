@@ -64,16 +64,19 @@ def zero_ext(x, n, axis=-1):
     return ext2
 
 
-def stft(data, window, nperseg, noverlap, nfft=None, sides=None, padded=True,
+def stft(data, window_str, nperseg, noverlap, nfft=None, sides=None, padded=True,
          scaling='spectrum', boundary='zeros', debug=False):
     # Following:
     # https://github.com/scipy/scipy/blob/v1.1.0/scipy/signal/spectral.py#L847-L991
     # Args:
     #   data: The time domain data to be transformed.
-    #   window: The numpy generated window function.
+    #   window: String indicating which window function to generate.
     #   nperseg: The number of samples per window segment.
     #   noverlap: The number of samples overlapping.
     with tf.variable_scope("stft"):
+        window = tf.constant(scisig.get_window(window_str, nperseg),
+                             dtype=tf.float32)
+
         boundary_funcs = {'zeros': zero_ext,
                           None: None}
 
@@ -138,7 +141,7 @@ def stft(data, window, nperseg, noverlap, nfft=None, sides=None, padded=True,
         return result
 
 
-def istft(Zxx, window, nperseg=None, noverlap=None, nfft=None,
+def istft(Zxx, window_str, nperseg=None, noverlap=None, nfft=None,
           input_onesided=True, boundary=True, epsilon=None,
           debug=False):
     '''
@@ -151,6 +154,10 @@ def istft(Zxx, window, nperseg=None, noverlap=None, nfft=None,
     with tf.variable_scope("istft"):
         freq_axis = -1
         time_axis = -2
+
+        # debug_here()
+        window = tf.constant(scisig.get_window(window_str, nperseg),
+                             dtype=tf.float32)
 
         # if Zxx.ndim < 2:
         #     raise ValueError('Input stft must be at least 2d!')
@@ -178,9 +185,9 @@ def istft(Zxx, window, nperseg=None, noverlap=None, nfft=None,
             raise ValueError('noverlap must be less than nperseg.')
         nstep = nperseg - noverlap
 
-        # if not scisig.check_COLA(window, nperseg, noverlap):
-        #     raise ValueError('Window, STFT shape and noverlap do not satisfy the '
-        #                      'COLA constraint.')
+        if not scisig.check_COLA(window_str, nperseg, noverlap):
+            raise ValueError('Window, STFT shape and noverlap do not satisfy the '
+                             'COLA constraint.')
 
         xsubs = tf.spectral.irfft(Zxx)[..., :nperseg]
         # This takes care of the 'spectrum' scaling.
@@ -236,14 +243,13 @@ if __name__ == "__main__":
     # Do some testing!
     # params
     batch_size = 64
-    window_size = 12
-    overlap = int(window_size*2/3)
-    window = tf.constant(scisig.get_window('hann', window_size),
-                         dtype=tf.float32)
-
+    window_size = 96
+    overlap = int(window_size*0.75)
+    window = 'hann'
     # code
-    spikes, states = generate_data(batch_size=batch_size, delta_t=0.01, tmax=1.28)
-    # plt.plot(spikes.numpy()[0, :, :])
+    spikes, states = generate_data(batch_size=batch_size, delta_t=0.01, tmax=10.24)
+    plt.plot(spikes.numpy()[0, :, :])
+    plt.savefig('spikes.pdf')
     # plt.show()
     if 0:
         tmp_last_spikes = tf.transpose(spikes, [0, 2, 1])
@@ -251,7 +257,7 @@ if __name__ == "__main__":
                                     debug=True)
 
         tmp_f, tmp_t, sci_res = scisig.stft(tmp_last_spikes.numpy(),
-                                            window=window.numpy(),
+                                            window=window,
                                             nperseg=window_size,
                                             noverlap=overlap,
                                             axis=-1)
@@ -278,14 +284,14 @@ if __name__ == "__main__":
         #                nperseg=window_size,
         #                noverlap=overlap,
         #                debug=True)
-        debug_here()
+        # debug_here()
         scaled = istft(result_tf,
-                       window=window,
+                       window,
                        nperseg=window_size,
                        noverlap=overlap,
                        debug=True)
 
-        _, scisig_np = scisig.istft(sci_res, window=window.numpy(),
+        _, scisig_np = scisig.istft(sci_res, window=window,
                                     nperseg=window_size,
                                     noverlap=overlap)
         error4 = np.linalg.norm((scaled.numpy() - scisig_np).flatten())
@@ -295,7 +301,7 @@ if __name__ == "__main__":
         plt.plot(scisig_np[0, 0, :])
         plt.show()
 
-    if 1:
+    if 0:
         # test the 3d version.
         fig = plt.figure()
         ax = fig.add_subplot(111, projection='3d')
@@ -308,7 +314,7 @@ if __name__ == "__main__":
         result_tf, result_np = stft(tmp_last_states, window, window_size, overlap,
                                     debug=True)
         tmp_f, tmp_t, sci_res = scisig.stft(tmp_last_states.numpy(),
-                                            window=window.numpy(),
+                                            window,
                                             nperseg=window_size,
                                             noverlap=overlap,
                                             axis=-1)
@@ -331,12 +337,12 @@ if __name__ == "__main__":
         #                debug=True)
         # debug_here()
         scaled = istft(result_tf,
-                       window=window,
+                       window,
                        nperseg=window_size,
                        noverlap=overlap,
                        debug=True)  # epsilon=1e-3)
 
-        _, scisig_np = scisig.istft(sci_res, window=window.numpy(),
+        _, scisig_np = scisig.istft(sci_res, window,
                                     nperseg=window_size,
                                     noverlap=overlap)
         error4 = np.linalg.norm((scaled.numpy() - scisig_np).flatten())
