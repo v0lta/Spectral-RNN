@@ -43,7 +43,7 @@ def run_experiment(spikes_instead_of_states, base_dir, dimensions, cell_type,
                    window_function=None, window_size=None, overlap=None,
                    step_size=None, fft_pred_samples=None, freq_loss=None,
                    use_residuals=False, epsilon=None, restore_and_plot=False,
-                   restore_path='', restore_step=0, plt_filename=''):
+                   restore_path='', restore_step=0, plt_filename='', return_data=False):
     graph = tf.Graph()
     with graph.as_default():
         global_step = tf.Variable(0, name='global_step', trainable=False)
@@ -454,3 +454,6 @@ def run_experiment(spikes_instead_of_states, base_dir, dimensions, cell_type,
                            data_decoder_np[0, 0, 2], 'o')
                 plt.title("fit vs. ground truth 3d")
                 plt.savefig(plt_filename)
+
+            if return_data:
+                return decoder_out_np, data_decoder_np

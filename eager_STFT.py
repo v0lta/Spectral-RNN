@@ -25,7 +25,11 @@ def generate_data(tmax=20, delta_t=0.01, sigma=10.0,
             print('Lorenz initial state is random.')
             state0 += tf.random_uniform([batch_size, 3], -4, 4)
         else:
-            state0 += tf.constant([0.1, 0.2, 0.10])
+            add_lst = []
+            for i in range(batch_size):
+                add_lst.append([0, float(i)*(1.0/batch_size), 0])
+            add_tensor = tf.stack(add_lst, axis=0)
+            state0 += add_tensor
         states = [state0]
         with tf.variable_scope("forward_euler"):
             for _ in range(int(tmax/delta_t)):
