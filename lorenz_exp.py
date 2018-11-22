@@ -148,8 +148,18 @@ def run_experiment(spikes_instead_of_states, base_dir, dimensions, cell_type,
                                                         tf.real(decoder_out)) \
                     + tf.losses.mean_squared_error(tf.imag(data_decoder_freq),
                                                    tf.imag(decoder_out))
-                tf.summary.scalar('mse', prd_loss)
-
+                tf.summary.scalar('f_mse', prd_loss)
+            if (freq_loss == 'mse_log_norm'):
+                prd_loss = tf.losses.mean_squared_error(tf.real(data_decoder_freq),
+                                                        tf.real(decoder_out)) \
+                    + tf.losses.mean_squared_error(tf.imag(data_decoder_freq),
+                                                   tf.imag(decoder_out))
+                lambda_scale = 1e-2
+                norm_term = tf.linalg.norm(decoder_out, ord=1)
+                tf.summary.scalar('norm_term', norm_term)
+                tf.summary.scalar('f_mse', prd_loss)
+                tf.summary.scalar('lambda', lambda_scale)
+                prd_loss = prd_loss + lambda_scale*norm_term
             elif (freq_loss == 'ad') or (freq_loss == 'ad_time'):
                 prd_loss = tf.losses.absolute_difference(tf.real(data_decoder_freq),
                                                          tf.real(decoder_out)) \
@@ -179,13 +189,41 @@ def run_experiment(spikes_instead_of_states, base_dir, dimensions, cell_type,
                     epsilon = 1e-7
                     return tf.log(tf.to_float(fourier_coeff) + epsilon)
 
-                prd_loss = log_epsilon(tf.losses.mean_squared_error(
+                prd_loss = tf.reduce_mean(log_epsilon(tf.math.squared_difference(
                     tf.real(data_decoder_freq),
-                    tf.real(decoder_out))) \
-                    + log_epsilon(tf.losses.mean_squared_error(
+                    tf.real(decoder_out)))) \
+                    + tf.reduce_mean(log_epsilon(tf.math.squared_difference(
                         tf.imag(data_decoder_freq),
-                        tf.imag(decoder_out)))
+                        tf.imag(decoder_out))))
                 tf.summary.scalar('log_mse', prd_loss)
+            elif (freq_loss == 'log_mse_mse') or (freq_loss == 'log_mse_mse_time') or \
+                 (freq_loss == 'mse_log_mse_dlambda'):
+                def log_epsilon(fourier_coeff):
+                    epsilon = 1e-7
+                    return tf.log(tf.to_float(fourier_coeff) + epsilon)
+
+                log_prd_loss = tf.reduce_mean(log_epsilon(tf.math.squared_difference(
+                    tf.real(data_decoder_freq),
+                    tf.real(decoder_out)))) \
+                    + tf.reduce_mean(log_epsilon(tf.math.squared_difference(
+                        tf.imag(data_decoder_freq),
+                        tf.imag(decoder_out))))
+                prd_loss = log_epsilon(
+                    tf.losses.mean_squared_error(tf.real(data_decoder_freq),
+                                                 tf.real(decoder_out))) \
+                    + log_epsilon(
+                        tf.losses.mean_squared_error(tf.imag(data_decoder_freq),
+                                                     tf.imag(decoder_out)))
+
+                if not freq_loss == 'mse_log_mse_dlambda':
+                    lambda_f = 1/5
+                    prd_loss += lambda_f*log_prd_loss
+                    tf.summary.scalar('lambda_f', lambda_f)
+                else:
+                    lambda_f = 1/5*(global_step/iterations)
+                    prd_loss += lambda_f*log_prd_loss
+                    tf.summary.scalar('lambda_f', lambda_f)
+                tf.summary.scalar('mse_log_mse_f', prd_loss)
 
             def expand_dims_and_transpose(input_tensor):
                 if spikes_instead_of_states:
@@ -227,9 +265,15 @@ def run_experiment(spikes_instead_of_states, base_dir, dimensions, cell_type,
         else:
             if (freq_loss == 'ad_time') or \
                (freq_loss == 'log_mse_time') or \
-               (freq_loss == 'mse_time'):
+               (freq_loss == 'mse_time') or \
+               (freq_loss == 'log_mse_mse_time'):
                 print('using freq and time based loss.')
-                loss = 0.01*prd_loss + time_loss
+                lambda_t = 1.0/100.0
+                loss = prd_loss*lambda_t + time_loss
+                tf.summary.scalar('lambda_t', lambda_t)
+            elif (freq_loss is None):
+                print('time loss only')
+                loss = time_loss
             else:
                 loss = prd_loss
 
@@ -277,7 +321,7 @@ def run_experiment(spikes_instead_of_states, base_dir, dimensions, cell_type,
             param_str += '_ol_' + str(overlap)
             param_str += '_ffts_' + str(step_size)
             param_str += '_fftp_' + str(fft_pred_samples)
-            param_str += '_fl_' + freq_loss
+            param_str += '_fl_' + str(freq_loss)
             param_str += '_eps_' + str(epsilon)
 
         if spikes_instead_of_states:
@@ -317,7 +361,7 @@ def run_experiment(spikes_instead_of_states, base_dir, dimensions, cell_type,
                               data_encoder_gt, encoder_out,
                               data_decoder_gt, decoder_out, data_nd])
                 stop = time.time()
-                if it % 10 == 0:
+                if it % 50 == 0:
                     print(it, 'loss', np_loss, 'time [s]', stop-start,
                           'time until done [h]', (iterations-it)*(stop-start)/3600.0)
                 # debug_here()

@@ -11,6 +11,7 @@ from custom_conv import complex_conv1D
 from sklearn.metrics import average_precision_score
 from IPython.core.debugger import Tracer
 from music_net_handler import MusicNet
+import matplotlib.pyplot as plt
 sys.path.insert(0, "../")
 import custom_cells as cc
 
@@ -33,7 +34,7 @@ batch_size = 5      # The number of data points to be processed in parallel.
 # d = [64]          # CNN filter depth.
 filter_width = [12, 9, 9, 6]  # cnn filter length
 stride = [4, 3, 3, 2]
-d = [16, 32, 64, 128]
+d = [32, 64, 128, 128]
 # filter_width = [256]
 # stride = [8]
 # d = [32]
@@ -43,7 +44,7 @@ d = [16, 32, 64, 128]
 assert len(d) == len(filter_width)
 assert len(filter_width) == len(stride)
 
-dense_size = 1024   # dense layer shape.
+dense_size = None   # dense layer shape.
 cell_size = 1024    # cell depth.
 CNN = True
 RNN = True
@@ -52,8 +53,8 @@ dropout = False
 
 # FFT parameters:
 # window_size = 16384
-# window_size = 4096
-window_size = 2048
+window_size = 4096
+# window_size = 2048
 fft_stride = 512
 
 # Training parameters:
@@ -61,8 +62,14 @@ learning_rate = 0.0001
 learning_rate_decay = 0.9
 decay_iterations = 50000
 iterations = 400000
-GPU = [2]
-freq_splits = 2
+GPU = [7]
+freq_splits = 0
+
+visualize = True
+init_from = 175000
+train = False
+restdir = './logs' + '/' + subfolder + '/' \
+    '2018-10-08 14:13:04_lr_0.0001_lrd_0.9_lrdi_50000_it_400000_bs_5_ws_4096fft_stride512_fs_11000_fw_12_9_9_6__str_4_3_3_2__depth_32_64_128_128__loss_sigmoid_cross_entropy_loss_cnn_True_dropout_False_cs_1024_ds_None_c_24_totparam_71441161'
 
 
 def compute_parameter_total(trainable_variables):
@@ -137,7 +144,7 @@ with train_graph.as_default():
                                               scope='_layer' + str(layer_no))
                 conv.append(cc.split_relu(conv_tmp))
                 print('conv2 shape', conv[-1].shape)
-            debug_here()
+            # debug_here()
             flat = tf.reshape(conv[-1], [batch_size, c, -1])
             RNN_in = flat
     else:
@@ -269,65 +276,108 @@ config = tf.ConfigProto(allow_soft_placement=True,
 with tf.Session(graph=train_graph, config=config) as sess:
     start = time.time()
     print('Initialize...')
-    init_op.run(session=sess)
+    print('Initialize...')
+    if init_from:
+        saver.restore(sess, restdir + '/weights-' + str(init_from))
+    else:
+        init_op.run(session=sess)
 
-    print('Training...')
-    for i in range(iterations):
-        if i % 100 == 0 and (i != 0 or len(square_error) == 0):
-            batch_time_music_test, batched_time_labels_test = \
-                musicNet.get_batch(musicNet.test_data, musicNet.test_ids,
-                                   batch_size)
-            feed_dict = {x: batch_time_music_test,
-                         y_gt: batched_time_labels_test}
-            L_np, test_summary_eval, global_step_eval = sess.run([L_test, test_summary,
-                                                                 global_step],
-                                                                 feed_dict=feed_dict)
-            square_error.append(L_np)
-            summary_writer.add_summary(test_summary_eval, global_step=global_step_eval)
+    if train:
+        print('Training...')
+        for i in range(iterations):
+            if i % 100 == 0 and (i != 0 or len(square_error) == 0):
+                batch_time_music_test, batched_time_labels_test = \
+                    musicNet.get_batch(musicNet.test_data, musicNet.test_ids,
+                                       batch_size)
+                feed_dict = {x: batch_time_music_test,
+                             y_gt: batched_time_labels_test}
+                L_np, test_summary_eval, global_step_eval = sess.run([L_test,
+                                                                      test_summary,
+                                                                     global_step],
+                                                                     feed_dict=feed_dict)
+                square_error.append(L_np)
+                summary_writer.add_summary(test_summary_eval,
+                                           global_step=global_step_eval)
 
-        # if i % 5000 == 0:
-        if i % 5000 == 0 and i > 0:
-            # run trough the entire test set.
-            yflat = np.array([])
-            yhatflat = np.array([])
-            losses_lst = []
-            for j in range(len(batched_time_music_lst)):
-                batch_time_music = batched_time_music_lst[j]
-                batched_time_labels = batcheded_time_labels_lst[j]
-                feed_dict = {x: batch_time_music,
-                             y_gt: batched_time_labels}
-                loss, Yhattest, np_global_step =  \
-                    sess.run([L_test, y_test, global_step], feed_dict=feed_dict)
-                losses_lst.append(loss)
+            # if i % 5000 == 0:
+            if i % 5000 == 0 and i > 0:
+                # run trough the entire test set.
+                yflat = np.array([])
+                yhatflat = np.array([])
+                losses_lst = []
+                for j in range(len(batched_time_music_lst)):
+                    batch_time_music = batched_time_music_lst[j]
+                    batched_time_labels = batcheded_time_labels_lst[j]
+                    feed_dict = {x: batch_time_music,
+                                 y_gt: batched_time_labels}
+                    loss, Yhattest, np_global_step =  \
+                        sess.run([L_test, y_test, global_step], feed_dict=feed_dict)
+                    losses_lst.append(loss)
+                    center = int(c/2.0)
+                    yhatflat = np.append(yhatflat, Yhattest[:, center, :].flatten())
+                    yflat = np.append(yflat, batched_time_labels[:, center, :].flatten())
+                average_precision.append(average_precision_score(yflat,
+                                                                 yhatflat))
+                end = time.time()
+                print(i, '\t', round(np.mean(losses_lst), 8),
+                         '\t', round(average_precision[-1], 8),
+                         '\t', round(end-start, 8))
+                saver.save(sess, savedir + '/weights', global_step=np_global_step)
+                # add average precision to tensorboard...
+                acc_value = summary_pb2.Summary.Value(tag="Accuracy",
+                                                      simple_value=average_precision[-1])
+                summary = summary_pb2.Summary(value=[acc_value])
+                summary_writer.add_summary(summary, global_step=np_global_step)
+
+                start = time.time()
+
+            batch_time_music, batched_time_labels = \
+                musicNet.get_batch(musicNet.train_data, musicNet.train_ids, batch_size)
+            feed_dict = {x: batch_time_music,
+                         y_gt: batched_time_labels}
+            loss, out_net, out_gt, _, summaries, np_global_step = \
+                sess.run([L, y, y_gt, training_step, summary_op, global_step],
+                         feed_dict=feed_dict)
+            summary_writer.add_summary(summaries, global_step=np_global_step)
+            # if i % 10 == 0:
+            #     print('loss', loss)
+
+        # save the network
+        saver.save(sess, savedir + '/weights/', global_step=np_global_step)
+        pickle.dump(average_precision, open(savedir + "/avgprec.pkl", "wb"))
+
+    if visualize:
+        yflat = np.array([])
+        yhatflat = np.array([])
+        decode_gt = []
+        decode_net = []
+        losses_lst = []
+        for j in range(len(batched_time_music_lst)):   # range(100):
+            batch_time_music = batched_time_music_lst[j]
+            batched_time_labels = batcheded_time_labels_lst[j]
+            feed_dict = {x: batch_time_music,
+                         y_gt: batched_time_labels}
+            loss, Yhattest, np_global_step =  \
+                sess.run([L_test, y_test, global_step], feed_dict=feed_dict)
+            losses_lst.append(loss)
+            if RNN:
                 center = int(c/2.0)
                 yhatflat = np.append(yhatflat, Yhattest[:, center, :].flatten())
-                yflat = np.append(yflat, batched_time_labels[:, center, :].flatten())
-            average_precision.append(average_precision_score(yflat,
-                                                             yhatflat))
-            end = time.time()
-            print(i, '\t', round(np.mean(losses_lst), 8),
-                     '\t', round(average_precision[-1], 8),
-                     '\t', round(end-start, 8))
-            saver.save(sess, savedir + '/weights', global_step=np_global_step)
-            # add average precision to tensorboard...
-            acc_value = summary_pb2.Summary.Value(tag="Accuracy",
-                                                  simple_value=average_precision[-1])
-            summary = summary_pb2.Summary(value=[acc_value])
-            summary_writer.add_summary(summary, global_step=np_global_step)
-
-            start = time.time()
-
-        batch_time_music, batched_time_labels = \
-            musicNet.get_batch(musicNet.train_data, musicNet.train_ids, batch_size)
-        feed_dict = {x: batch_time_music,
-                     y_gt: batched_time_labels}
-        loss, out_net, out_gt, _, summaries, np_global_step = \
-            sess.run([L, y, y_gt, training_step, summary_op, global_step],
-                     feed_dict=feed_dict)
-        summary_writer.add_summary(summaries, global_step=np_global_step)
-        # if i % 10 == 0:
-        #     print('loss', loss)
-
-    # save the network
-    saver.save(sess, savedir + '/weights/', global_step=np_global_step)
-    pickle.dump(average_precision, open(savedir + "/avgprec.pkl", "wb"))
+                yflat = np.append(yflat,
+                                  batched_time_labels[:, center, :].flatten())
+            else:
+                yhatflat = np.append(yhatflat, Yhattest.flatten())
+                yflat = np.append(yflat, batched_time_labels.flatten())
+            yhatflat = np.append(yhatflat, Yhattest[:, center, :].flatten())
+            yflat = np.append(yflat, batched_time_labels[:, center, :].flatten())
+            decode_gt.append(batched_time_labels[:, center, :])
+            decode_net.append(Yhattest[:, center, :])
+        average_precision.append(average_precision_score(yflat,
+                                                         yhatflat))
+        decode_gt = np.stack(decode_gt, axis=1)
+        decode_net = np.stack(decode_net, axis=1)
+        plt.subplot(211)
+        plt.imshow(decode_net[0, :, :].T)
+        plt.subplot(212)
+        plt.imshow(decode_gt[0, :, :].T)
+        plt.show()

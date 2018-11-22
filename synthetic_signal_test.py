@@ -3,7 +3,7 @@ from lorenz_exp import run_experiment
 
 
 spikes_instead_of_states = True
-base_dir = 'logs/tf_1d_paper/'
+base_dir = 'logs/suppl/'
 if spikes_instead_of_states:
     dimensions = 1
 else:
@@ -21,8 +21,8 @@ sample_prob = 1.0
 pred_samples = 256
 num_proj = dimensions
 learning_rate = 0.001
-iterations = 15001
-GPUs = [0]
+iterations = 20001
+GPUs = [3]
 batch_size = 250
 use_residuals = False
 decay_rate = 0.9
@@ -35,7 +35,7 @@ delta_t = 0.01
 steps = int(tmax/delta_t)+1
 
 # fft parameters
-fft = False
+fft = True
 if fft:
     window_function = 'hann'
     window_size = 32
@@ -43,11 +43,15 @@ if fft:
     step_size = window_size - overlap
     fft_pred_samples = pred_samples // step_size + 1
     num_proj = int(window_size//2 + 1)*dimensions  # the frequencies
-    freq_loss = 'log_mse_time'  # 'mse', 'mse_time', 'ad', 'ad_time', 'ad_norm', log_ad
+    freq_loss = 'log_mse_mse_time'  # 'mse', 'mse_time', 'ad', 'ad_time', 'ad_norm', log_ad
     num_units = 250
 
-    if (freq_loss == 'ad_time') or (freq_loss == 'log_mse_time'):
+    if (freq_loss == 'ad_time') or (freq_loss == 'log_mse_time') \
+       or (freq_loss == 'log_mse_mse_time') \
+       or (freq_loss == 'mse_time') or (freq_loss is None):
+        # epsilon = 1e-2
         epsilon = 1e-3
+        print('epsilon', epsilon)
     else:
         epsilon = None
 else:
@@ -104,15 +108,15 @@ if 0:
 
 
 if 0:
-    for length_factor in [3, 4, 5, 6]:
+    for length_factor in [1, 2, 3, 4, 5, 6]:
         tmp_fft = True
-        tmp_num_units = 300
+        tmp_num_units = 250
         tmp_pred_samples = pred_samples
         tmp_tmax = tmax
         if length_factor == 0:
             tmp_window_size = 8
         else:
-            tmp_window_size = 32*length_factor
+            tmp_window_size = 16*length_factor
         overlap = int(tmp_window_size*0.75)
         tmp_step_size = tmp_window_size - overlap
         tmp_num_proj = int(tmp_window_size//2 + 1)*dimensions

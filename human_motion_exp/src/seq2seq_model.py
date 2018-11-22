@@ -52,7 +52,8 @@ class Seq2SeqModel(object):
                window_size=30,
                step_size=10,
                window_fun='hann',
-               gaussian_scaling=False):
+               gaussian_scaling=False,
+               freq_loss=None):
     """Create the model.
     Args:
       architecture: [basic, tied] whether to tie the decoder and decoder.
@@ -220,9 +221,13 @@ class Seq2SeqModel(object):
         spec_dec_out = eagerSTFT.stft(tf.stack(dec_out, -1), window,
                                          window_size, overlap)
         with tf.name_scope('freq_log_mse_loss'):
-                def log_epsilon(fourier_coeff):
-                    epsilon = 1e-7
-                    return tf.log(tf.to_float(fourier_coeff) + epsilon)
+                if use_log:
+                  def log_epsilon(fourier_coeff):
+                      epsilon = 1e-7
+                      return tf.log(tf.to_float(fourier_coeff) + epsilon)
+                else:
+                  def log_epsilon(fourier_coeff):
+                      return fourier_coeff
 
                 prd_loss = log_epsilon(tf.losses.mean_squared_error(
                     tf.real(spec_dec_out),
@@ -236,7 +241,10 @@ class Seq2SeqModel(object):
     with tf.name_scope("loss_angles"):
       loss_angles = tf.reduce_mean(tf.square(tf.subtract(dec_out, outputs)))
 
-    self.loss         = loss_angles # + 0.1*prd_loss
+    if freq_loss is None:
+      self.loss = loss_angles
+    else:
+      self.loss = loss_angles + lambda_f*prd_loss
     self.loss_summary = tf.summary.scalar('loss/loss', self.loss)
 
     # Gradients and SGD update operation for training the model.
