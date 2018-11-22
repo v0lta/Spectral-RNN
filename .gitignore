@@ -131,3 +131,6 @@ dmypy.json
 
 *.mp4
 *.h5
+
+# pdf-files
+*.pdf
