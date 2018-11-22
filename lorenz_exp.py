@@ -220,7 +220,9 @@ def run_experiment(spikes_instead_of_states, base_dir, dimensions, cell_type,
                     prd_loss += lambda_f*log_prd_loss
                     tf.summary.scalar('lambda_f', lambda_f)
                 else:
-                    lambda_f = 1/5*(global_step/iterations)
+                    lambda_f = tf.constant(1.0/4.0, dtype=tf.float32)\
+                        * (tf.cast(global_step, tf.float32)
+                           / tf.cast(iterations, tf.float32))
                     prd_loss += lambda_f*log_prd_loss
                     tf.summary.scalar('lambda_f', lambda_f)
                 tf.summary.scalar('mse_log_mse_f', prd_loss)

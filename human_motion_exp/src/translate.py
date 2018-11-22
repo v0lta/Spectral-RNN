@@ -52,6 +52,9 @@ tf.app.flags.DEFINE_integer("load", 0, "Try to load a previous checkpoint.")
 tf.app.flags.DEFINE_boolean("cgru", False, "Specify if the complex GRU should be used.")
 tf.app.flags.DEFINE_boolean("stiefel", False, "Use unitarity preserving weight updates.")
 tf.app.flags.DEFINE_boolean("fft", False, "Do frequency domain motion analysis.")
+tf.app.flags.DEFINE_boolean("freq_loss", False, "Use a freq. domain loss.")
+tf.app.flags.DEFINE_float("lambda_f", 1.0, "Weight of the freq. loss component.")
+tf.app.flags.DEFINE_boolean("log_freq_loss", False, "Log scaling of freq. loss.")
 tf.app.flags.DEFINE_integer("GPU", 0, "Choose a GPU.")
 tf.app.flags.DEFINE_integer("window_size", 32, "Set the fft window size.")
 tf.app.flags.DEFINE_string("window_fun", 'hann', "Chosse hann, hamming or None")
@@ -74,6 +77,9 @@ train_dir = os.path.normpath(os.path.join( FLAGS.train_dir, FLAGS.action,
   'cgru' if FLAGS.cgru else 'gru',
   'fft_{0}'.format(FLAGS.window_size) if FLAGS.fft else 'time',
   'fft_step_{0}'.format(FLAGS.step_size) if FLAGS.fft else '',
+  'freq_loss' if FLAGS.freq_loss else 'time_loss',
+  'log_scaling' if FLAGS.log_freq_loss else '',
+  'lambda_f_{0}'.format(FLAGS.lambda_f) if FLAGS.freq_loss else '',
   FLAGS.window_fun)) # if FLAGS.fft else '' TODO: replace me.
 
 summaries_dir = os.path.normpath(os.path.join( train_dir, "log_complex" )) # Directory for TB summaries
@@ -99,8 +105,8 @@ def create_model(session, actions, sampling=False):
 
   model = seq2seq_model.Seq2SeqModel(
       FLAGS.architecture,
-      FLAGS.seq_length_in if not sampling else 36,
-      FLAGS.seq_length_out if not sampling else 24,
+      FLAGS.seq_length_in if not sampling else 62,
+      FLAGS.seq_length_out if not sampling else 25,
       FLAGS.size, # hidden layer size
       FLAGS.num_layers,
       FLAGS.max_gradient_norm,
@@ -118,6 +124,9 @@ def create_model(session, actions, sampling=False):
       window_size=FLAGS.window_size,
       step_size=FLAGS.step_size,
       window_fun=FLAGS.window_fun,
+      freq_loss=FLAGS.freq_loss,
+      lambda_f=FLAGS.lambda_f,
+      use_log=FLAGS.log_freq_loss,
       dtype=tf.float32)
 
   if FLAGS.load <= 0:
@@ -169,7 +178,10 @@ def train():
         'fft', str(FLAGS.fft) + '\n',
         'window_size', str(FLAGS.window_size) + '\n',
         'step_size', str(FLAGS.step_size)  + '\n',
-        'window_fun', str(FLAGS.window_fun))
+        'window_fun', str(FLAGS.window_fun) + '\n',
+        'freq_loss', str(FLAGS.freq_loss) + '\n',
+        'lambda_f', str(FLAGS.lambda_f) + '\n',
+        'use_log', str(FLAGS.log_freq_loss))
 
   actions = define_actions( FLAGS.action )
 

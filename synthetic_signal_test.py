@@ -22,7 +22,7 @@ pred_samples = 256
 num_proj = dimensions
 learning_rate = 0.001
 iterations = 20001
-GPUs = [3]
+GPUs = [5]
 batch_size = 250
 use_residuals = False
 decay_rate = 0.9
@@ -43,11 +43,11 @@ if fft:
     step_size = window_size - overlap
     fft_pred_samples = pred_samples // step_size + 1
     num_proj = int(window_size//2 + 1)*dimensions  # the frequencies
-    freq_loss = 'log_mse_mse_time'  # 'mse', 'mse_time', 'ad', 'ad_time', 'ad_norm', log_ad
+    freq_loss = 'mse_log_mse_dlambda'  # 'mse', 'mse_time', 'ad', 'ad_time', 'ad_norm', log_ad
     num_units = 250
 
     if (freq_loss == 'ad_time') or (freq_loss == 'log_mse_time') \
-       or (freq_loss == 'log_mse_mse_time') \
+       or (freq_loss == 'log_mse_mse_time') or (freq_loss == 'mse_log_mse_dlambda') \
        or (freq_loss == 'mse_time') or (freq_loss is None):
         # epsilon = 1e-2
         epsilon = 1e-3

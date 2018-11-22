@@ -52,8 +52,9 @@ class Seq2SeqModel(object):
                window_size=30,
                step_size=10,
                window_fun='hann',
-               gaussian_scaling=False,
-               freq_loss=None):
+               freq_loss=False,
+               lambda_f=1e-2,
+               use_log=False):
     """Create the model.
     Args:
       architecture: [basic, tied] whether to tie the decoder and decoder.
@@ -203,7 +204,6 @@ class Seq2SeqModel(object):
     else:
       raise(ValueError, "Unknown architecture: %s" % architecture )
 
-    spec_loss = False
     if fft:
       # compute the inverse fft on the outputs and restore the shape.
       spec_out = tf.reshape(tf.stack(outputs, 1),
@@ -216,8 +216,7 @@ class Seq2SeqModel(object):
                                 epsilon=1e-4)
       outputs = tf.unstack(outputs[:, :, :target_seq_len], axis=-1, name='result_unstack')
 
-      spec_loss = True
-      if spec_loss:
+      if freq_loss:
         spec_dec_out = eagerSTFT.stft(tf.stack(dec_out, -1), window,
                                          window_size, overlap)
         with tf.name_scope('freq_log_mse_loss'):
@@ -241,11 +240,18 @@ class Seq2SeqModel(object):
     with tf.name_scope("loss_angles"):
       loss_angles = tf.reduce_mean(tf.square(tf.subtract(dec_out, outputs)))
 
-    if freq_loss is None:
-      self.loss = loss_angles
-    else:
-      self.loss = loss_angles + lambda_f*prd_loss
+    self.loss = loss_angles
     self.loss_summary = tf.summary.scalar('loss/loss', self.loss)
+    
+    if freq_loss:
+      self.loss= loss_angles
+      self.loss_ft = loss_angles + lambda_f*prd_loss
+      lambda_f_summary = tf.summary.scalar('lambda_f', lambda_f)
+      loss_angle_summary = tf.summary.scalar('loss_angle_summary', loss_angles)
+      freq_mse_summary = tf.summary.scalar('freq_mse_summary', prd_loss)
+      total_loss_summary = tf.summary.scalar('total_loss_summary', self.loss_ft)
+      self.loss_summary = tf.summary.merge([loss_angle_summary, freq_mse_summary,
+                                    total_loss_summary, lambda_f_summary])
 
     # Gradients and SGD update operation for training the model.
     params = tf.trainable_variables()
@@ -258,8 +264,9 @@ class Seq2SeqModel(object):
         opt = tf.train.GradientDescentOptimizer( self.learning_rate )
     
     # Update all the trainable parameters
-    if spec_loss:
-      gradients = tf.gradients( self.loss, params )
+    if freq_loss:
+      print('using freq loss!!!!!!')
+      gradients = tf.gradients( self.loss_ft, params )
     else:  
       gradients = tf.gradients( self.loss, params )
 
