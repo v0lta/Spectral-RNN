@@ -1,32 +1,28 @@
 import pickle
+import numpy as np
 from lorenz_exp import run_experiment
 
 
 spikes_instead_of_states = True
-base_dir = 'logs/suppl/'
+base_dir = 'logs/testtest/'
 if spikes_instead_of_states:
     dimensions = 1
 else:
     dimensions = 3
 cell_type = 'cgRNN'
-num_units = 260
-if cell_type == 'uRNN':
-    circ_h = 4
-    conv_h = 5
-    input_samples = 17
-    num_units = 150
-if cell_type == 'orthogonal':
-    num_units = 50
+num_units = 768
+# num_units = 2048
 sample_prob = 1.0
-pred_samples = 256
+pred_samples = 512
 num_proj = dimensions
 learning_rate = 0.001
-iterations = 20001
-GPUs = [5]
+iterations = 100000
+GPUs = [0]
 batch_size = 250
 use_residuals = False
-decay_rate = 0.9
+decay_rate = 0.95
 decay_steps = 10000
+stiefel = False
 
 # data parameters
 tmax = 10.24
@@ -43,14 +39,13 @@ if fft:
     step_size = window_size - overlap
     fft_pred_samples = pred_samples // step_size + 1
     num_proj = int(window_size//2 + 1)*dimensions  # the frequencies
-    freq_loss = 'mse_log_mse_dlambda'  # 'mse', 'mse_time', 'ad', 'ad_time', 'ad_norm', log_ad
-    num_units = 250
+    freq_loss = 'complex_abs'  # 'mse', 'mse_time', 'ad', 'ad_time', 'ad_norm', log_ad
 
     if (freq_loss == 'ad_time') or (freq_loss == 'log_mse_time') \
        or (freq_loss == 'log_mse_mse_time') or (freq_loss == 'mse_log_mse_dlambda') \
        or (freq_loss == 'mse_time') or (freq_loss is None):
-        # epsilon = 1e-2
-        epsilon = 1e-3
+        epsilon = 1e-2
+        # epsilon = 1e-3
         print('epsilon', epsilon)
     else:
         epsilon = None
@@ -66,13 +61,13 @@ else:
 
 # fft = False
 # num_proj = dimensions
-if 1:
+if 0:
     run_experiment(spikes_instead_of_states, base_dir, dimensions, cell_type,
                    num_units, sample_prob, pred_samples, num_proj, learning_rate,
                    decay_rate, decay_steps, iterations, GPUs, batch_size, tmax,
                    delta_t, steps, fft, window_function, window_size, overlap,
                    step_size, fft_pred_samples, freq_loss, use_residuals,
-                   epsilon=epsilon)
+                   epsilon=epsilon, stiefel=stiefel)
 
 if 0:
     for length_factor in [0, 1, 2]:
@@ -86,7 +81,8 @@ if 0:
                        learning_rate, decay_rate, decay_steps,
                        iterations, GPUs, batch_size, tmp_tmax, delta_t,
                        tmp_steps, tmp_fft, window_function, window_size, overlap,
-                       step_size, fft_pred_samples, freq_loss, use_residuals, epsilon)
+                       step_size, fft_pred_samples, freq_loss, use_residuals, epsilon,
+                       stiefel=stiefel)
 
 if 0:
     for length_factor in [0, 1, 2]:
@@ -104,26 +100,43 @@ if 0:
                        learning_rate, decay_rate, decay_steps,
                        iterations, GPUs, batch_size, tmp_tmax, delta_t,
                        tmp_steps, tmp_fft, window_function, window_size, overlap,
-                       step_size, fft_pred_samples, freq_loss, use_residuals, epsilon)
+                       step_size, fft_pred_samples, freq_loss, use_residuals, epsilon,
+                       stiefel=stiefel)
 
 
-if 0:
-    for length_factor in [1, 2, 3, 4, 5, 6]:
+if 1:
+    # TODO: Ajust for extra window weights.
+
+    parameters = 1000000
+
+    def compute_state_size(parameters, input_size, output_size):
+        # 0 = 6s^2 + 6si + 6s + 2so + 2o - p
+        # 0 = 6s^2 + s (6i + 2o + 6) + 2o - p
+
+        p = (6.0*input_size + 2.0*output_size + 6.0) / 6.0
+        q = (2.0*output_size - parameters) / 6.0
+        x1 = -p/2.0 + np.sqrt((p/2.0)*(p/2.0) - q)
+        x2 = -p/2.0 - np.sqrt((p/2.0)*(p/2.0) - q)
+
+        return x1, x2
+
+    for length_factor in range(1, 20):
         tmp_fft = True
-        tmp_num_units = 250
         tmp_pred_samples = pred_samples
         tmp_tmax = tmax
-        if length_factor == 0:
-            tmp_window_size = 8
-        else:
-            tmp_window_size = 16*length_factor
+        tmp_window_size = 6*length_factor
         overlap = int(tmp_window_size*0.75)
         tmp_step_size = tmp_window_size - overlap
         tmp_num_proj = int(tmp_window_size//2 + 1)*dimensions
         tmp_steps = int(tmp_tmax/delta_t) + 1
+
+        io = tmp_window_size/2+1
+        tmp_num_units = int(compute_state_size(parameters, io, io)[0])
+
         run_experiment(spikes_instead_of_states, base_dir, dimensions, cell_type,
                        tmp_num_units, sample_prob, tmp_pred_samples, tmp_num_proj,
                        learning_rate, decay_rate, decay_steps,
                        iterations, GPUs, batch_size, tmp_tmax, delta_t,
                        tmp_steps, tmp_fft, window_function, tmp_window_size, overlap,
-                       tmp_step_size, fft_pred_samples, freq_loss, use_residuals, epsilon)
+                       tmp_step_size, fft_pred_samples, freq_loss, use_residuals, epsilon,
+                       stiefel=stiefel)

@@ -11,7 +11,6 @@ from RNN_wrapper import ResidualWrapper
 from RNN_wrapper import RnnInputWrapper
 import tensorflow.nn.rnn_cell as rnn_cell
 from tensorflow.contrib.rnn import LSTMStateTuple
-from IPython.core.debugger import Tracer
 # import tensorflow.contrib.signal as tfsig
 import eager_STFT as eagerSTFT
 import scipy.signal as scisig
@@ -25,12 +24,12 @@ def compute_parameter_total(trainable_variables):
     for variable in trainable_variables:
         # shape is an array of tf.Dimension
         shape = variable.get_shape()
-        # print('var_name', variable.name, 'shape', shape, 'dim', len(shape))
+        # print('var_name', variable.name.split('/')[-1], 'shape', shape, 'dim', len(shape))
         variable_parameters = 1
         for dim in shape:
             # print(dim)
             variable_parameters *= dim.value
-        # print('parameters', variable_parameters)
+        # print(variable.name.split('/')[-1], variable_parameters, 'parameters')
         total_parameters += variable_parameters
     print('total:', total_parameters)
     return total_parameters
@@ -43,7 +42,8 @@ def run_experiment(spikes_instead_of_states, base_dir, dimensions, cell_type,
                    window_function=None, window_size=None, overlap=None,
                    step_size=None, fft_pred_samples=None, freq_loss=None,
                    use_residuals=False, epsilon=None, restore_and_plot=False,
-                   restore_path='', restore_step=0, plt_filename='', return_data=False):
+                   restore_path='', restore_step=0, plt_filename='', return_data=False,
+                   stiefel=False):
     graph = tf.Graph()
     with graph.as_default():
         global_step = tf.Variable(0, name='global_step', trainable=False)
@@ -85,9 +85,17 @@ def run_experiment(spikes_instead_of_states, base_dir, dimensions, cell_type,
             fft_pred_samples = data_decoder_freq.shape[1].value
 
         if cell_type == 'cgRNN':
-            cell = cc.StiefelGatedRecurrentUnit(num_units, num_proj=num_proj,
-                                                complex_input=fft,
-                                                complex_output=fft)
+            if stiefel:
+                cell = cc.StiefelGatedRecurrentUnit(num_units, num_proj=num_proj,
+                                                    complex_input=fft,
+                                                    complex_output=fft,
+                                                    stiefel=stiefel)
+            else:
+                cell = cc.StiefelGatedRecurrentUnit(num_units, num_proj=num_proj,
+                                                    complex_input=fft,
+                                                    complex_output=fft,
+                                                    activation=cc.hirose,
+                                                    stiefel=stiefel)
             cell = RnnInputWrapper(1.0, cell)
             if use_residuals:
                 cell = ResidualWrapper(cell=cell)
@@ -138,11 +146,23 @@ def run_experiment(spikes_instead_of_states, base_dir, dimensions, cell_type,
                                                encoder_state[-1])
             cell.close()
             scope.reuse_variables()
+            debug_here()
             decoder_out, _ = tf.nn.dynamic_rnn(cell, decoder_in,
                                                initial_state=encoder_state,
                                                dtype=dtype)
 
         if fft:
+            if freq_loss == 'complex_abs':
+                diff = data_decoder_freq - decoder_out
+                prd_loss = tf.abs(tf.real(diff)) + tf.abs(tf.imag(diff))
+                # tf.summary.histogram('complex_abs', prd_loss)
+                # tf.summary.histogram('log_complex_abs', tf.log(prd_loss))
+                prd_loss = tf.reduce_mean(prd_loss)
+            if freq_loss == 'complex_square':
+                diff = data_decoder_freq - decoder_out
+                prd_loss = tf.real(diff)*tf.real(diff) + tf.imag(diff)*tf.imag(diff)
+                tf.summary.histogram('complex_square', prd_loss)
+                prd_loss = tf.reduce_mean(prd_loss)
             if (freq_loss == 'mse') or (freq_loss == 'mse_time'):
                 prd_loss = tf.losses.mean_squared_error(tf.real(data_decoder_freq),
                                                         tf.real(decoder_out)) \
@@ -202,30 +222,32 @@ def run_experiment(spikes_instead_of_states, base_dir, dimensions, cell_type,
                     epsilon = 1e-7
                     return tf.log(tf.to_float(fourier_coeff) + epsilon)
 
-                log_prd_loss = tf.reduce_mean(log_epsilon(tf.math.squared_difference(
+                ln_f_mse = tf.reduce_mean(log_epsilon(tf.math.squared_difference(
                     tf.real(data_decoder_freq),
                     tf.real(decoder_out)))) \
                     + tf.reduce_mean(log_epsilon(tf.math.squared_difference(
                         tf.imag(data_decoder_freq),
                         tf.imag(decoder_out))))
-                prd_loss = log_epsilon(
-                    tf.losses.mean_squared_error(tf.real(data_decoder_freq),
-                                                 tf.real(decoder_out))) \
-                    + log_epsilon(
-                        tf.losses.mean_squared_error(tf.imag(data_decoder_freq),
-                                                     tf.imag(decoder_out)))
+                tf.summary.scalar('ln-f-mse', ln_f_mse)
+                f_mse = tf.losses.mean_squared_error(tf.real(data_decoder_freq),
+                                                     tf.real(decoder_out)) \
+                    + tf.losses.mean_squared_error(tf.imag(data_decoder_freq),
+                                                   tf.imag(decoder_out))
+                tf.summary.scalar('f_mse', f_mse)
+                prd_loss = f_mse
 
                 if not freq_loss == 'mse_log_mse_dlambda':
-                    lambda_f = 1/5
-                    prd_loss += lambda_f*log_prd_loss
+                    lambda_f = 1e4
+                    f_mse = f_mse*lambda_f + ln_f_mse
                     tf.summary.scalar('lambda_f', lambda_f)
                 else:
-                    lambda_f = tf.constant(1.0/4.0, dtype=tf.float32)\
+                    lambda_f = tf.constant(1e4, dtype=tf.float32)\
                         * (tf.cast(global_step, tf.float32)
                            / tf.cast(iterations, tf.float32))
-                    prd_loss += lambda_f*log_prd_loss
+                    f_mse += f_mse*lambda_f + ln_f_mse
                     tf.summary.scalar('lambda_f', lambda_f)
-                tf.summary.scalar('mse_log_mse_f', prd_loss)
+                tf.summary.scalar('mse_log_mse_f', f_mse)
+                prd_loss = f_mse
 
             def expand_dims_and_transpose(input_tensor):
                 if spikes_instead_of_states:
@@ -270,7 +292,7 @@ def run_experiment(spikes_instead_of_states, base_dir, dimensions, cell_type,
                (freq_loss == 'mse_time') or \
                (freq_loss == 'log_mse_mse_time'):
                 print('using freq and time based loss.')
-                lambda_t = 1.0/100.0
+                lambda_t = 1e-3
                 loss = prd_loss*lambda_t + time_loss
                 tf.summary.scalar('lambda_t', lambda_t)
             elif (freq_loss is None):
@@ -285,7 +307,7 @@ def run_experiment(spikes_instead_of_states, base_dir, dimensions, cell_type,
                                                    staircase=True)
         tf.summary.scalar('learning_rate', learning_rate)
 
-        if cell_type == 'orthogonal' or cell_type == 'cgRNN':
+        if (cell_type == 'orthogonal' or cell_type == 'cgRNN') and (stiefel is True):
             optimizer = co.RMSpropNatGrad(learning_rate, global_step=global_step)
         else:
             optimizer = tf.train.RMSPropOptimizer(learning_rate)
@@ -304,6 +326,9 @@ def run_experiment(spikes_instead_of_states, base_dir, dimensions, cell_type,
         summary_sum = tf.summary.merge_all()
         total_parameters = compute_parameter_total(tf.trainable_variables())
         saver = tf.train.Saver()
+
+    print(total_parameters)
+    # debug_here()
 
     if not restore_and_plot:
         time_str = time.strftime("%Y-%m-%d %H:%M:%S", time.gmtime())

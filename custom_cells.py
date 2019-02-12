@@ -197,7 +197,7 @@ def double_sigmoid(z, scope='', reuse=None):
     """
     ModSigmoid implementation, using a coupled alpha and beta.
     """
-    with tf.variable_scope('mod_sigmoid_' + scope, reuse=reuse):
+    with tf.variable_scope('double_sigmoid' + scope, reuse=reuse):
         return tf.complex(tf.nn.sigmoid(tf.real(z)),
                           tf.nn.sigmoid(tf.imag(z)))
 
@@ -648,7 +648,7 @@ class StiefelGatedRecurrentUnit(tf.nn.rnn_cell.RNNCell):
     Implementation of a Stiefel Gated Recurrent unit.
     '''
 
-    def __init__(self, num_units, activation=mod_relu,
+    def __init__(self, num_units, activation=hirose,
                  gate_activation=mod_sigmoid,
                  num_proj=None, reuse=None, stiefel=True,
                  real=False, real_double=False,
@@ -730,9 +730,15 @@ class StiefelGatedRecurrentUnit(tf.nn.rnn_cell.RNNCell):
             first_state = tf.complex(tf.zeros([batch_size, self._num_units]),
                                      tf.zeros([batch_size, self._num_units]))
             if self._output_size:
-                out = tf.zeros([batch_size, self._output_size], dtype=tf.float32)
+                if not self._complex_output:
+                    out = tf.zeros([batch_size, self._output_size], dtype=tf.float32)
+                else:
+                    out = tf.zeros([batch_size, self._output_size], dtype=tf.complex64)
             else:
-                out = tf.zeros([batch_size, self._num_units*2])
+                if not self._complex_output:
+                    out = tf.zeros([batch_size, self._num_units*2], dtype=tf.float32)
+                else:
+                    out = tf.zeros([batch_size, self._num_units], dtype=tf.complex64)
         return LSTMStateTuple(out, first_state)
 
     def double_memory_gate(self, h, x, scope, bias_init=4.0):
@@ -813,6 +819,7 @@ class StiefelGatedRecurrentUnit(tf.nn.rnn_cell.RNNCell):
         Returns:
             output and new cell state touple.
         """
+        # print('input_dtype', inputs.dtype)
         with tf.variable_scope("ComplexGatedRecurrentUnit", reuse=self._reuse):
             _, last_h = state
 
@@ -876,7 +883,7 @@ class StiefelGatedRecurrentUnit(tf.nn.rnn_cell.RNNCell):
             new_h = (1 - z)*last_h + z*h_bar
 
             if self._output_size:
-                print('c to r cell output mapping.')
+                print('using an output projection.')
                 if self._real:
                     output = matmul_plus_bias(new_h, self._output_size, 'out_map',
                                               reuse=self._reuse)
@@ -885,9 +892,15 @@ class StiefelGatedRecurrentUnit(tf.nn.rnn_cell.RNNCell):
                         output = complex_matmul(new_h, self._output_size, bias=True,
                                                 scope='m_out', reuse=self._reuse)
                     else:
+                        print('C to R mapping.')
                         output = C_to_R(new_h, self._output_size, reuse=self._reuse)
             else:
-                print('real concatinated cell output')
-                output = tf.concat([tf.real(new_h), tf.imag(new_h)], axis=-1)
+                if not self._complex_output:
+                    print('real concatinated cell output')
+                    output = tf.concat([tf.real(new_h), tf.imag(new_h)], axis=-1)
+                else:
+                    output = new_h
             newstate = LSTMStateTuple(output, new_h)
+            # print('cell_output', output)
+            # print('cell_states', newstate)
             return output, newstate

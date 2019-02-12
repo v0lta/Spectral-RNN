@@ -77,7 +77,7 @@ def stft(data, window_str, nperseg, noverlap, nfft=None, sides=None, padded=True
     # Following:
     # https://github.com/scipy/scipy/blob/v1.1.0/scipy/signal/spectral.py#L847-L991
     # Args:
-    #   data: The time domain data to be transformed.
+    #   data: The time domain data to be transformed [expects batch, dim, time].
     #   window: String indicating which window function to generate.
     #   nperseg: The number of samples per window segment.
     #   noverlap: The number of samples overlapping.
@@ -251,15 +251,15 @@ if __name__ == "__main__":
     # Do some testing!
     # params
     batch_size = 64
-    window_size = 96
+    window_size = 32
     overlap = int(window_size*0.75)
     window = 'hann'
     # code
     spikes, states = generate_data(batch_size=batch_size, delta_t=0.01, tmax=10.24)
-    plt.plot(spikes.numpy()[0, :, :])
-    plt.savefig('spikes.pdf')
+    # plt.plot(spikes.numpy()[0, :, :])
+    # plt.savefig('spikes.pdf')
     # plt.show()
-    if 0:
+    if 1:
         tmp_last_spikes = tf.transpose(spikes, [0, 2, 1])
         result_tf, result_np = stft(tmp_last_spikes, window, window_size, overlap,
                                     debug=True)
@@ -271,8 +271,10 @@ if __name__ == "__main__":
                                             axis=-1)
 
         # debug_here()
-        # plt.imshow((np.abs(result_tf.numpy()[0, 0, :, :])))
-        # plt.show()
+        plt.imshow(np.log((np.abs(result_tf.numpy()[0, 0, :, :].T))))
+        plt.colorbar()
+        plt.show()
+        debug_here()
 
         error = np.linalg.norm((np.transpose(result_tf.numpy(), [0, 1, 3, 2])
                                - sci_res).flatten())
@@ -298,6 +300,7 @@ if __name__ == "__main__":
                        nperseg=window_size,
                        noverlap=overlap,
                        debug=True)
+        debug_here()
 
         _, scisig_np = scisig.istft(sci_res, window=window,
                                     nperseg=window_size,

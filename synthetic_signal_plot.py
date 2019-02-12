@@ -127,7 +127,7 @@ if 0:
 
 
 # supplemental plots.
-if 1:
+if 0:
     base_path = '/home/moritz/infcuda/fft_pred_networks/logs/suppl/'
     restore_step = 20001
     restore_and_plot = True
@@ -294,40 +294,67 @@ if 1:
 
     plt.close()
     plt.figure()
-    batch = 89
-    plt.plot(decoder_out_np1[batch, :, 0], label='time only')
-    plt.plot(decoder_out_np2[batch, :, 0], label='mse_time')
-    plt.plot(decoder_out_np3[batch, :, 0], label='mse_log_mse_dlambda')
-    plt.plot(decoder_out_np4[batch, :, 0], label='freq_mse')
-    plt.plot(decoder_out_np5[batch, :, 0], label='log_mse_mse')
-    plt.plot(decoder_out_np6[batch, :, 0], label='log_mse_mse_time')
-    plt.plot(decoder_out_np7[batch, :, 0], label='log_mse')
+    #batch = 89
+    batch = 0
+    plt.plot(decoder_out_np1[batch, :, 0], label='t-mse')
+    plt.plot(decoder_out_np2[batch, :, 0], label='t-mse, f-mse')
+    # plt.plot(decoder_out_np3[batch, :, 0], label='t-mse, f-mse, log-f-mse-dt')
+    # plt.plot(decoder_out_np4[batch, :, 0], label='f-mse')
+    # plt.plot(decoder_out_np5[batch, :, 0], label='f-mse, ln-f-mse')
+    plt.plot(decoder_out_np6[batch, :, 0], label='t-mse, f-mse, ln-f-mse')
+    # plt.plot(decoder_out_np7[batch, :, 0], label='ln-f-mse')
     plt.plot(data_decoder_np1[batch, :, 0], label='target')
     plt.legend()
+    plt.ylim([-0.1, 0.8])
     plt.xlabel('sample no.')
     plt.ylabel('sample value')
     plt.savefig('supplemental_viz.pdf')
     plt.close()
 
 
-if 1:
+if 0:
+    plt.close()
+    plt.figure()
     # supplemental logfile plots.
     window_size = 128
     # extract a logfile plot.
     plot_path = '/home/moritz/infcuda/fft_pred_networks/logs/suppl/'
     logs = return_logs(plot_path, window_size, vtag='time_loss')
-    plt.plot(logs[5][0][0], logs[5][0][1], label='time_only')
-    plt.plot(logs[6][0][0], logs[6][0][1], label='mse_time')
-    plt.plot(logs[3][0][0], logs[3][0][1], label='mse_log_mse_dlambda')
-    plt.plot(logs[2][0][0], logs[2][0][1], label='freq_mse')
-    plt.plot(logs[8][0][0], logs[8][0][1], label='mse_log_mse')
-    plt.plot(logs[0][0][0], logs[0][0][1], label='log_mse_mse_time')
-    plt.plot(logs[7][0][0], logs[7][0][1], label='log_mse')
-    # plt.plot(logs[1][0][0], logs[4][0][1], label='mse')
+    plt.plot(logs[5][0][0], logs[5][0][1], label='t-mse')
+    plt.plot(logs[6][0][0], logs[6][0][1], label='t-mse, f-mse')
+    plt.plot(logs[3][0][0], logs[3][0][1], label='t-mse, f-mse, ln-f-mse-dt')
+    plt.plot(logs[2][0][0], logs[2][0][1], label='f-mse')
+    plt.plot(logs[8][0][0], logs[8][0][1], label='f-mse, ln-f-mse')
+    plt.plot(logs[0][0][0], logs[0][0][1], label='t-mse, f-mse, ln-f-mse')
+    plt.plot(logs[7][0][0], logs[7][0][1], label='ln-f-mse')
     plt.ylim([0.0, 0.05])
     plt.ylabel('time-domain mean squared error')
     plt.xlabel('weight-updates')
     plt.legend()
     # plt.show()
     plt.savefig('supplementary_convergence.pdf')
+    plt.close()
+
+
+# ws convergence plots.
+if 1:
+    plt.close()
+    plt.figure()
+    # supplemental logfile plots.
+    window_size = 128
+    # extract a logfile plot.
+    plot_path = '/home/moritz/infcuda/fft_pred_networks/logs/tf_1d_paper_ws/'
+    logs = return_logs(plot_path, window_size, vtag='time_loss')
+    plt.plot(logs[2][0][0][:100], logs[2][0][1][:100], label='ws_16')
+    plt.plot(logs[3][0][0][:100], logs[3][0][1][:100], label='ws_32')
+    # plt.plot(logs[6][0][0], logs[6][0][1], label='ws_48')
+    plt.plot(logs[4][0][0][:100], logs[4][0][1][:100], label='ws_64')
+    # plt.plot(logs[1][0][0], logs[1][0][1], label='ws_80')
+    plt.plot(logs[5][0][0][:100], logs[5][0][1][:100], label='ws_96')
+    plt.ylim([0.0, 0.02])
+    plt.ylabel('time-domain mean squared error')
+    plt.xlabel('weight-updates')
+    plt.legend()
+    # # plt.show()
+    plt.savefig('window_size_study.pdf')
     plt.close()
