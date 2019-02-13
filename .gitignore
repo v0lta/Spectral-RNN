@@ -11,6 +11,7 @@ logs_tf_fft_large_pa_64_ws_128/
 logs_tf_fft_test/
 music_exp/numpy/
 music_exp/raw/
+music_exp/networks/musicnet/
 human_motion_exp/data/
 human_motion_exp/experiments/
 q.log
