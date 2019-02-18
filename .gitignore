@@ -14,6 +14,7 @@ music_exp/raw/
 music_exp/networks/musicnet/
 human_motion_exp/data/
 human_motion_exp/experiments/
+power_experiments/power_pred_logs/
 q.log
 
 # Byte-compiled / optimized / DLL files
