@@ -13,7 +13,7 @@ import matplotlib.pyplot as plt
 # from scipy.fftpack import fft
 from tensorflow.contrib.rnn import LSTMStateTuple
 from IPython.core.debugger import Tracer
-from music_net_handler import MusicNet
+from music_net_handler2 import MusicNet
 sys.path.insert(0, "../")
 import custom_cells as cc
 import custom_optimizers as co
@@ -81,9 +81,8 @@ num_proj = int(window_size//2 + 1)  # the frequencies
 init_learning_rate = 0.001
 decay_rate = 0.96
 decay_steps = 10000
-iterations = 900000
-GPU = [2]
-layers = 3
+epochs = 10
+GPU = [0]
 
 print('Setting up the tensorflow graph.')
 train_graph = tf.Graph()
@@ -124,33 +123,12 @@ with train_graph.as_default():
                                                               window)
         fft_pred_samples = data_decoder_freq.shape[1].value
     if cell_type == 'cgRNN':
-
-        # todo add multi rnn cell.
-        if layers <= 1:
-            cell = cc.StiefelGatedRecurrentUnit(num_units, num_proj=num_proj,
-                                                complex_input=fft,
-                                                complex_output=fft)
-            cell = RnnInputWrapper(1.0, cell)
-            if use_residuals:
-                cell = ResidualWrapper(cell=cell)
-        else:
-            cells = []
-            for i in range(0, layers):
-                if i == layers-1:
-                    single_cell = cc.StiefelGatedRecurrentUnit(num_units,
-                                                               num_proj=num_proj,
-                                                               complex_input=fft,
-                                                               complex_output=fft)
-                else:
-                    single_cell = cc.StiefelGatedRecurrentUnit(num_units,
-                                                               complex_input=fft,
-                                                               complex_output=fft)
-                if use_residuals:
-                    single_cell = ResidualWrapper(cell=single_cell)
-                cells.append(single_cell)
-            cell = tf.nn.rnn_cell.MultiRNNCell(cells, state_is_tuple=True)
-            cell = RnnInputWrapper(1.0, cell)
-            # TODO: Test-Me!
+        cell = cc.StiefelGatedRecurrentUnit(num_units, num_proj=num_proj,
+                                            complex_input=fft,
+                                            complex_output=fft)
+        cell = RnnInputWrapper(1.0, cell)
+        if use_residuals:
+            cell = ResidualWrapper(cell=cell)
     else:
         assert fft is False, "GRUs do not process complex inputs."
         gru = rnn_cell.GRUCell(num_units)
@@ -273,7 +251,7 @@ print('parameters:', 'm', m, 'sampling_rate', sampling_rate, 'c', c,
       'sample_size', sample_size, 'window_size', window_size,
       'window_size', window_size, 'fft_stride', fft_stride,
       'learning_rate', init_learning_rate,
-      'learning_rate_decay', decay_rate, 'iterations', iterations,
+      'learning_rate_decay', decay_rate, 'epochs', epochs,
       'GPU', GPU, 'dropout', dropout,
       'parameter_total', total_parameters)
 
@@ -287,7 +265,7 @@ def lst_to_str(lst):
 
 time_str = time.strftime("%Y-%m-%d %H:%M:%S", time.gmtime())
 param_str = 'lr_' + str(init_learning_rate) + '_lrd_' + str(decay_rate) \
-            + '_lrdi_' + str(decay_steps) + '_it_' + str(iterations) \
+            + '_lrdi_' + str(decay_steps) + '_ep_' + str(epochs) \
             + '_bs_' + str(batch_size) + '_ws_' + str(window_size) \
             + '_ov_' + str(overlap) + '_sample_size_' + str(sample_size) \
             + '_fft_stride_' + str(fft_stride) + '_fs_' + str(sampling_rate) \
@@ -315,19 +293,20 @@ with tf.Session(graph=train_graph, config=config) as sess:
     init_op.run(session=sess)
 
     print('Training...')
-    for i in range(iterations):
-        if i % 100 == 0 and (i != 0 or len(square_error) == 0):
-            batch_time_music_test, batched_time_labels_test = \
-                musicNet.get_batch(musicNet.test_data, musicNet.test_ids,
-                                   batch_size)
-            feed_dict = {x: np.squeeze(batch_time_music_test, axis=1)}
-            L_np, test_summary_eval, global_step_eval = sess.run([loss, summary_sum,
-                                                                 global_step],
-                                                                 feed_dict=feed_dict)
-            square_error.append(L_np)
-            summary_writer.add_summary(test_summary_eval, global_step=global_step_eval)
+    for e in range(epoch):
+        for i, batch in enumerate(train_batches):
+            if i % 100 == 0 and (i != 0 or len(square_error) == 0):
+                batch_time_music_test, batched_time_labels_test = \
+                    musicNet.get_batch(musicNet.test_data, musicNet.test_ids,
+                                       batch_size)
+                feed_dict = {x: np.squeeze(batch_time_music_test, axis=1)}
+                L_np, test_summary_eval, global_step_eval = sess.run([loss, summary_sum,
+                                                                     global_step],
+                                                                     feed_dict=feed_dict)
+                square_error.append(L_np)
+                summary_writer.add_summary(test_summary_eval, global_step=global_step_eval)
 
-        # if i % 5000 == 0:
+            # if i % 5000 == 0:
         if i % 1000 == 0 and i > 0:
             # run trough the entire test set.
             yflat = np.array([])

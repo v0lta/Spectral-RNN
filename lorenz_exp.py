@@ -89,6 +89,7 @@ def run_experiment(spikes_instead_of_states, base_dir, dimensions, cell_type,
                 cell = cc.StiefelGatedRecurrentUnit(num_units, num_proj=num_proj,
                                                     complex_input=fft,
                                                     complex_output=fft,
+                                                    activation=cc.mod_relu,
                                                     stiefel=stiefel)
             else:
                 cell = cc.StiefelGatedRecurrentUnit(num_units, num_proj=num_proj,
@@ -146,7 +147,6 @@ def run_experiment(spikes_instead_of_states, base_dir, dimensions, cell_type,
                                                encoder_state[-1])
             cell.close()
             scope.reuse_variables()
-            debug_here()
             decoder_out, _ = tf.nn.dynamic_rnn(cell, decoder_in,
                                                initial_state=encoder_state,
                                                dtype=dtype)
@@ -158,11 +158,13 @@ def run_experiment(spikes_instead_of_states, base_dir, dimensions, cell_type,
                 # tf.summary.histogram('complex_abs', prd_loss)
                 # tf.summary.histogram('log_complex_abs', tf.log(prd_loss))
                 prd_loss = tf.reduce_mean(prd_loss)
-            if freq_loss == 'complex_square':
+                tf.summary.scalar('f_complex_abs', prd_loss)
+            if (freq_loss == 'complex_square') or (freq_loss == 'complex_square_time'):
                 diff = data_decoder_freq - decoder_out
                 prd_loss = tf.real(diff)*tf.real(diff) + tf.imag(diff)*tf.imag(diff)
-                tf.summary.histogram('complex_square', prd_loss)
+                # tf.summary.histogram('complex_square', prd_loss)
                 prd_loss = tf.reduce_mean(prd_loss)
+                tf.summary.scalar('f_complex_square', prd_loss)
             if (freq_loss == 'mse') or (freq_loss == 'mse_time'):
                 prd_loss = tf.losses.mean_squared_error(tf.real(data_decoder_freq),
                                                         tf.real(decoder_out)) \
@@ -290,9 +292,10 @@ def run_experiment(spikes_instead_of_states, base_dir, dimensions, cell_type,
             if (freq_loss == 'ad_time') or \
                (freq_loss == 'log_mse_time') or \
                (freq_loss == 'mse_time') or \
-               (freq_loss == 'log_mse_mse_time'):
+               (freq_loss == 'log_mse_mse_time') or \
+               (freq_loss == 'complex_square_time'):
                 print('using freq and time based loss.')
-                lambda_t = 1e-3
+                lambda_t = 1
                 loss = prd_loss*lambda_t + time_loss
                 tf.summary.scalar('lambda_t', lambda_t)
             elif (freq_loss is None):
@@ -356,7 +359,6 @@ def run_experiment(spikes_instead_of_states, base_dir, dimensions, cell_type,
         else:
             param_str += '_3d'
         print(param_str)
-        # debug_here()
         summary_writer = tf.summary.FileWriter(base_dir + time_str + param_str,
                                                graph=graph)
         # dump the parameters

@@ -4,25 +4,25 @@ from lorenz_exp import run_experiment
 
 
 spikes_instead_of_states = True
-base_dir = 'logs/testtest/'
+base_dir = 'logs/re_test_256/'
 if spikes_instead_of_states:
     dimensions = 1
 else:
     dimensions = 3
 cell_type = 'cgRNN'
-num_units = 768
+num_units = 250
 # num_units = 2048
 sample_prob = 1.0
-pred_samples = 512
+pred_samples = 256
 num_proj = dimensions
 learning_rate = 0.001
-iterations = 100000
-GPUs = [0]
+iterations = 15000
+GPUs = [2]
 batch_size = 250
 use_residuals = False
 decay_rate = 0.95
 decay_steps = 10000
-stiefel = False
+stiefel = True
 
 # data parameters
 tmax = 10.24
@@ -39,11 +39,11 @@ if fft:
     step_size = window_size - overlap
     fft_pred_samples = pred_samples // step_size + 1
     num_proj = int(window_size//2 + 1)*dimensions  # the frequencies
-    freq_loss = 'complex_abs'  # 'mse', 'mse_time', 'ad', 'ad_time', 'ad_norm', log_ad
+    freq_loss = 'complex_square_time'  # complex_square
 
     if (freq_loss == 'ad_time') or (freq_loss == 'log_mse_time') \
        or (freq_loss == 'log_mse_mse_time') or (freq_loss == 'mse_log_mse_dlambda') \
-       or (freq_loss == 'mse_time') or (freq_loss is None):
+       or (freq_loss == 'mse_time') or (freq_loss == 'complex_square_time'):
         epsilon = 1e-2
         # epsilon = 1e-3
         print('epsilon', epsilon)
@@ -61,7 +61,7 @@ else:
 
 # fft = False
 # num_proj = dimensions
-if 0:
+if 1:
     run_experiment(spikes_instead_of_states, base_dir, dimensions, cell_type,
                    num_units, sample_prob, pred_samples, num_proj, learning_rate,
                    decay_rate, decay_steps, iterations, GPUs, batch_size, tmax,
@@ -104,7 +104,7 @@ if 0:
                        stiefel=stiefel)
 
 
-if 1:
+if 0:
     # TODO: Ajust for extra window weights.
 
     parameters = 1000000
