@@ -4,7 +4,7 @@ from lorenz_exp import run_experiment
 
 
 spikes_instead_of_states = True
-base_dir = 'logs/re_test_256/'
+base_dir = 'logs/re_test_250/'
 if spikes_instead_of_states:
     dimensions = 1
 else:
@@ -17,7 +17,7 @@ pred_samples = 256
 num_proj = dimensions
 learning_rate = 0.001
 iterations = 15000
-GPUs = [2]
+GPUs = [4]
 batch_size = 250
 use_residuals = False
 decay_rate = 0.95
@@ -39,7 +39,7 @@ if fft:
     step_size = window_size - overlap
     fft_pred_samples = pred_samples // step_size + 1
     num_proj = int(window_size//2 + 1)*dimensions  # the frequencies
-    freq_loss = 'complex_square_time'  # complex_square
+    freq_loss = 'complex_abs_time'  # complex_square
 
     if (freq_loss == 'ad_time') or (freq_loss == 'log_mse_time') \
        or (freq_loss == 'log_mse_mse_time') or (freq_loss == 'mse_log_mse_dlambda') \
@@ -61,7 +61,7 @@ else:
 
 # fft = False
 # num_proj = dimensions
-if 1:
+if 0:
     run_experiment(spikes_instead_of_states, base_dir, dimensions, cell_type,
                    num_units, sample_prob, pred_samples, num_proj, learning_rate,
                    decay_rate, decay_steps, iterations, GPUs, batch_size, tmax,
@@ -104,7 +104,7 @@ if 0:
                        stiefel=stiefel)
 
 
-if 0:
+if 1:
     # TODO: Ajust for extra window weights.
 
     parameters = 1000000
@@ -120,11 +120,11 @@ if 0:
 
         return x1, x2
 
-    for length_factor in range(1, 20):
+    for length_factor in range(1, 7):
         tmp_fft = True
         tmp_pred_samples = pred_samples
         tmp_tmax = tmax
-        tmp_window_size = 6*length_factor
+        tmp_window_size = 40*length_factor
         overlap = int(tmp_window_size*0.75)
         tmp_step_size = tmp_window_size - overlap
         tmp_num_proj = int(tmp_window_size//2 + 1)*dimensions

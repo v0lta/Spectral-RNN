@@ -17,6 +17,7 @@ class PowerDataHandler(object):
     power load data from:
     https://transparency.entsoe.eu/
     '''
+
     def __init__(self, path, context=15):
         '''
         Creates a power data handler.
@@ -83,11 +84,15 @@ class PowerDataHandler(object):
 
         self.mean, self.std = self.compute_mean_and_std()
 
-    def compute_mean_and_std(self):
+    def get_train_complete(self):
         complete_data = []
         for key_pair in self.training_keys:
             current_year = self.files[key_pair[0]][key_pair[1]]
             complete_data.append(current_year)
+        return complete_data
+
+    def compute_mean_and_std(self):
+        complete_data = self.get_train_complete()
         gt_mean = np.mean(np.concatenate(complete_data, 0)[:, :, 1].flatten())
         gt_std = np.sqrt(np.var(np.concatenate(complete_data, 0)[:, :, 1].flatten()))
         return gt_mean, gt_std
@@ -112,6 +117,35 @@ class PowerDataHandler(object):
 
 if __name__ == "__main__":
     import matplotlib.pyplot as plt
-    path = './power_data/by_country_by_company/'
+    path = './power_data/15_by_country_by_company/'
     power_handler = PowerDataHandler(path)
     train_set = power_handler.get_training_set()
+
+    # train_complete = power_handler.get_train_complete()
+    # year_complete = train_complete[0][:, :, 1].flatten()
+
+    # plt.plot(year_complete)
+    # # plot autocorrelation:
+
+    key_pair = power_handler.training_keys[0]
+    print(key_pair)
+    year_complete = power_handler.files[key_pair[0]][key_pair[1]]
+    year_complete = year_complete[:, :, 1].flatten()
+    days = 15
+
+    l, c, line, b = plt.acorr(year_complete[(96*7):(96*7)*12].astype(np.float32),
+                              maxlags=96*days)
+    plt.show()
+
+    sample_distance = (1.0/(24*60/15))
+    x1 = np.arange(0, days, sample_distance)
+    x = np.concatenate([-np.flip(x1, 0), [0], x1])
+    plt.plot(x, c)
+    import matplotlib2tikz as tikz
+    tikz.save('power_autocorr.tex')
+    plt.cla()
+    plt.clf()
+
+    x = np.arange(0, 7, sample_distance)
+    plt.plot(x, year_complete[(96*7):(96*7)*2])
+    tikz.save('power_tennet_janw2.tex')

@@ -35,27 +35,29 @@ def compute_parameter_total(trainable_variables):
 
 
 context_days = 15
+
 samples_per_day = 96
 
-base_dir = 'power_pred_logs_test/'
-cell_type = 'cgRNN'
-num_units = 300
+base_dir = 'power_pred_logs_disc1/'
+cell_type = 'gru'
+num_units = 222
 sample_prob = 1.0
-pred_samples = samples_per_day
+pred_samples = int(samples_per_day*1.5)
+discarded_samples = int(samples_per_day*0.5)
 init_learning_rate = 0.001
-decay_rate = 0.9
-decay_steps = 9779
-epochs = 12
-GPUs = [6]
-batch_size = 25
+decay_rate = 0.95
+decay_steps = 95*4
+epochs = 80
+GPUs = [5]
+batch_size = 100
 
 window_function = 'hann'
 window_size = samples_per_day
 overlap = int(window_size*0.75)
 step_size = window_size - overlap
 fft_pred_samples = pred_samples // step_size + 1
-freq_loss = 'complex_abs_time'
-use_residuals = False
+freq_loss = None
+use_residuals = True
 fft = False
 
 if fft:
@@ -348,11 +350,12 @@ with graph.as_default():
     saver = tf.train.Saver()
 
 print(total_parameters)
-
+# ipdb.set_trace()
 time_str = time.strftime("%Y-%m-%d %H:%M:%S", time.gmtime())
 param_str = '_' + cell.to_string() + '_fft_' + str(fft) + \
     '_bs_' + str(batch_size) + \
     '_ps_' + str(pred_samples) + \
+    '_ds_' + str(discarded_samples) + \
     '_lr_' + str(init_learning_rate) + \
     '_dr_' + str(decay_rate) + \
     '_ds_' + str(decay_steps) + \
@@ -370,6 +373,7 @@ if fft:
     param_str += '_eps_' + str(epsilon)
 
 print(param_str)
+# ipdb.set_trace()
 summary_writer = tf.summary.FileWriter(base_dir + time_str + param_str,
                                        graph=graph)
 # dump the parameters
@@ -422,17 +426,17 @@ with tf.Session(graph=graph, config=config) as sess:
                          feed_dict=feed_dict)
             stop = time.time()
             if it % 5 == 0:
-                print(it, 'loss', np_loss, 'time [s]', stop-start,
-                      'epoch', e, 'of', epochs)
+                print('it: %5d, loss: %5.2f, time: %1.2f [s], epoch: %3d of %3d'
+                      % (it, np_loss, stop-start, e, epochs))
 
             summary_writer.add_summary(summary_to_file, global_step=np_global_step)
 
             if it % 100 == 0:
                 plt.figure()
-                plt.plot(decoder_out_np[0, :, 0])
-                plt.plot(data_decoder_np[0, :, 0])
-                plt.plot(np.abs(decoder_out_np[0, :, 0]
-                                - data_decoder_np[0, :, 0]))
+                plt.plot(decoder_out_np[0, discarded_samples:, 0])
+                plt.plot(data_decoder_np[0, discarded_samples:, 0])
+                plt.plot(np.abs(decoder_out_np[0, discarded_samples:, 0]
+                                - data_decoder_np[0, discarded_samples:, 0]))
                 plt.title("Prediction vs. ground truth")
                 buf = io.BytesIO()
                 plt.savefig(buf, format='png')
@@ -459,7 +463,6 @@ with tf.Session(graph=graph, config=config) as sess:
 
         test_batch_lst = organize_into_batches(test_data)
         for test_batch in test_batch_lst:
-            # ipdb.set_trace()
             gt = np.reshape(test_batch[:batch_size, :, :, 1],
                             [batch_size, context_days*samples_per_day, 1])
             official_pred = np.reshape(test_batch[:batch_size, :, :, 0],
@@ -474,13 +477,17 @@ with tf.Session(graph=graph, config=config) as sess:
             net_pred = decoder_out_np[0, :, 0]*power_handler.std + power_handler.mean
             official_pred = official_pred[0, -pred_samples:, 0]
             gt = gt[0, -pred_samples:, 0]
-            mse_lst_net.append(np.mean((gt - net_pred)**2))
-            mse_lst_off.append(np.mean((gt - official_pred)**2))
+            mse_lst_net.append(np.mean((gt[discarded_samples:]
+                                        - net_pred[discarded_samples:])**2))
+            mse_lst_off.append(np.mean((gt[discarded_samples:]
+                                        - official_pred[discarded_samples:])**2))
             print('.', end='')
         mse_net = np.mean(np.array(mse_lst_net))
         mse_off = np.mean(np.array(mse_lst_off))
         print()
-        print('epoch', e, 'done', 'test mse_net', mse_net, ' test mse_off', mse_off)
+        print('epoch: %5d,  test mse_net: %5.2f, test mse_off: %5.2f' %
+              (e, mse_net, mse_off))
+        print('baseline difference: %5.2f' % (mse_off-mse_net))
 
         # add to tensorboard
         mse_net_summary = tf.Summary.Value(tag='mse_net_test', simple_value=mse_net)
@@ -489,3 +496,7 @@ with tf.Session(graph=graph, config=config) as sess:
         mse_off_summary = tf.Summary(value=[mse_off_summary])
         summary_writer.add_summary(mse_net_summary, global_step=np_global_step)
         summary_writer.add_summary(mse_off_summary, global_step=np_global_step)
+        mse_diff_summary = tf.Summary.Value(tag='mse_net_off_diff',
+                                            simple_value=mse_off-mse_net)
+        mse_diff_summary = tf.Summary(value=[mse_diff_summary])
+        summary_writer.add_summary(mse_diff_summary, global_step=np_global_step)

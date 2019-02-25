@@ -152,7 +152,7 @@ def run_experiment(spikes_instead_of_states, base_dir, dimensions, cell_type,
                                                dtype=dtype)
 
         if fft:
-            if freq_loss == 'complex_abs':
+            if freq_loss == 'complex_abs' or (freq_loss == 'complex_abs_time'):
                 diff = data_decoder_freq - decoder_out
                 prd_loss = tf.abs(tf.real(diff)) + tf.abs(tf.imag(diff))
                 # tf.summary.histogram('complex_abs', prd_loss)
@@ -293,7 +293,8 @@ def run_experiment(spikes_instead_of_states, base_dir, dimensions, cell_type,
                (freq_loss == 'log_mse_time') or \
                (freq_loss == 'mse_time') or \
                (freq_loss == 'log_mse_mse_time') or \
-               (freq_loss == 'complex_square_time'):
+               (freq_loss == 'complex_square_time') or \
+               (freq_loss == 'complex_abs_time'):
                 print('using freq and time based loss.')
                 lambda_t = 1
                 loss = prd_loss*lambda_t + time_loss

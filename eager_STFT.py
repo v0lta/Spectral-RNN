@@ -259,7 +259,7 @@ if __name__ == "__main__":
     # plt.plot(spikes.numpy()[0, :, :])
     # plt.savefig('spikes.pdf')
     # plt.show()
-    if 1:
+    if 0:
         tmp_last_spikes = tf.transpose(spikes, [0, 2, 1])
         result_tf, result_np = stft(tmp_last_spikes, window, window_size, overlap,
                                     debug=True)
@@ -277,7 +277,7 @@ if __name__ == "__main__":
         debug_here()
 
         error = np.linalg.norm((np.transpose(result_tf.numpy(), [0, 1, 3, 2])
-                               - sci_res).flatten())
+                                - sci_res).flatten())
 
         print('machine precision:', np.finfo(result_tf.numpy().dtype).eps)
         print('error_tf_scipy', error)
@@ -330,7 +330,7 @@ if __name__ == "__main__":
                                             noverlap=overlap,
                                             axis=-1)
         error = np.linalg.norm((np.transpose(result_tf.numpy(), [0, 1, 3, 2])
-                               - sci_res).flatten())
+                                - sci_res).flatten())
         print('machine precision:', np.finfo(result_tf.numpy().dtype).eps)
         print('error_tf_scipy', error)
         error2 = np.linalg.norm((np.transpose(result_np, [0, 1, 3, 2])
@@ -366,3 +366,23 @@ if __name__ == "__main__":
                 scaled.numpy()[0, 1, :],
                 scaled.numpy()[0, 2, :])
         plt.show()
+
+    if 1:
+        # import matplotlib2tikz as tikz
+
+        # autocorrelation analysis.
+        plt.plot(spikes.numpy()[0, :, :])
+        plt.show()
+        # tikz.save('spikes.tkz')
+
+        l, c, line, b = plt.acorr(spikes.numpy()[0, :, 0], maxlags=256)
+        plt.clf()
+        plt.close()
+
+        x = np.concatenate([-np.flip(np.arange(int(len(c)/2)), 0), [1],
+                            np.arange(int(len(c)/2))], 0)
+        plt.plot(x, c)
+        plt.xlabel('shift')
+        plt.ylabel('autocorrelation')
+        plt.show()
+        # tikz.save('spikes_autocorr.tex')
