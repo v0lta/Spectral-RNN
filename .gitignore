@@ -16,6 +16,7 @@ human_motion_exp/data/
 human_motion_exp/experiments/
 power_experiments/power_pred_logs/
 power_experiments/power_data/
+power_experiments/log/
 q.log
 
 # Byte-compiled / optimized / DLL files
