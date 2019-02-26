@@ -6,7 +6,7 @@ import tensorflow as tf
 import numpy as np
 import matplotlib.pyplot as plt
 import ipdb
-from power_data_handler import PowerDataHandler
+from power_data_handler import PowerDataHandler, MergePowerHandler
 sys.path.insert(0, "../")
 import custom_cells as cc
 import custom_optimizers as co
@@ -34,31 +34,64 @@ def compute_parameter_total(trainable_variables):
     return total_parameters
 
 
-context_days = 15
-
-samples_per_day = 96
-
-base_dir = 'power_pred_logs_disc1/'
+ten_day_prediction = True
+if ten_day_prediction:
+    context_days = 30
+else:
+    context_days = 15
+base_dir = 'log/power_pred_logs_1h/'
 cell_type = 'gru'
 num_units = 222
 sample_prob = 1.0
-pred_samples = int(samples_per_day*1.5)
-discarded_samples = int(samples_per_day*0.5)
-init_learning_rate = 0.001
+init_learning_rate = 0.004
 decay_rate = 0.95
-decay_steps = 95*4
-epochs = 80
-GPUs = [5]
+decay_steps = 95
+epochs = 120
+GPUs = [4]
 batch_size = 100
-
 window_function = 'hann'
+freq_loss = None
+use_residuals = True
+fft = False
+
+fifteen_minute_sampling = False
+if fifteen_minute_sampling is True:
+    samples_per_day = 96
+    path = './power_data/15m_by_country_by_company/'
+    power_handler = PowerDataHandler(path, context_days)
+else:
+    samples_per_day = 24
+    path = './power_data/15m_by_country_by_company/'
+    power_handler_min15 = PowerDataHandler(path, context_days, samples_per_day=96,
+                                           test_keys={})
+    path = './power_data/30m_by_country_by_company/'
+    power_handler_min30 = PowerDataHandler(path, context_days, samples_per_day=48,
+                                           test_keys={})
+    path = './power_data/1h_by_country_by_company/'
+    power_handler_1h = PowerDataHandler(path, context_days, samples_per_day=24,
+                                        test_keys={})
+    testing_keys = [('germany_TenneT_GER', '2015'),
+                    ('germany_Amprion', '2018'),
+                    ('austria_CTA', '2017'),
+                    ('belgium_CTA', '2016'),
+                    ('UK_nationalGrid', '2015')]
+    power_handler = MergePowerHandler(context_days, [power_handler_1h,
+                                                     power_handler_min30,
+                                                     power_handler_min15],
+                                      testing_keys=testing_keys)
+
+
+if ten_day_prediction:
+    pred_samples = int(samples_per_day*10)
+    discarded_samples = 0
+else:
+    pred_samples = int(samples_per_day*1.5)
+    discarded_samples = int(samples_per_day*0.5)
 window_size = samples_per_day
 overlap = int(window_size*0.75)
 step_size = window_size - overlap
 fft_pred_samples = pred_samples // step_size + 1
-freq_loss = None
-use_residuals = True
-fft = False
+input_samples = context_days*samples_per_day
 
 if fft:
     num_proj = int(window_size//2 + 1)
@@ -72,11 +105,6 @@ if fft:
 else:
     epsilon = None
 
-input_samples = context_days*samples_per_day
-
-
-path = './power_data/by_country_by_company/'
-power_handler = PowerDataHandler(path, context_days)
 
 graph = tf.Graph()
 with graph.as_default():
@@ -353,6 +381,7 @@ print(total_parameters)
 # ipdb.set_trace()
 time_str = time.strftime("%Y-%m-%d %H:%M:%S", time.gmtime())
 param_str = '_' + cell.to_string() + '_fft_' + str(fft) + \
+    '_fm_' + str(fifteen_minute_sampling) + \
     '_bs_' + str(batch_size) + \
     '_ps_' + str(pred_samples) + \
     '_ds_' + str(discarded_samples) + \
@@ -426,7 +455,7 @@ with tf.Session(graph=graph, config=config) as sess:
                          feed_dict=feed_dict)
             stop = time.time()
             if it % 5 == 0:
-                print('it: %5d, loss: %5.2f, time: %1.2f [s], epoch: %3d of %3d'
+                print('it: %5d, loss: %5.6f, time: %1.2f [s], epoch: %3d of %3d'
                       % (it, np_loss, stop-start, e, epochs))
 
             summary_writer.add_summary(summary_to_file, global_step=np_global_step)

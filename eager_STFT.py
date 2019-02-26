@@ -11,6 +11,27 @@ debug_here = Tracer()
 def generate_data(tmax=20, delta_t=0.01, sigma=10.0,
                   beta=8.0/3.0, rho=28.0, batch_size=100,
                   rnd=True):
+    """
+    Generate synthetic training data using the Lorenz system
+    of equations (https://en.wikipedia.org/wiki/Lorenz_system):
+    dxdt = sigma*(y - x)
+    dydt = x * (rho - z) - y
+    dzdt = x*y - beta*z
+    The system is simulated using a forward euler scheme
+    (https://en.wikipedia.org/wiki/Euler_method).
+
+    Params:
+        tmax: The simulation time.
+        delta_t: The step size.
+        sigma: The first Lorenz parameter.
+        beta: The second Lorenz parameter.
+        rho: The thirs Lorenz parameter.
+        batch_size: The first batch dimension.
+        rnd: If true the lorenz seed is random.
+    Returns:
+        spikes: A Tensor of shape [batch_size, time, 1],
+        states: A Tensor of shape [batch_size, time, 3].
+    """
     with tf.variable_scope('lorenz_generator'):
         # multi-dimensional data.
         def lorenz(x, t):
