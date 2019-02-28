@@ -13,7 +13,7 @@ iterations = 10
 overlap = int(window_size*0.75)
 
 
-def gaussian_window(window_size, epsilon):
+def gaussian_window(window_size):
     '''
     Implementation of a gaussian window function with
     parameter sigma.
@@ -25,6 +25,7 @@ def gaussian_window(window_size, epsilon):
         init = tf.constant(0.7)
         sigma = tf.get_variable('sigma', initializer=init,
                                 trainable=True)
+        tf.summary.scalar('window_sigma', sigma)
         # positive
         sigma = sigma*sigma
         # positive in [0.01, 0.501] this prevents degneration
@@ -37,7 +38,7 @@ def gaussian_window(window_size, epsilon):
         w = (n - (N - 1.0)/2.0)/(sigma * (N - 1.0)/2.0)
         w = -0.5*w*w
         w = tf.math.exp(w)
-        return w + epsilon
+        return w
 
 
 def kaiser_window(alpha, window_size):
@@ -79,14 +80,14 @@ if __name__ == "__main__":
         # epsilon = tf.get_variable('epsilon', shape=[1], dtype=tf.float32)
         # epsilon = tf.nn.sigmoid(epsilon)
         epsilon = tf.constant(0.001)
-        window = gaussian_window(window_size, epsilon)
+        window = gaussian_window(window_size)
         last_spikes = tf.transpose(spikes, [0, 2, 1])
         result_tf = eagerSTFT.stft(last_spikes, window, window_size, overlap)
         rec_tf = eagerSTFT.istft(result_tf,
                                  window,
                                  nperseg=window_size,
                                  noverlap=overlap,
-                                 epsilon=None)
+                                 epsilon=epsilon)
 
         loss = tf.losses.mean_squared_error(last_spikes, rec_tf[:, :, :1025])
         optimizer = tf.train.GradientDescentOptimizer(learning_rate=learning_rate)

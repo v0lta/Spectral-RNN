@@ -4,6 +4,7 @@ import time
 import pickle
 import tensorflow as tf
 import numpy as np
+import scipy.signal as scisig
 import matplotlib.pyplot as plt
 import ipdb
 from power_data_handler import PowerDataHandler, MergePowerHandler
@@ -16,6 +17,7 @@ from RNN_wrapper import LinearProjWrapper
 import eager_STFT as eagerSTFT
 import tensorflow.nn.rnn_cell as rnn_cell
 from tensorflow.contrib.rnn import LSTMStateTuple
+from window_learning import gaussian_window
 
 
 def compute_parameter_total(trainable_variables):
@@ -34,28 +36,36 @@ def compute_parameter_total(trainable_variables):
     return total_parameters
 
 
-ten_day_prediction = False
+ten_day_prediction = True
 if ten_day_prediction:
     context_days = 30
 else:
     context_days = 15
-base_dir = 'log/power_pred_logs_1h_learnwin/'
-cell_type = 'GRU'
-num_units = 106
+base_dir = 'log/power_pred_logs_1h_10d_paper/'
+cell_type = 'cgRNN'
+num_units = 128
 sample_prob = 1.0
 init_learning_rate = 0.004
 decay_rate = 0.95
-decay_steps = 455
+
+
 epochs = 80
-GPUs = [0]
+GPUs = [7]
 batch_size = 100
-window_function = 'hann'
+# window_function = 'hann'
+window_function = 'learned_gaussian'
 freq_loss = None
 use_residuals = True
-fft = False
-stiefel = False
+fft = True
+stiefel = True
+
 
 fifteen_minute_sampling = False
+if fifteen_minute_sampling is True:
+    decay_steps = 390
+else:
+    decay_steps = 455
+
 if fifteen_minute_sampling is True:
     samples_per_day = 96
     path = './power_data/15m_by_country_by_company/'
@@ -83,12 +93,14 @@ else:
 
 
 if ten_day_prediction:
+    window_size = int(samples_per_day*4)
     pred_samples = int(samples_per_day*10)
     discarded_samples = 0
 else:
     pred_samples = int(samples_per_day*1.5)
     discarded_samples = int(samples_per_day*0.5)
-window_size = int(samples_per_day*1.5)
+    window_size = int(samples_per_day)
+
 overlap = int(window_size*0.75)
 step_size = window_size - overlap
 fft_pred_samples = pred_samples // step_size + 1
@@ -123,7 +135,12 @@ with graph.as_default():
                                                     axis=1)
     if fft:
         dtype = tf.complex64
-        window = 'hann'
+
+        if window_function == 'learned_gaussian':
+            window = gaussian_window(window_size)
+        else:
+            window = scisig.get_window(window_function, window_size)
+            window = tf.constant(window, tf.float32)
 
         def transpose_stft_squeeze(in_data, window):
             # debug_here()
@@ -228,78 +245,6 @@ with graph.as_default():
             # tf.summary.histogram('complex_square', prd_loss)
             prd_loss = tf.reduce_mean(prd_loss)
             tf.summary.scalar('f_complex_square', prd_loss)
-        if (freq_loss == 'mse') or (freq_loss == 'mse_time'):
-            prd_loss = tf.losses.mean_squared_error(tf.real(data_decoder_freq),
-                                                    tf.real(decoder_out)) \
-                + tf.losses.mean_squared_error(tf.imag(data_decoder_freq),
-                                               tf.imag(decoder_out))
-            tf.summary.scalar('f_mse', prd_loss)
-        if (freq_loss == 'mse_log_norm'):
-            prd_loss = tf.losses.mean_squared_error(tf.real(data_decoder_freq),
-                                                    tf.real(decoder_out)) \
-                + tf.losses.mean_squared_error(tf.imag(data_decoder_freq),
-                                               tf.imag(decoder_out))
-            lambda_scale = 1e-2
-            norm_term = tf.linalg.norm(decoder_out, ord=1)
-            tf.summary.scalar('norm_term', norm_term)
-            tf.summary.scalar('f_mse', prd_loss)
-            tf.summary.scalar('lambda', lambda_scale)
-            prd_loss = prd_loss + lambda_scale*norm_term
-        elif (freq_loss == 'ad') or (freq_loss == 'ad_time'):
-            prd_loss = tf.losses.absolute_difference(tf.real(data_decoder_freq),
-                                                     tf.real(decoder_out)) \
-                + tf.losses.absolute_difference(tf.imag(data_decoder_freq),
-                                                tf.imag(decoder_out))
-            tf.summary.scalar('ad', prd_loss)
-        elif freq_loss == 'norm_ad':
-            prd_loss = tf.losses.absolute_difference(tf.real(data_decoder_freq),
-                                                     tf.real(decoder_out)) \
-                + tf.losses.absolute_difference(tf.imag(data_decoder_freq),
-                                                tf.imag(decoder_out)) \
-                + tf.linalg.norm(decoder_out, ord=1)
-            tf.summary.scalar('norm_ad', prd_loss)
-        elif freq_loss == 'log_ad':
-            def log_epsilon(fourier_coeff):
-                epsilon = 1e-7
-                return tf.log(tf.to_float(fourier_coeff) + epsilon)
-
-            prd_loss = log_epsilon(tf.losses.absolute_difference(
-                tf.real(data_decoder_freq), tf.real(decoder_out))) \
-                + log_epsilon(tf.losses.absolute_difference(
-                    tf.imag(data_decoder_freq), tf.imag(decoder_out)))
-            tf.summary.scalar('log_ad', prd_loss)
-        elif (freq_loss == 'log_mse') or (freq_loss == 'log_mse_time'):
-            # avoid taking a loss of zero using an epsilon.
-            def log_epsilon(fourier_coeff):
-                epsilon = 1e-7
-                return tf.log(tf.to_float(fourier_coeff) + epsilon)
-
-            prd_loss = tf.reduce_mean(log_epsilon(tf.math.squared_difference(
-                tf.real(data_decoder_freq),
-                tf.real(decoder_out)))) \
-                + tf.reduce_mean(log_epsilon(tf.math.squared_difference(
-                    tf.imag(data_decoder_freq),
-                    tf.imag(decoder_out))))
-            tf.summary.scalar('log_mse', prd_loss)
-        elif (freq_loss == 'log_mse_mse') or (freq_loss == 'log_mse_mse_time') or \
-             (freq_loss == 'mse_log_mse_dlambda'):
-            def log_epsilon(fourier_coeff):
-                epsilon = 1e-7
-                return tf.log(tf.to_float(fourier_coeff) + epsilon)
-
-            ln_f_mse = tf.reduce_mean(log_epsilon(tf.math.squared_difference(
-                tf.real(data_decoder_freq),
-                tf.real(decoder_out)))) \
-                + tf.reduce_mean(log_epsilon(tf.math.squared_difference(
-                    tf.imag(data_decoder_freq),
-                    tf.imag(decoder_out))))
-            tf.summary.scalar('ln-f-mse', ln_f_mse)
-            f_mse = tf.losses.mean_squared_error(tf.real(data_decoder_freq),
-                                                 tf.real(decoder_out)) \
-                + tf.losses.mean_squared_error(tf.imag(data_decoder_freq),
-                                               tf.imag(decoder_out))
-            tf.summary.scalar('f_mse', f_mse)
-            prd_loss = f_mse
 
         def expand_dims_and_transpose(input_tensor):
             output = tf.expand_dims(input_tensor, -1)
