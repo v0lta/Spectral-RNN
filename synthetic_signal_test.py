@@ -9,19 +9,19 @@ if spikes_instead_of_states:
     dimensions = 1
 else:
     dimensions = 3
-cell_type = 'cgRNN'
-num_units = 250
+cell_type = 'gru'
+num_units = 156
 # num_units = 2048
 sample_prob = 1.0
-pred_samples = 256
+pred_samples = 128
 num_proj = dimensions
 learning_rate = 0.001
 iterations = 15000
-GPUs = [4]
+GPUs = [3]
 batch_size = 250
-use_residuals = False
+use_residuals = True
 decay_rate = 0.95
-decay_steps = 10000
+decay_steps = 5000
 stiefel = True
 
 # data parameters
@@ -33,8 +33,8 @@ steps = int(tmax/delta_t)+1
 # fft parameters
 fft = True
 if fft:
-    window_function = 'hann'
-    window_size = 32
+    window = 'hann'
+    window_size = 96
     overlap = int(window_size*0.75)
     step_size = window_size - overlap
     fft_pred_samples = pred_samples // step_size + 1
@@ -43,14 +43,15 @@ if fft:
 
     if (freq_loss == 'ad_time') or (freq_loss == 'log_mse_time') \
        or (freq_loss == 'log_mse_mse_time') or (freq_loss == 'mse_log_mse_dlambda') \
-       or (freq_loss == 'mse_time') or (freq_loss == 'complex_square_time'):
+       or (freq_loss == 'mse_time') or (freq_loss == 'complex_square_time') \
+       or (freq_loss == 'complex_abs_time'):
         epsilon = 1e-2
         # epsilon = 1e-3
         print('epsilon', epsilon)
     else:
         epsilon = None
 else:
-    window_function = None
+    window = None
     window_size = None
     overlap = None
     step_size = None
@@ -61,11 +62,11 @@ else:
 
 # fft = False
 # num_proj = dimensions
-if 0:
+if 1:
     run_experiment(spikes_instead_of_states, base_dir, dimensions, cell_type,
                    num_units, sample_prob, pred_samples, num_proj, learning_rate,
                    decay_rate, decay_steps, iterations, GPUs, batch_size, tmax,
-                   delta_t, steps, fft, window_function, window_size, overlap,
+                   delta_t, steps, fft, window, window_size, overlap,
                    step_size, fft_pred_samples, freq_loss, use_residuals,
                    epsilon=epsilon, stiefel=stiefel)
 
@@ -80,7 +81,7 @@ if 0:
                        tmp_num_units, sample_prob, tmp_pred_samples, num_proj,
                        learning_rate, decay_rate, decay_steps,
                        iterations, GPUs, batch_size, tmp_tmax, delta_t,
-                       tmp_steps, tmp_fft, window_function, window_size, overlap,
+                       tmp_steps, tmp_fft, window, window_size, overlap,
                        step_size, fft_pred_samples, freq_loss, use_residuals, epsilon,
                        stiefel=stiefel)
 
@@ -99,7 +100,7 @@ if 0:
                        tmp_num_units, sample_prob, tmp_pred_samples, num_proj,
                        learning_rate, decay_rate, decay_steps,
                        iterations, GPUs, batch_size, tmp_tmax, delta_t,
-                       tmp_steps, tmp_fft, window_function, window_size, overlap,
+                       tmp_steps, tmp_fft, window, window_size, overlap,
                        step_size, fft_pred_samples, freq_loss, use_residuals, epsilon,
                        stiefel=stiefel)
 
@@ -137,6 +138,6 @@ if 1:
                        tmp_num_units, sample_prob, tmp_pred_samples, tmp_num_proj,
                        learning_rate, decay_rate, decay_steps,
                        iterations, GPUs, batch_size, tmp_tmax, delta_t,
-                       tmp_steps, tmp_fft, window_function, tmp_window_size, overlap,
+                       tmp_steps, tmp_fft, window, tmp_window_size, overlap,
                        tmp_step_size, fft_pred_samples, freq_loss, use_residuals, epsilon,
                        stiefel=stiefel)

@@ -24,7 +24,6 @@ def compute_parameter_total(trainable_variables):
     for variable in trainable_variables:
         # shape is an array of tf.Dimension
         shape = variable.get_shape()
-        # print('var_name', variable.name.split('/')[-1], 'shape', shape, 'dim', len(shape))
         variable_parameters = 1
         for dim in shape:
             # print(dim)
@@ -57,11 +56,12 @@ def run_experiment(spikes_instead_of_states, base_dir, dimensions, cell_type,
         print('data_nd_shape', data_nd.shape)
         dtype = tf.float32
         data_encoder_time, data_decoder_time = tf.split(data_nd, [steps-pred_samples,
-                                                        pred_samples],
+                                                                  pred_samples],
                                                         axis=1)
         if fft:
             dtype = tf.complex64
-            window = 'hann'
+            window = scisig.get_window(window_function, window_size)
+            window = tf.constant(window, dtype=tf.float32)
 
             def transpose_stft_squeeze(in_data, window):
                 # debug_here()
@@ -106,21 +106,18 @@ def run_experiment(spikes_instead_of_states, base_dir, dimensions, cell_type,
                                       real=not fft, num_proj=num_proj,
                                       complex_input=fft)
                 cell = RnnInputWrapper(1.0, uRNN)
-                if use_residuals:
-                    cell = ResidualWrapper(cell=cell)
             else:
                 oRNN = cc.UnitaryCell(num_units, activation=cc.relu,
                                       real=True, num_proj=num_proj)
                 cell = RnnInputWrapper(1.0, oRNN)
-                if use_residuals:
-                    cell = ResidualWrapper(cell=cell)
         else:
             assert fft is False, "GRUs do not process complex inputs."
             gru = rnn_cell.GRUCell(num_units)
-            cell = LinearProjWrapper(num_proj, cell=gru, sample_prob=sample_prob)
+            cell = LinearProjWrapper(
+                num_proj, cell=gru, sample_prob=sample_prob)
             cell = RnnInputWrapper(1.0, cell)
-            if use_residuals:
-                cell = ResidualWrapper(cell=cell)
+        if use_residuals:
+            cell = ResidualWrapper(cell=cell)
 
         if fft:
             encoder_in = data_encoder_freq[:, :-1, :]
@@ -142,7 +139,8 @@ def run_experiment(spikes_instead_of_states, base_dir, dimensions, cell_type,
                                                encoder_state[-1])
             else:
                 freqs = data_encoder_freq.shape[-1].value
-                decoder_in = tf.zeros([batch_size, fft_pred_samples, freqs], dtype=dtype)
+                decoder_in = tf.zeros(
+                    [batch_size, fft_pred_samples, freqs], dtype=dtype)
                 encoder_state = LSTMStateTuple(data_encoder_freq[:, -1, :],
                                                encoder_state[-1])
             cell.close()
@@ -161,95 +159,11 @@ def run_experiment(spikes_instead_of_states, base_dir, dimensions, cell_type,
                 tf.summary.scalar('f_complex_abs', prd_loss)
             if (freq_loss == 'complex_square') or (freq_loss == 'complex_square_time'):
                 diff = data_decoder_freq - decoder_out
-                prd_loss = tf.real(diff)*tf.real(diff) + tf.imag(diff)*tf.imag(diff)
+                prd_loss = tf.real(diff)*tf.real(diff) + \
+                    tf.imag(diff)*tf.imag(diff)
                 # tf.summary.histogram('complex_square', prd_loss)
                 prd_loss = tf.reduce_mean(prd_loss)
                 tf.summary.scalar('f_complex_square', prd_loss)
-            if (freq_loss == 'mse') or (freq_loss == 'mse_time'):
-                prd_loss = tf.losses.mean_squared_error(tf.real(data_decoder_freq),
-                                                        tf.real(decoder_out)) \
-                    + tf.losses.mean_squared_error(tf.imag(data_decoder_freq),
-                                                   tf.imag(decoder_out))
-                tf.summary.scalar('f_mse', prd_loss)
-            if (freq_loss == 'mse_log_norm'):
-                prd_loss = tf.losses.mean_squared_error(tf.real(data_decoder_freq),
-                                                        tf.real(decoder_out)) \
-                    + tf.losses.mean_squared_error(tf.imag(data_decoder_freq),
-                                                   tf.imag(decoder_out))
-                lambda_scale = 1e-2
-                norm_term = tf.linalg.norm(decoder_out, ord=1)
-                tf.summary.scalar('norm_term', norm_term)
-                tf.summary.scalar('f_mse', prd_loss)
-                tf.summary.scalar('lambda', lambda_scale)
-                prd_loss = prd_loss + lambda_scale*norm_term
-            elif (freq_loss == 'ad') or (freq_loss == 'ad_time'):
-                prd_loss = tf.losses.absolute_difference(tf.real(data_decoder_freq),
-                                                         tf.real(decoder_out)) \
-                    + tf.losses.absolute_difference(tf.imag(data_decoder_freq),
-                                                    tf.imag(decoder_out))
-                tf.summary.scalar('ad', prd_loss)
-            elif freq_loss == 'norm_ad':
-                prd_loss = tf.losses.absolute_difference(tf.real(data_decoder_freq),
-                                                         tf.real(decoder_out)) \
-                    + tf.losses.absolute_difference(tf.imag(data_decoder_freq),
-                                                    tf.imag(decoder_out)) \
-                    + tf.linalg.norm(decoder_out, ord=1)
-                tf.summary.scalar('norm_ad', prd_loss)
-            elif freq_loss == 'log_ad':
-                def log_epsilon(fourier_coeff):
-                    epsilon = 1e-7
-                    return tf.log(tf.to_float(fourier_coeff) + epsilon)
-
-                prd_loss = log_epsilon(tf.losses.absolute_difference(
-                    tf.real(data_decoder_freq), tf.real(decoder_out))) \
-                    + log_epsilon(tf.losses.absolute_difference(
-                        tf.imag(data_decoder_freq), tf.imag(decoder_out)))
-                tf.summary.scalar('log_ad', prd_loss)
-            elif (freq_loss == 'log_mse') or (freq_loss == 'log_mse_time'):
-                # avoid taking a loss of zero using an epsilon.
-                def log_epsilon(fourier_coeff):
-                    epsilon = 1e-7
-                    return tf.log(tf.to_float(fourier_coeff) + epsilon)
-
-                prd_loss = tf.reduce_mean(log_epsilon(tf.math.squared_difference(
-                    tf.real(data_decoder_freq),
-                    tf.real(decoder_out)))) \
-                    + tf.reduce_mean(log_epsilon(tf.math.squared_difference(
-                        tf.imag(data_decoder_freq),
-                        tf.imag(decoder_out))))
-                tf.summary.scalar('log_mse', prd_loss)
-            elif (freq_loss == 'log_mse_mse') or (freq_loss == 'log_mse_mse_time') or \
-                 (freq_loss == 'mse_log_mse_dlambda'):
-                def log_epsilon(fourier_coeff):
-                    epsilon = 1e-7
-                    return tf.log(tf.to_float(fourier_coeff) + epsilon)
-
-                ln_f_mse = tf.reduce_mean(log_epsilon(tf.math.squared_difference(
-                    tf.real(data_decoder_freq),
-                    tf.real(decoder_out)))) \
-                    + tf.reduce_mean(log_epsilon(tf.math.squared_difference(
-                        tf.imag(data_decoder_freq),
-                        tf.imag(decoder_out))))
-                tf.summary.scalar('ln-f-mse', ln_f_mse)
-                f_mse = tf.losses.mean_squared_error(tf.real(data_decoder_freq),
-                                                     tf.real(decoder_out)) \
-                    + tf.losses.mean_squared_error(tf.imag(data_decoder_freq),
-                                                   tf.imag(decoder_out))
-                tf.summary.scalar('f_mse', f_mse)
-                prd_loss = f_mse
-
-                if not freq_loss == 'mse_log_mse_dlambda':
-                    lambda_f = 1e4
-                    f_mse = f_mse*lambda_f + ln_f_mse
-                    tf.summary.scalar('lambda_f', lambda_f)
-                else:
-                    lambda_f = tf.constant(1e4, dtype=tf.float32)\
-                        * (tf.cast(global_step, tf.float32)
-                           / tf.cast(iterations, tf.float32))
-                    f_mse += f_mse*lambda_f + ln_f_mse
-                    tf.summary.scalar('lambda_f', lambda_f)
-                tf.summary.scalar('mse_log_mse_f', f_mse)
-                prd_loss = f_mse
 
             def expand_dims_and_transpose(input_tensor):
                 if spikes_instead_of_states:
@@ -312,17 +226,20 @@ def run_experiment(spikes_instead_of_states, base_dir, dimensions, cell_type,
         tf.summary.scalar('learning_rate', learning_rate)
 
         if (cell_type == 'orthogonal' or cell_type == 'cgRNN') and (stiefel is True):
-            optimizer = co.RMSpropNatGrad(learning_rate, global_step=global_step)
+            optimizer = co.RMSpropNatGrad(
+                learning_rate, global_step=global_step)
         else:
             optimizer = tf.train.RMSPropOptimizer(learning_rate)
         gvs = optimizer.compute_gradients(loss)
 
         with tf.variable_scope("clip_grads"):
-            capped_gvs = [(tf.clip_by_value(grad, -1., 1.), var) for grad, var in gvs]
+            capped_gvs = [(tf.clip_by_value(grad, -1., 1.), var)
+                          for grad, var in gvs]
 
         # grad_summary = tf.histogram_summary(grads)
         # training_op = optimizer.minimize(loss, global_step=global_step)
-        training_op = optimizer.apply_gradients(capped_gvs, global_step=global_step)
+        training_op = optimizer.apply_gradients(
+            capped_gvs, global_step=global_step)
         tf.summary.scalar('time_loss', time_loss)
         tf.summary.scalar('training_loss', loss)
 
@@ -395,7 +312,8 @@ def run_experiment(spikes_instead_of_states, base_dir, dimensions, cell_type,
                     print(it, 'loss', np_loss, 'time [s]', stop-start,
                           'time until done [h]', (iterations-it)*(stop-start)/3600.0)
                 # debug_here()
-                summary_writer.add_summary(summary_to_file, global_step=np_global_step)
+                summary_writer.add_summary(
+                    summary_to_file, global_step=np_global_step)
 
                 if it % 5000 == 0:
                     saver.save(sess, base_dir + time_str + param_str + '/weights/cpk',
@@ -412,7 +330,7 @@ def run_experiment(spikes_instead_of_states, base_dir, dimensions, cell_type,
                         plt.plot(decoder_out_np[0, :, :].flatten())
                         plt.plot(data_decoder_np[0, :, :].flatten())
                         plt.plot(np.abs(decoder_out_np[0, :, :].flatten()
-                                 - data_decoder_np[0, :, :].flatten()))
+                                        - data_decoder_np[0, :, :].flatten()))
                     plt.title("Prediction vs. ground truth")
                     buf = io.BytesIO()
                     plt.savefig(buf, format='png')
@@ -424,7 +342,8 @@ def run_experiment(spikes_instead_of_states, base_dir, dimensions, cell_type,
                     summary_image = tf.Summary.Value(tag='prediction_error',
                                                      image=summary_image)
                     summary_image = tf.Summary(value=[summary_image])
-                    summary_writer.add_summary(summary_image, global_step=np_global_step)
+                    summary_writer.add_summary(
+                        summary_image, global_step=np_global_step)
                     plt.close()
                     buf.close()
 
@@ -509,7 +428,7 @@ def run_experiment(spikes_instead_of_states, base_dir, dimensions, cell_type,
                 plt.plot(decoder_out_np[0, :, :].flatten())
                 plt.plot(data_decoder_np[0, :, :].flatten())
                 plt.plot(np.abs(decoder_out_np[0, :, :].flatten()
-                         - data_decoder_np[0, :, :].flatten()))
+                                - data_decoder_np[0, :, :].flatten()))
             plt.title("Prediction vs. ground truth")
             plt.savefig(plt_filename)
 

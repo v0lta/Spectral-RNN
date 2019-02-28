@@ -34,25 +34,26 @@ def compute_parameter_total(trainable_variables):
     return total_parameters
 
 
-ten_day_prediction = True
+ten_day_prediction = False
 if ten_day_prediction:
     context_days = 30
 else:
     context_days = 15
-base_dir = 'log/power_pred_logs_1h/'
-cell_type = 'gru'
-num_units = 222
+base_dir = 'log/power_pred_logs_1h_learnwin/'
+cell_type = 'GRU'
+num_units = 106
 sample_prob = 1.0
 init_learning_rate = 0.004
 decay_rate = 0.95
-decay_steps = 95
-epochs = 120
-GPUs = [4]
+decay_steps = 455
+epochs = 80
+GPUs = [0]
 batch_size = 100
 window_function = 'hann'
 freq_loss = None
 use_residuals = True
 fft = False
+stiefel = False
 
 fifteen_minute_sampling = False
 if fifteen_minute_sampling is True:
@@ -87,7 +88,7 @@ if ten_day_prediction:
 else:
     pred_samples = int(samples_per_day*1.5)
     discarded_samples = int(samples_per_day*0.5)
-window_size = samples_per_day
+window_size = int(samples_per_day*1.5)
 overlap = int(window_size*0.75)
 step_size = window_size - overlap
 fft_pred_samples = pred_samples // step_size + 1
@@ -97,8 +98,6 @@ if fft:
     num_proj = int(window_size//2 + 1)
 else:
     num_proj = 1
-
-stiefel = True
 
 if fft:
     epsilon = 1e-2
@@ -178,6 +177,7 @@ with graph.as_default():
             if use_residuals:
                 cell = ResidualWrapper(cell=cell)
     else:
+        # todo: Add extra dimension, approach.
         assert fft is False, "GRUs do not process complex inputs."
         gru = rnn_cell.GRUCell(num_units)
         cell = LinearProjWrapper(num_proj, cell=gru, sample_prob=sample_prob)
@@ -384,7 +384,7 @@ param_str = '_' + cell.to_string() + '_fft_' + str(fft) + \
     '_fm_' + str(fifteen_minute_sampling) + \
     '_bs_' + str(batch_size) + \
     '_ps_' + str(pred_samples) + \
-    '_ds_' + str(discarded_samples) + \
+    '_dis_' + str(discarded_samples) + \
     '_lr_' + str(init_learning_rate) + \
     '_dr_' + str(decay_rate) + \
     '_ds_' + str(decay_steps) + \
@@ -462,10 +462,10 @@ with tf.Session(graph=graph, config=config) as sess:
 
             if it % 100 == 0:
                 plt.figure()
-                plt.plot(decoder_out_np[0, discarded_samples:, 0])
-                plt.plot(data_decoder_np[0, discarded_samples:, 0])
-                plt.plot(np.abs(decoder_out_np[0, discarded_samples:, 0]
-                                - data_decoder_np[0, discarded_samples:, 0]))
+                plt.plot(decoder_out_np[0, discarded_samples:pred_samples, 0])
+                plt.plot(data_decoder_np[0, discarded_samples:pred_samples, 0])
+                plt.plot(np.abs(decoder_out_np[0, discarded_samples:pred_samples, 0]
+                                - data_decoder_np[0, discarded_samples:pred_samples, 0]))
                 plt.title("Prediction vs. ground truth")
                 buf = io.BytesIO()
                 plt.savefig(buf, format='png')
@@ -506,10 +506,12 @@ with tf.Session(graph=graph, config=config) as sess:
             net_pred = decoder_out_np[0, :, 0]*power_handler.std + power_handler.mean
             official_pred = official_pred[0, -pred_samples:, 0]
             gt = gt[0, -pred_samples:, 0]
-            mse_lst_net.append(np.mean((gt[discarded_samples:]
-                                        - net_pred[discarded_samples:])**2))
-            mse_lst_off.append(np.mean((gt[discarded_samples:]
-                                        - official_pred[discarded_samples:])**2))
+            mse_lst_net.append(
+                np.mean((gt[discarded_samples:]
+                         - net_pred[discarded_samples:pred_samples])**2))
+            mse_lst_off.append(
+                np.mean((gt[discarded_samples:]
+                         - official_pred[discarded_samples:pred_samples])**2))
             print('.', end='')
         mse_net = np.mean(np.array(mse_lst_net))
         mse_off = np.mean(np.array(mse_lst_off))

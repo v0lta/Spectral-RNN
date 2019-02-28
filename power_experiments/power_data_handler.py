@@ -179,7 +179,6 @@ if __name__ == "__main__":
         l, c, line, b = plt.acorr(year_complete[(96*7):(96*7)*12].astype(np.float32),
                                   maxlags=96*days)
         plt.show()
-
         sample_distance = (1.0/(24*60/15))
         x1 = np.arange(0, days, sample_distance)
         x = np.concatenate([-np.flip(x1, 0), [0], x1])

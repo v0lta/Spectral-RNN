@@ -537,6 +537,7 @@ class UnitaryCell(tf.nn.rnn_cell.RNNCell):
     """
     Tensorflow implementation of unitary evolution RNN as proposed by Arjosky et al.
     """
+
     def __init__(self, num_units, activation=mod_relu, num_proj=None, reuse=None,
                  real=False, complex_input=False):
         super().__init__(_reuse=reuse)
@@ -901,6 +902,4 @@ class StiefelGatedRecurrentUnit(tf.nn.rnn_cell.RNNCell):
                 else:
                     output = new_h
             newstate = LSTMStateTuple(output, new_h)
-            # print('cell_output', output)
-            # print('cell_states', newstate)
             return output, newstate
