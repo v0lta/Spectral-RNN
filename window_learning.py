@@ -1,4 +1,5 @@
 import math
+import numpy as np
 import eager_STFT as eagerSTFT
 import tensorflow as tf
 import ipdb
@@ -54,23 +55,37 @@ def kaiser_window(alpha, window_size):
         return top/bottom
 
 
-# def plank_taper(epsilon, window_size):
-#     '''
-#     plank taper window
-#     '''
-#     N = window_size
-#     n = tf.linspace(float(0), float(window_size), window_size)
-#     ap = 1.0 / (1.0 + 2*n / (N - 1) - 1)
-#     bp = 1.0 / (1.0 - 2*epsilon + (2*n / (N - 1) - 1))
-#     Zp = 2*epsilon*(ap + bp)
-#     rising_edge = 1 / (tf.math.exp(Zp) + 1)
-#     const_samples = tf.floor((1.0 - epsilon)*(N - 1) - epsilon*(N-1), tf.int32)
-#     ones = tf.ones([const_samples], tf.float32)
-#     am = 1.0 / (1.0 - 2*n / (N - 1) - 1)
-#     bm = 1.0 / (1.0 - 2*epsilon - (2*n / (N - 1) - 1))
-#     Zm = 2*epsilon*(am + bm)
-#     falling_edge = 1 / (tf.math.exp(Zp) + 1)
-    # todo. gather and concatenate....
+def plank_taper(epsilon, window_size):
+    '''
+    plank taper window as described in:
+    https://arxiv.org/pdf/1003.2939.pdf
+    '''
+    T = window_size
+    t = tf.linspace(float(0), float(window_size), window_size)
+    t1 = 0
+    t2 = T/2.0*(1 - 2.0*epsilon)
+    t3 = T - T/2.0*(1 - 2.0*epsilon)
+    t4 = T
+    print(t1, t2, t3, t4)
+
+    Zr = (t2 - t1)/(t - t1) + (t2 - t1)/(t - t2)
+    rising_edge = 1 / (tf.math.exp(Zr) + 1)
+    Zf = (t3 - t4)/(t - t3) + (t3 - t4)/(t - t4)
+    falling_edge = 1 / (tf.math.exp(Zf) + 1)
+
+    t1 = tf.cast(tf.round(t1), tf.int32)
+    t2 = tf.cast(tf.round(t2), tf.int32)
+    t3 = tf.cast(tf.round(t3), tf.int32)
+    t4 = tf.cast(tf.round(t4), tf.int32)
+
+    rising_elements = tf.gather(rising_edge, tf.range(t1, t2))
+    ones = tf.ones(t3 - t2, tf.float32)
+    falling_elements = tf.gather(falling_edge, tf.range(t3, t4))
+    plank_taper_window = tf.concat([rising_elements,
+                                    ones,
+                                    falling_elements],
+                                   axis=0)
+    return plank_taper_window
 
 
 if __name__ == "__main__":

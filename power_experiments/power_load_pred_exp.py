@@ -57,7 +57,7 @@ window_function = 'learned_gaussian'
 freq_loss = None
 use_residuals = True
 fft = True
-stiefel = True
+stiefel = False
 
 
 fifteen_minute_sampling = False
