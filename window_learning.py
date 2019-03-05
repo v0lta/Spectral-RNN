@@ -60,7 +60,7 @@ def plank_taper(epsilon, window_size):
     plank taper window as described in:
     https://arxiv.org/pdf/1003.2939.pdf
     '''
-    T = window_size
+    T = window_size - 1
     t = tf.linspace(float(0), float(window_size), window_size)
     t1 = 0
     t2 = T/2.0*(1 - 2.0*epsilon)
@@ -86,6 +86,11 @@ def plank_taper(epsilon, window_size):
                                     falling_elements],
                                    axis=0)
     return plank_taper_window
+
+
+def tukey_window(alpha, window_size):
+    # todo....
+    pass
 
 
 if __name__ == "__main__":
