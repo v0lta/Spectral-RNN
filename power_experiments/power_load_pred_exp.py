@@ -17,7 +17,7 @@ from RNN_wrapper import LinearProjWrapper
 import eager_STFT as eagerSTFT
 import tensorflow.nn.rnn_cell as rnn_cell
 from tensorflow.contrib.rnn import LSTMStateTuple
-from window_learning import gaussian_window
+import window_learning as wl
 
 
 def compute_parameter_total(trainable_variables):
@@ -41,8 +41,8 @@ if ten_day_prediction:
     context_days = 30
 else:
     context_days = 15
-base_dir = 'log/power_pred_logs_1h_10d_paper/'
-cell_type = 'cgRNN'
+base_dir = 'log/power_pred_logs_1h_10d_paper_wincomp/'
+cell_type = 'gru'
 num_units = 128
 sample_prob = 1.0
 init_learning_rate = 0.004
@@ -50,13 +50,13 @@ decay_rate = 0.95
 
 
 epochs = 80
-GPUs = [7]
+GPUs = [0]
 batch_size = 100
 # window_function = 'hann'
-window_function = 'learned_gaussian'
+window_function = 'learned_tukey'
 freq_loss = None
 use_residuals = True
-fft = True
+fft = False
 stiefel = False
 
 
@@ -135,11 +135,17 @@ with graph.as_default():
                                                     axis=1)
     if fft:
         dtype = tf.complex64
-
         if window_function == 'learned_gaussian':
-            window = gaussian_window(window_size)
+            window = wl.gaussian_window(window_size)
+        elif window_function == 'learned_plank':
+            window = wl.plank_taper(window_size)
+        elif window_function == 'learned_tukey':
+            window = wl.tukey_window(window_size)
+        elif window_function == 'learned_gauss_plank':
+            window = wl.gauss_plank_window(window_size)
         else:
-            window = scisig.get_window(window_function, window_size)
+            window = scisig.get_window(window_function,
+                                       window_size)
             window = tf.constant(window, tf.float32)
 
         def transpose_stft_squeeze(in_data, window):
@@ -444,9 +450,9 @@ with tf.Session(graph=graph, config=config) as sess:
             feed_dict = {data_nd: gt}
             np_loss, np_global_step, \
                 data_encoder_np, encoder_out_np, data_decoder_np, decoder_out_np, \
-                data_nd_np = \
+                data_nd_np, window_np = \
                 sess.run([loss, global_step, data_encoder_gt, encoder_out,
-                          data_decoder_gt, decoder_out, data_nd],
+                          data_decoder_gt, decoder_out, data_nd, window],
                          feed_dict=feed_dict)
             net_pred = decoder_out_np[0, :, 0]*power_handler.std + power_handler.mean
             official_pred = official_pred[0, -pred_samples:, 0]
@@ -476,3 +482,20 @@ with tf.Session(graph=graph, config=config) as sess:
                                             simple_value=mse_off-mse_net)
         mse_diff_summary = tf.Summary(value=[mse_diff_summary])
         summary_writer.add_summary(mse_diff_summary, global_step=np_global_step)
+        # window plot in tensorboard.
+        plt.figure()
+        plt.plot(window_np)
+        plt.title(window_function)
+        buf2 = io.BytesIO()
+        plt.savefig(buf2, format='png')
+        buf2.seek(0)
+        summary_image2 = tf.Summary.Image(
+            encoded_image_string=buf2.getvalue(),
+            height=int(plt.rcParams["figure.figsize"][0]*100),
+            width=int(plt.rcParams["figure.figsize"][1]*100))
+        summary_image2 = tf.Summary.Value(tag=window_function,
+                                          image=summary_image2)
+        summary_image2 = tf.Summary(value=[summary_image2])
+        summary_writer.add_summary(summary_image2, global_step=np_global_step)
+        plt.close()
+        buf.close()
