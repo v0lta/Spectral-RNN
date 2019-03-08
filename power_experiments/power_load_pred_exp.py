@@ -6,7 +6,8 @@ import tensorflow as tf
 import numpy as np
 import scipy.signal as scisig
 import matplotlib.pyplot as plt
-import ipdb
+from IPython.core.debugger import Tracer
+debug_here = Tracer()
 from power_data_handler import PowerDataHandler, MergePowerHandler
 sys.path.insert(0, "../")
 import custom_cells as cc
@@ -36,14 +37,14 @@ def compute_parameter_total(trainable_variables):
     return total_parameters
 
 
-ten_day_prediction = True
-if ten_day_prediction:
-    context_days = 30
+prediction_days = 60
+if prediction_days > 1:
+    context_days = prediction_days*2
 else:
     context_days = 15
-base_dir = 'log/power_pred_logs_1h_10d_paper_wincomp/'
+base_dir = 'log/power_pred_logs_explore/'
 cell_type = 'gru'
-num_units = 128
+num_units = 222
 sample_prob = 1.0
 init_learning_rate = 0.004
 decay_rate = 0.95
@@ -91,10 +92,9 @@ else:
                                                      power_handler_min15],
                                       testing_keys=testing_keys)
 
-
-if ten_day_prediction:
+if prediction_days > 1:
     window_size = int(samples_per_day*4)
-    pred_samples = int(samples_per_day*10)
+    pred_samples = int(prediction_days*samples_per_day)
     discarded_samples = 0
 else:
     pred_samples = int(samples_per_day*1.5)
@@ -149,7 +149,6 @@ with graph.as_default():
             window = tf.constant(window, tf.float32)
 
         def transpose_stft_squeeze(in_data, window):
-            # debug_here()
             tmp_in_data = tf.transpose(in_data, [0, 2, 1])
             in_data_fft = eagerSTFT.stft(tmp_in_data, window,
                                          window_size, overlap)
@@ -185,28 +184,23 @@ with graph.as_default():
         cell = RnnInputWrapper(1.0, cell)
         if use_residuals:
             cell = ResidualWrapper(cell=cell)
-    elif cell_type == 'orthogonal':
-        if fft:
-            uRNN = cc.UnitaryCell(num_units, activation=cc.mod_relu,
-                                  real=not fft, num_proj=num_proj,
-                                  complex_input=fft)
-            cell = RnnInputWrapper(1.0, uRNN)
-            if use_residuals:
-                cell = ResidualWrapper(cell=cell)
-        else:
-            oRNN = cc.UnitaryCell(num_units, activation=cc.relu,
-                                  real=True, num_proj=num_proj)
-            cell = RnnInputWrapper(1.0, oRNN)
-            if use_residuals:
-                cell = ResidualWrapper(cell=cell)
-    else:
+    elif cell_type == 'gru':
         # todo: Add extra dimension, approach.
-        assert fft is False, "GRUs do not process complex inputs."
         gru = rnn_cell.GRUCell(num_units)
-        cell = LinearProjWrapper(num_proj, cell=gru, sample_prob=sample_prob)
+        if fft is True:
+            dtype = tf.float32
+            # concatenate real and imaginary parts.
+            data_encoder_freq = tf.concat([tf.real(data_encoder_freq),
+                                           tf.imag(data_encoder_freq)],
+                                          axis=-1)
+            cell = LinearProjWrapper(num_proj*2, cell=gru, sample_prob=sample_prob)
+        else:
+            cell = LinearProjWrapper(num_proj, cell=gru, sample_prob=sample_prob)
         cell = RnnInputWrapper(1.0, cell)
         if use_residuals:
             cell = ResidualWrapper(cell=cell)
+    else:
+        print('cell type not supported.')
 
     if fft:
         encoder_in = data_encoder_freq[:, :-1, :]
@@ -218,7 +212,6 @@ with graph.as_default():
     with tf.variable_scope("encoder_decoder") as scope:
         zero_state = cell.zero_state(batch_size, dtype=dtype)
         zero_state = LSTMStateTuple(encoder_in[:, 0, :], zero_state[1])
-        # debug_here()
         encoder_out, encoder_state = tf.nn.dynamic_rnn(cell, encoder_in,
                                                        initial_state=zero_state,
                                                        dtype=dtype)
@@ -236,6 +229,20 @@ with graph.as_default():
         decoder_out, _ = tf.nn.dynamic_rnn(cell, decoder_in,
                                            initial_state=encoder_state,
                                            dtype=dtype)
+
+        if fft and cell_type == 'gru':
+            # assemble complex output.
+            decoder_freqs_t2 = decoder_out.shape[-1].value
+            decoder_out = tf.complex(decoder_out[:, :, :int(decoder_freqs_t2/2)],
+                                     decoder_out[:, :, int(decoder_freqs_t2/2):])
+            encoder_out = tf.complex(encoder_out[:, :, :int(decoder_freqs_t2/2)],
+                                     encoder_out[:, :, :int(decoder_freqs_t2/2)])
+            encoder_out_gt = tf.complex(
+                encoder_out_gt[:, :, :int(decoder_freqs_t2/2)],
+                encoder_out_gt[:, :, :int(decoder_freqs_t2/2)])
+
+            # debug_here()
+            # print('hi')
 
     if fft:
         if (freq_loss == 'complex_abs') or (freq_loss == 'complex_abs_time'):
@@ -263,7 +270,8 @@ with graph.as_default():
                                       noverlap=overlap)
         decoder_out = eagerSTFT.istft(decoder_out, window,
                                       nperseg=window_size,
-                                      noverlap=overlap, epsilon=epsilon)
+                                      noverlap=overlap,
+                                      epsilon=epsilon)
         data_encoder_gt = expand_dims_and_transpose(encoder_out_gt)
         data_decoder_gt = expand_dims_and_transpose(data_decoder_freq)
         data_encoder_gt = eagerSTFT.istft(data_encoder_gt, window,
@@ -331,7 +339,8 @@ with graph.as_default():
 print(total_parameters)
 # ipdb.set_trace()
 time_str = time.strftime("%Y-%m-%d %H:%M:%S", time.gmtime())
-param_str = '_' + cell.to_string() + '_fft_' + str(fft) + \
+param_str = '_' + cell_type + '_size_' + str(num_units) + \
+    '_fft_' + str(fft) + \
     '_fm_' + str(fifteen_minute_sampling) + \
     '_bs_' + str(batch_size) + \
     '_ps_' + str(pred_samples) + \
@@ -351,6 +360,9 @@ if fft:
     param_str += '_fftp_' + str(fft_pred_samples)
     param_str += '_fl_' + str(freq_loss)
     param_str += '_eps_' + str(epsilon)
+
+if stiefel:
+    param_str += '_stfl'
 
 print(param_str)
 # ipdb.set_trace()
@@ -448,12 +460,20 @@ with tf.Session(graph=graph, config=config) as sess:
             official_pred = np.reshape(test_batch[:batch_size, :, :, 0],
                                        [batch_size, context_days*samples_per_day, 1])
             feed_dict = {data_nd: gt}
-            np_loss, np_global_step, \
-                data_encoder_np, encoder_out_np, data_decoder_np, decoder_out_np, \
-                data_nd_np, window_np = \
-                sess.run([loss, global_step, data_encoder_gt, encoder_out,
-                          data_decoder_gt, decoder_out, data_nd, window],
-                         feed_dict=feed_dict)
+            if fft:
+                np_loss, np_global_step, \
+                    data_encoder_np, encoder_out_np, data_decoder_np, decoder_out_np, \
+                    data_nd_np, window_np = \
+                    sess.run([loss, global_step, data_encoder_gt, encoder_out,
+                              data_decoder_gt, decoder_out, data_nd, window],
+                             feed_dict=feed_dict)
+            else:
+                np_loss, np_global_step, \
+                    data_encoder_np, encoder_out_np, data_decoder_np, decoder_out_np, \
+                    data_nd_np = \
+                    sess.run([loss, global_step, data_encoder_gt, encoder_out,
+                              data_decoder_gt, decoder_out, data_nd],
+                             feed_dict=feed_dict)
             net_pred = decoder_out_np[0, :, 0]*power_handler.std + power_handler.mean
             official_pred = official_pred[0, -pred_samples:, 0]
             gt = gt[0, -pred_samples:, 0]
@@ -482,20 +502,21 @@ with tf.Session(graph=graph, config=config) as sess:
                                             simple_value=mse_off-mse_net)
         mse_diff_summary = tf.Summary(value=[mse_diff_summary])
         summary_writer.add_summary(mse_diff_summary, global_step=np_global_step)
-        # window plot in tensorboard.
-        plt.figure()
-        plt.plot(window_np)
-        plt.title(window_function)
-        buf2 = io.BytesIO()
-        plt.savefig(buf2, format='png')
-        buf2.seek(0)
-        summary_image2 = tf.Summary.Image(
-            encoded_image_string=buf2.getvalue(),
-            height=int(plt.rcParams["figure.figsize"][0]*100),
-            width=int(plt.rcParams["figure.figsize"][1]*100))
-        summary_image2 = tf.Summary.Value(tag=window_function,
-                                          image=summary_image2)
-        summary_image2 = tf.Summary(value=[summary_image2])
-        summary_writer.add_summary(summary_image2, global_step=np_global_step)
-        plt.close()
-        buf.close()
+        if fft:
+            # window plot in tensorboard.
+            plt.figure()
+            plt.plot(window_np)
+            plt.title(window_function)
+            buf2 = io.BytesIO()
+            plt.savefig(buf2, format='png')
+            buf2.seek(0)
+            summary_image2 = tf.Summary.Image(
+                encoded_image_string=buf2.getvalue(),
+                height=int(plt.rcParams["figure.figsize"][0]*100),
+                width=int(plt.rcParams["figure.figsize"][1]*100))
+            summary_image2 = tf.Summary.Value(tag=window_function,
+                                              image=summary_image2)
+            summary_image2 = tf.Summary(value=[summary_image2])
+            summary_writer.add_summary(summary_image2, global_step=np_global_step)
+            plt.close()
+            buf.close()

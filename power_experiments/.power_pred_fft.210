@@ -1,0 +1,6 @@
+#!/bin/bash
+export N_SUBTASKS=1
+export SUBTASK_ID=1
+    echo "process subtask $SUBTASK_ID of $N_SUBTASKS"
+    ipython power_load_pred_exp.py
+   
