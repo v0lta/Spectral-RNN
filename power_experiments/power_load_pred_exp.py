@@ -15,27 +15,28 @@ debug_here = Tracer()
 fifteen_minute_sampling = False
 pd = {}
 
-pd['prediction_days'] = 30
+pd['prediction_days'] = 60
 if pd['prediction_days'] > 1:
     pd['context_days'] = pd['prediction_days']*2
 else:
     pd['context_days'] = 15
-pd['base_dir'] = 'log/test/'
+pd['base_dir'] = 'log/power_pred_60d_1h/'
 pd['cell_type'] = 'gru'
-pd['num_units'] = 222
+pd['num_units'] = 206
 pd['sample_prob'] = 1.0
 pd['init_learning_rate'] = 0.004
 pd['decay_rate'] = 0.95
 
 
-pd['epochs'] = 1
-pd['GPUs'] = [7]
+pd['epochs'] = 80
+pd['GPUs'] = [4]
 pd['batch_size'] = 100
 # window_function = 'hann'
 pd['window_function'] = 'learned_tukey'
 pd['freq_loss'] = None
 pd['use_residuals'] = True
 pd['fft'] = False
+pd['linear_reshape'] = True
 pd['stiefel'] = False
 
 if fifteen_minute_sampling is True:
@@ -46,8 +47,9 @@ else:
 if fifteen_minute_sampling is True:
     pd['samples_per_day'] = 96
     path = './power_data/15m_by_country_by_company/'
-    pd['power_handler'] = PowerDataHandler(path,
-                                           pd['context_days'])
+    power_handler = PowerDataHandler(path,
+                                     pd['context_days'])
+    pd['power_handler'] = power_handler
 else:
     pd['samples_per_day'] = 24
     path = './power_data/15m_by_country_by_company/'
@@ -90,6 +92,8 @@ pd['input_samples'] = pd['context_days']*pd['samples_per_day']
 
 if pd['fft']:
     pd['num_proj'] = int(pd['window_size']//2 + 1)
+elif pd['linear_reshape']:
+    pd['num_proj'] = pd['step_size']
 else:
     pd['num_proj'] = 1
 
@@ -97,7 +101,6 @@ if pd['fft']:
     pd['epsilon'] = 1e-2
 else:
     pd['epsilon'] = None
-
 
 pgraph = FFTpredictionGraph(pd)
 
@@ -129,6 +132,9 @@ if pd['fft']:
 
 if pd['stiefel']:
     param_str += '_stfl'
+
+if pd['linear_reshape']:
+    param_str += '_linre'
 
 print(param_str)
 # ipdb.set_trace()

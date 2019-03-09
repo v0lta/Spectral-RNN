@@ -1,6 +1,8 @@
 import tensorflow as tf
 import scipy.signal as scisig
 import sys
+from IPython.core.debugger import Tracer
+debug_here = Tracer()
 sys.path.insert(0, "../")
 import custom_cells as cc
 import custom_optimizers as co
@@ -92,6 +94,12 @@ class FFTpredictionGraph(object):
                 data_decoder_freq, dec_shape = transpose_stft_squeeze(data_decoder_time,
                                                                       window)
                 fft_pred_samples = data_decoder_freq.shape[1].value
+            elif pd['linear_reshape']:
+                encoder_time_steps = data_encoder_time.shape[1].value//pd['step_size']
+                data_encoder_time = tf.reshape(data_encoder_time, [pd['batch_size'],
+                                                                   encoder_time_steps,
+                                                                   pd['step_size']])
+                decoder_time_steps = data_decoder_time.shape[1].value//pd['step_size']
 
             if pd['cell_type'] == 'cgRNN':
                 if pd['stiefel']:
@@ -145,7 +153,10 @@ class FFTpredictionGraph(object):
                                                                initial_state=zero_state,
                                                                dtype=dtype)
                 if not pd['fft']:
-                    decoder_in = tf.zeros([pd['batch_size'], pd['pred_samples'], 1])
+                    if pd['linear_reshape']:
+                        decoder_in = tf.zeros([pd['batch_size'], decoder_time_steps, 1])
+                    else:
+                        decoder_in = tf.zeros([pd['batch_size'], pd['pred_samples'], 1])
                     encoder_state = LSTMStateTuple(data_encoder_time[:, -1, :],
                                                    encoder_state[-1])
                 else:
@@ -218,11 +229,20 @@ class FFTpredictionGraph(object):
                 decoder_out = tf.transpose(decoder_out, [0, 2, 1])
                 data_encoder_gt = tf.transpose(data_encoder_gt, [0, 2, 1])
                 data_decoder_gt = tf.transpose(data_decoder_gt, [0, 2, 1])
+            elif pd['linear_reshape']:
+                decoder_out = tf.reshape(decoder_out,
+                                         [pd['batch_size'],
+                                          pd['pred_samples'], 1])
+                encoder_out = tf.reshape(encoder_out,
+                                         [pd['batch_size'],
+                                          -1,
+                                          1])
+                data_encoder_gt = encoder_out_gt
+                data_decoder_gt = data_decoder_time
             else:
                 data_encoder_gt = encoder_out_gt
                 data_decoder_gt = data_decoder_time
 
-            # debug_here()
             time_loss = tf.losses.mean_squared_error(
                 tf.real(data_decoder_time),
                 tf.real(decoder_out[:, :pd['pred_samples'], :]))
@@ -281,3 +301,5 @@ class FFTpredictionGraph(object):
             self.data_decoder_gt = data_decoder_gt
             self.decoder_out = decoder_out
             self.data_nd = data_nd
+            if pd['fft']:
+                self.window = window
