@@ -1,143 +1,192 @@
+import io
+import time
 import pickle
+import tensorflow as tf
 import numpy as np
-from lorenz_exp import run_experiment
+import matplotlib.pyplot as plt
+from mackey_glass_generator import MackeyGenerator
+from power_experiments.prediction_graph import FFTpredictionGraph
+from IPython.core.debugger import Tracer
+debug_here = Tracer()
 
+pd = {}
 
-spikes_instead_of_states = True
-base_dir = 'logs/re_test_250/'
-if spikes_instead_of_states:
-    dimensions = 1
-else:
-    dimensions = 3
-cell_type = 'gru'
-num_units = 156
-# num_units = 2048
-sample_prob = 1.0
-pred_samples = 128
-num_proj = dimensions
-learning_rate = 0.001
-iterations = 15000
-GPUs = [3]
-batch_size = 250
-use_residuals = True
-decay_rate = 0.95
-decay_steps = 5000
-stiefel = True
+pd['base_dir'] = 'logs/mackey/'
+pd['cell_type'] = 'gru'
+pd['num_units'] = 166
+pd['sample_prob'] = 1.0
+pd['init_learning_rate'] = 0.004
+pd['decay_rate'] = 0.95
+pd['decay_steps'] = 390
+
+pd['iterations'] = 8000
+pd['GPUs'] = [0]
+pd['batch_size'] = 100
+# pd['window_function'] = 'hann'
+# pd['window_function'] = 'boxcar'
+# pd['window_function'] = 'learned_plank'
+pd['window_function'] = 'learned_gaussian'
+pd['freq_loss'] = None
+pd['use_residuals'] = True
+pd['fft'] = True
+pd['linear_reshape'] = False
+pd['stiefel'] = False
 
 # data parameters
-tmax = 10.24
-# tmax = 10.23
-delta_t = 0.01
-steps = int(tmax/delta_t)+1
+pd['tmax'] = 1200
+pd['delta_t'] = 1.0
+pd['input_samples'] = int(pd['tmax']/pd['delta_t'])
+pd['generator'] = MackeyGenerator(pd['batch_size'],
+                                  pd['tmax'], pd['delta_t'],
+                                  restore_and_plot=False)
 
-# fft parameters
-fft = True
-if fft:
-    window = 'hann'
-    window_size = 96
-    overlap = int(window_size*0.75)
-    step_size = window_size - overlap
-    fft_pred_samples = pred_samples // step_size + 1
-    num_proj = int(window_size//2 + 1)*dimensions  # the frequencies
-    freq_loss = 'complex_abs_time'  # complex_square
+pd['window_size'] = 96
+pd['pred_samples'] = 600
+pd['discarded_samples'] = 0
+pd['overlap'] = int(pd['window_size']*0.25)
+pd['step_size'] = pd['window_size'] - pd['overlap']
+pd['fft_pred_samples'] = pd['pred_samples'] // pd['step_size'] + 1
 
-    if (freq_loss == 'ad_time') or (freq_loss == 'log_mse_time') \
-       or (freq_loss == 'log_mse_mse_time') or (freq_loss == 'mse_log_mse_dlambda') \
-       or (freq_loss == 'mse_time') or (freq_loss == 'complex_square_time') \
-       or (freq_loss == 'complex_abs_time'):
-        epsilon = 1e-2
-        # epsilon = 1e-3
-        print('epsilon', epsilon)
-    else:
-        epsilon = None
+if pd['fft']:
+    pd['num_proj'] = int(pd['window_size']//2 + 1)
+elif pd['linear_reshape']:
+    pd['num_proj'] = pd['step_size']
 else:
-    window = None
-    window_size = None
-    overlap = None
-    step_size = None
-    fft_pred_samples = None
-    freq_loss = None
-    epsilon = None
+    pd['num_proj'] = 1
+
+if pd['fft']:
+    if pd['window_function'] == 'boxcar':
+        pd['epsilon'] = 0.0
+    else:
+        pd['epsilon'] = 1e-2
+else:
+    pd['epsilon'] = None
+
+pgraph = FFTpredictionGraph(pd, generator=pd['generator'])
+
+print(pgraph.total_parameters)
+# ipdb.set_trace()
+time_str = time.strftime("%Y-%m-%d %H:%M:%S", time.gmtime())
+pd['time_str'] = time_str
+param_str = '_' + pd['cell_type'] + '_size_' + str(pd['num_units']) + \
+    '_fft_' + str(pd['fft']) + \
+    '_bs_' + str(pd['batch_size']) + \
+    '_ps_' + str(pd['pred_samples']) + \
+    '_dis_' + str(pd['discarded_samples']) + \
+    '_lr_' + str(pd['init_learning_rate']) + \
+    '_dr_' + str(pd['decay_rate']) + \
+    '_ds_' + str(pd['decay_steps']) + \
+    '_sp_' + str(pd['sample_prob']) + \
+    '_rc_' + str(pd['use_residuals']) + \
+    '_pt_' + str(pgraph.total_parameters)
+
+if pd['fft']:
+    param_str += '_wf_' + str(pd['window_function'])
+    param_str += '_ws_' + str(pd['window_size'])
+    param_str += '_ol_' + str(pd['overlap'])
+    param_str += '_ffts_' + str(pd['step_size'])
+    param_str += '_fftp_' + str(pd['fft_pred_samples'])
+    param_str += '_fl_' + str(pd['freq_loss'])
+    param_str += '_eps_' + str(pd['epsilon'])
+
+if pd['stiefel']:
+    param_str += '_stfl'
+
+if pd['linear_reshape']:
+    param_str += '_linre'
+
+print(param_str)
+# ipdb.set_trace()
+summary_writer = tf.summary.FileWriter(pd['base_dir'] + pd['time_str'] + param_str,
+                                       graph=pgraph.graph)
+# dump the parameters
+with open(pd['base_dir'] + pd['time_str'] + param_str + '/param.pkl', 'wb') as file:
+    pickle.dump(pd, file)
 
 
-# fft = False
-# num_proj = dimensions
-if 1:
-    run_experiment(spikes_instead_of_states, base_dir, dimensions, cell_type,
-                   num_units, sample_prob, pred_samples, num_proj, learning_rate,
-                   decay_rate, decay_steps, iterations, GPUs, batch_size, tmax,
-                   delta_t, steps, fft, window, window_size, overlap,
-                   step_size, fft_pred_samples, freq_loss, use_residuals,
-                   epsilon=epsilon, stiefel=stiefel)
-
-if 0:
-    for length_factor in [0, 1, 2]:
-        tmp_fft = True
-        tmp_num_units = 150
-        tmp_pred_samples = (length_factor*64) + pred_samples
-        tmp_tmax = tmax
-        tmp_steps = int(tmp_tmax/delta_t) + 1
-        run_experiment(spikes_instead_of_states, base_dir, dimensions, cell_type,
-                       tmp_num_units, sample_prob, tmp_pred_samples, num_proj,
-                       learning_rate, decay_rate, decay_steps,
-                       iterations, GPUs, batch_size, tmp_tmax, delta_t,
-                       tmp_steps, tmp_fft, window, window_size, overlap,
-                       step_size, fft_pred_samples, freq_loss, use_residuals, epsilon,
-                       stiefel=stiefel)
-
-if 0:
-    for length_factor in [0, 1, 2]:
-        tmp_fft = False
-        num_proj = dimensions
-        if spikes_instead_of_states:
-            tmp_num_units = 160
+# train this.
+gpu_options = tf.GPUOptions(visible_device_list=str(pd['GPUs'])[1:-1])
+# gpu_options = tf.GPUOptions(per_process_gpu_memory_fraction=1.0)
+config = tf.ConfigProto(allow_soft_placement=True,
+                        log_device_placement=False,
+                        gpu_options=gpu_options)
+with tf.Session(graph=pgraph.graph, config=config) as sess:
+    print('initialize....')
+    pgraph.init_op.run()
+    for it in range(pd['iterations']):
+        start = time.time()
+        # array_split add elements here and there, the true data is at 1
+        if not pd['fft']:
+            np_loss, summary_to_file, np_global_step, _, \
+                datenc_np, encout_np, datdec_np, decout_np, \
+                datand_np = \
+                sess.run([pgraph.loss, pgraph.summary_sum, pgraph.global_step,
+                          pgraph.training_op, pgraph.data_encoder_gt, pgraph.encoder_out,
+                          pgraph.data_decoder_gt, pgraph.decoder_out, pgraph.data_nd])
         else:
-            tmp_num_units = 180
-        tmp_pred_samples = (length_factor*64) + pred_samples
-        tmp_tmax = tmax
-        tmp_steps = int(tmp_tmax/delta_t) + 1
-        run_experiment(spikes_instead_of_states, base_dir, dimensions, cell_type,
-                       tmp_num_units, sample_prob, tmp_pred_samples, num_proj,
-                       learning_rate, decay_rate, decay_steps,
-                       iterations, GPUs, batch_size, tmp_tmax, delta_t,
-                       tmp_steps, tmp_fft, window, window_size, overlap,
-                       step_size, fft_pred_samples, freq_loss, use_residuals, epsilon,
-                       stiefel=stiefel)
+            np_loss, summary_to_file, np_global_step, _, \
+                datenc_np, encout_np, datdec_np, decout_np, \
+                datand_np, window_np = \
+                sess.run([pgraph.loss, pgraph.summary_sum, pgraph.global_step,
+                          pgraph.training_op, pgraph.data_encoder_gt, pgraph.encoder_out,
+                          pgraph.data_decoder_gt, pgraph.decoder_out, pgraph.data_nd,
+                          pgraph.window])
 
+        stop = time.time()
+        if it % 5 == 0:
+            print('it: %5d, loss: %5.6f, time: %1.2f [s]'
+                  % (it, np_loss, stop-start))
 
-if 1:
-    # TODO: Ajust for extra window weights.
+        summary_writer.add_summary(summary_to_file, global_step=np_global_step)
 
-    parameters = 1000000
+        if it % 100 == 0:
+            plt.figure()
+            plt.plot(decout_np[0, pd['discarded_samples']:pd['pred_samples'], 0])
+            plt.plot(datdec_np[0, pd['discarded_samples']:pd['pred_samples'], 0])
+            plt.plot(
+                np.abs(decout_np[0, pd['discarded_samples']:pd['pred_samples'], 0]
+                       - datdec_np[0, pd['discarded_samples']:pd['pred_samples'], 0]))
+            plt.title("Prediction vs. ground truth")
+            buf = io.BytesIO()
+            plt.savefig(buf, format='png')
+            buf.seek(0)
+            summary_image = tf.Summary.Image(
+                encoded_image_string=buf.getvalue(),
+                height=int(plt.rcParams["figure.figsize"][0]*100),
+                width=int(plt.rcParams["figure.figsize"][1]*100))
+            summary_image = tf.Summary.Value(tag='prediction_error',
+                                             image=summary_image)
+            summary_image = tf.Summary(value=[summary_image])
+            summary_writer.add_summary(
+                summary_image, global_step=np_global_step)
+            plt.close()
+            buf.close()
+            # add to tensorboard
+            if pd['fft']:
+                # add fft window plot in tensorboard.
+                plt.figure()
+                plt.plot(window_np)
+                plt.title(pd['window_function'])
+                buf2 = io.BytesIO()
+                plt.savefig(buf2, format='png')
+                buf2.seek(0)
+                summary_image2 = tf.Summary.Image(
+                    encoded_image_string=buf2.getvalue(),
+                    height=int(plt.rcParams["figure.figsize"][0]*100),
+                    width=int(plt.rcParams["figure.figsize"][1]*100))
+                summary_image2 = tf.Summary.Value(tag=pd['window_function'],
+                                                  image=summary_image2)
+                summary_image2 = tf.Summary(value=[summary_image2])
+                summary_writer.add_summary(
+                    summary_image2, global_step=np_global_step)
+                plt.close()
+                buf.close()
 
-    def compute_state_size(parameters, input_size, output_size):
-        # 0 = 6s^2 + 6si + 6s + 2so + 2o - p
-        # 0 = 6s^2 + s (6i + 2o + 6) + 2o - p
-
-        p = (6.0*input_size + 2.0*output_size + 6.0) / 6.0
-        q = (2.0*output_size - parameters) / 6.0
-        x1 = -p/2.0 + np.sqrt((p/2.0)*(p/2.0) - q)
-        x2 = -p/2.0 - np.sqrt((p/2.0)*(p/2.0) - q)
-
-        return x1, x2
-
-    for length_factor in range(1, 7):
-        tmp_fft = True
-        tmp_pred_samples = pred_samples
-        tmp_tmax = tmax
-        tmp_window_size = 40*length_factor
-        overlap = int(tmp_window_size*0.75)
-        tmp_step_size = tmp_window_size - overlap
-        tmp_num_proj = int(tmp_window_size//2 + 1)*dimensions
-        tmp_steps = int(tmp_tmax/delta_t) + 1
-
-        io = tmp_window_size/2+1
-        tmp_num_units = int(compute_state_size(parameters, io, io)[0])
-
-        run_experiment(spikes_instead_of_states, base_dir, dimensions, cell_type,
-                       tmp_num_units, sample_prob, tmp_pred_samples, tmp_num_proj,
-                       learning_rate, decay_rate, decay_steps,
-                       iterations, GPUs, batch_size, tmp_tmax, delta_t,
-                       tmp_steps, tmp_fft, window, tmp_window_size, overlap,
-                       tmp_step_size, fft_pred_samples, freq_loss, use_residuals, epsilon,
-                       stiefel=stiefel)
+    # epoch done. Save.
+    print('Saving a copy.')
+    pgraph.saver.save(sess, pd['base_dir'] + time_str + param_str + '/weights/cpk',
+                      global_step=np_global_step)
+    # do a test run.
+    print('test run ', end='')
+    mse_lst_net = []
+    mse_lst_off = []

@@ -22,21 +22,23 @@ else:
     pd['context_days'] = 15
 pd['base_dir'] = 'log/power_pred_60d_1h/'
 pd['cell_type'] = 'gru'
-pd['num_units'] = 206
+pd['num_units'] = 166
 pd['sample_prob'] = 1.0
 pd['init_learning_rate'] = 0.004
 pd['decay_rate'] = 0.95
 
 
 pd['epochs'] = 80
-pd['GPUs'] = [4]
+pd['GPUs'] = [6]
 pd['batch_size'] = 100
 # window_function = 'hann'
-pd['window_function'] = 'learned_tukey'
+# pd['window_function'] = 'learned_tukey'
+# pd['window_function'] = 'learned_plank'
+pd['window_function'] = 'learned_gaussian'
 pd['freq_loss'] = None
-pd['use_residuals'] = True
-pd['fft'] = False
-pd['linear_reshape'] = True
+pd['use_residuals'] = False
+pd['fft'] = True
+pd['linear_reshape'] = False
 pd['stiefel'] = False
 
 if fifteen_minute_sampling is True:

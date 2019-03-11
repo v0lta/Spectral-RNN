@@ -38,28 +38,35 @@ class FFTpredictionGraph(object):
         pp prediction parameter object
     '''
 
-    def __init__(self, pd):
+    def __init__(self, pd, generator=None):
         self.pd = pd
         self.graph = tf.Graph()
         with self.graph.as_default():
-            data_mean = tf.constant(pd['power_handler'].mean, tf.float32,
-                                    name='data_mean')
-            data_std = tf.constant(pd['power_handler'].std, tf.float32,
-                                   name='data_std')
-
             global_step = tf.Variable(0, name='global_step', trainable=False)
-            data_nd = tf.placeholder(tf.float32, [pd['batch_size'],
-                                                  pd['input_samples'], 1])
-            self.data_nd = data_nd
-            data_nd_norm = (data_nd - data_mean)/data_std
+            if generator:
+                print('Running synthetic experiment')
+                data_nd_norm = generator()
+                data_nd = data_nd_norm
+            else:
+                data_mean = tf.constant(pd['power_handler'].mean, tf.float32,
+                                        name='data_mean')
+                data_std = tf.constant(pd['power_handler'].std, tf.float32,
+                                       name='data_std')
 
-            print('data_nd_shape', data_nd.shape)
+                data_nd = tf.placeholder(tf.float32, [pd['batch_size'],
+                                                      pd['input_samples'], 1])
+                self.data_nd = data_nd
+                data_nd_norm = (data_nd - data_mean)/data_std
+
+            print('data_nd_shape', data_nd_norm.shape)
             dtype = tf.float32
+            debug_here()
             data_encoder_time, data_decoder_time = tf.split(data_nd_norm,
                                                             [pd['input_samples']
                                                              - pd['pred_samples'],
                                                              pd['pred_samples']],
                                                             axis=1)
+
             if pd['fft']:
                 dtype = tf.complex64
                 if pd['window_function'] == 'learned_gaussian':
@@ -71,8 +78,8 @@ class FFTpredictionGraph(object):
                 elif pd['window_function'] == 'learned_gauss_plank':
                     window = wl.gauss_plank_window(pd['window_size'])
                 else:
-                    window = scisig.get_window(pd['window_function'],
-                                               pd['window_size'])
+                    window = scisig.get_window(window=pd['window_function'],
+                                               Nx=pd['window_size'])
                     window = tf.constant(window, tf.float32)
 
                 def transpose_stft_squeeze(in_data, window):

@@ -2,10 +2,10 @@ import numpy as np
 import tensorflow as tf
 import tensorflow.contrib.signal as tfsignal
 import scipy.signal as scisig
-#import matplotlib.pyplot as plt
-#from mpl_toolkits.mplot3d import Axes3D
-#from IPython.core.debugger import Tracer
-#debug_here = Tracer()
+import matplotlib.pyplot as plt
+# from mpl_toolkits.mplot3d import Axes3D
+from IPython.core.debugger import Tracer
+debug_here = Tracer()
 
 
 def generate_data(tmax=20, delta_t=0.01, sigma=10.0,
