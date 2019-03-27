@@ -11,21 +11,22 @@ debug_here = Tracer()
 
 pd = {}
 
-pd['base_dir'] = 'logs/mackey/'
-pd['cell_type'] = 'gru'
-pd['num_units'] = 166
+pd['base_dir'] = 'logs/mackey2/'
+pd['cell_type'] = 'cgRNN'
+pd['num_units'] = 128
 pd['sample_prob'] = 1.0
 pd['init_learning_rate'] = 0.004
 pd['decay_rate'] = 0.95
 pd['decay_steps'] = 390
 
 pd['iterations'] = 8000
-pd['GPUs'] = [0]
+pd['GPUs'] = [6]
 pd['batch_size'] = 100
 # pd['window_function'] = 'hann'
-# pd['window_function'] = 'boxcar'
+# pd['window_function'] = 'learned_tukey'
 # pd['window_function'] = 'learned_plank'
-pd['window_function'] = 'learned_gaussian'
+# pd['window_function'] = 'learned_gaussian'
+# pd['window_function'] = 'learned_gauss_plank'
 pd['freq_loss'] = None
 pd['use_residuals'] = True
 pd['fft'] = True
@@ -33,17 +34,17 @@ pd['linear_reshape'] = False
 pd['stiefel'] = False
 
 # data parameters
-pd['tmax'] = 1200
+pd['tmax'] = 1024
 pd['delta_t'] = 1.0
 pd['input_samples'] = int(pd['tmax']/pd['delta_t'])
 pd['generator'] = MackeyGenerator(pd['batch_size'],
                                   pd['tmax'], pd['delta_t'],
                                   restore_and_plot=False)
 
-pd['window_size'] = 96
-pd['pred_samples'] = 600
+pd['window_size'] = 128
+pd['pred_samples'] = 512
 pd['discarded_samples'] = 0
-pd['overlap'] = int(pd['window_size']*0.25)
+pd['overlap'] = int(pd['window_size']*0.5)
 pd['step_size'] = pd['window_size'] - pd['overlap']
 pd['fft_pred_samples'] = pd['pred_samples'] // pd['step_size'] + 1
 

@@ -35,7 +35,9 @@ class FFTpredictionGraph(object):
     '''
     Create a fourier prediction graph.
     Arguments:
-        pp prediction parameter object
+        pd prediction parameter dict.
+        generator: A generator object used
+                   to generate synthetic data.
     '''
 
     def __init__(self, pd, generator=None):
@@ -60,7 +62,6 @@ class FFTpredictionGraph(object):
 
             print('data_nd_shape', data_nd_norm.shape)
             dtype = tf.float32
-            debug_here()
             data_encoder_time, data_decoder_time = tf.split(data_nd_norm,
                                                             [pd['input_samples']
                                                              - pd['pred_samples'],

@@ -16,13 +16,13 @@ def organize_into_batches(batches):
 
 # day-ahead.
 if 1:
-    path = '/home/moritz/infcuda/fft_pred_networks/power_experiments/\
-log/power_pred_60d_1h/2019-03-09 15:34:47_gru_size_166_fft_True_fm_False\
-_bs_100_ps_1440_dis_0_lr_0.004_dr_0.95_ds_455_sp_1.0_rc_False_pt_148337_\
-wf_learned_tukey_ws_96_ol_72_ffts_24_fftp_61_fl_None_eps_0.01'
+    path = '/home/moritz/infcuda/fft_pred_networks/power_experiments/log/\
+power_pred_1d_15_min/2019-03-09 14:14:52_cgRNN_size_128_fft_True_fm_\
+True_bs_100_ps_144_dis_48_lr_0.004_dr_0.95_ds_390_sp_1.0_rc_True_pt_\
+149350_wf_learned_tukey_ws_96_ol_72_ffts_24_fftp_7_fl_None_eps_0.01'
     pd = pickle.load(open(path + '/param.pkl', "rb"))
     pgraph = FFTpredictionGraph(pd)
-    restore_step = 26720
+    restore_step = 8880
     power_handler = pd['power_handler']
 
     mse_lst_net = []
@@ -80,14 +80,26 @@ wf_learned_tukey_ws_96_ol_72_ffts_24_fftp_61_fl_None_eps_0.01'
         plt.legend()
         plt.show()
 
-i = 90
+i = 19
 print(i)
 net_pred = decout_np[i, :, 0]*power_handler.std + power_handler.mean
 official_pred = official_pred_np[i, -pd['pred_samples']:, 0]
 gt = gt_np[i, -pd['pred_samples']:, 0]
 plt.plot(gt[pd['discarded_samples']:], label='ground truth')
 plt.plot(net_pred[pd['discarded_samples']:], label='fft_cgRNN')
+plt.plot(official_pred[pd['discarded_samples']:], label='entsoe.eu')
 plt.legend()
-plt.ylim([6000, 14000])
-tikz.save('60d_fit.tex')
+tikz.save('gt_fft_entsoe.tex')
+plt.show()
+
+i = 20
+print(i)
+net_pred = decout_np[i, :, 0]*power_handler.std + power_handler.mean
+official_pred = official_pred_np[i, -pd['pred_samples']:, 0]
+gt = gt_np[i, -pd['pred_samples']:, 0]
+plt.plot(gt[pd['discarded_samples']:], label='ground truth')
+plt.plot(net_pred[pd['discarded_samples']:], label='fft_cgRNN')
+plt.plot(official_pred[pd['discarded_samples']:], label='entsoe.eu')
+plt.legend()
+tikz.save('gt_fft_entsoe2.tex')
 plt.show()

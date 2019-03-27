@@ -7,7 +7,6 @@ import tensorflow as tf
 import matplotlib.pyplot as plt
 import numpy as np
 import os
-import re
 from IPython.core.debugger import Tracer
 debug_here = Tracer()
 
@@ -99,7 +98,13 @@ def return_logs(path, window_size=25, vtag='mse'):
         # x = np.array(range(len(adding_umc)))
 
         y = np.array(adding_umc)
-        yhat = tensoboard_average(y, window_size)
+        if window_size > 0:
+            if len(y) < window_size:
+                # raise ValueError('window size too large.')
+                print('window_size too large')
+            yhat = tensoboard_average(y, window_size)
+        else:
+            yhat = y
         xhat = np.linspace(0, y.shape[0], yhat.shape[0])
         xy_lst.append([[xhat, yhat], p])
     return xy_lst

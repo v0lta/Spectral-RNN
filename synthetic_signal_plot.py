@@ -1,360 +1,69 @@
+import io
+import time
 import pickle
+import tensorflow as tf
 import numpy as np
-import scipy.signal as scisig
 import matplotlib.pyplot as plt
-from tensorboard_plot_helper_module import plot_logs, return_logs
-from lorenz_exp import run_experiment
+from mackey_glass_generator import MackeyGenerator
+from power_experiments.prediction_graph import FFTpredictionGraph
+import matplotlib2tikz as tikz
 
 
-if 0:
-    restore_path1 = '/home/moritz/infcuda/fft_pred_networks/logs/tf_1d_paper/2018-11-14 15:52:44__iw_cGRU__act_mod_relu_units_250_stfl_True_ga_mod_sigmoid_fft_True_bs_250_ps_256_lr_0.001_dr_0.9_ds_10000_sp_1.0_rc_False_pt_410537_wf_hann_ws_32_ol_24_ffts_8_fftp_33_fl_log_mse_time_eps_0.001_1d/'
-    spikes_instead_of_states, base_dir, dimensions, cell_type, \
-        num_units, sample_prob, pred_samples, num_proj, \
-        init_learning_rate, decay_rate, decay_steps, iterations, \
-        GPUs, batch_size, tmax, delta_t, steps, fft, \
-        window_function, window_size, overlap, \
-        step_size, fft_pred_samples, freq_loss, \
-        use_residuals, epsilon, _, _, _ = pickle.load(open(restore_path1
-                                                           + '/param.pkl', 'rb'))
+def plot(path, restore_step, label, gt=False):
+    pd = pickle.load(open(path + '/param.pkl', 'rb'))
+    mackeygen = MackeyGenerator(pd['batch_size'],
+                                pd['tmax'], pd['delta_t'],
+                                restore_and_plot=True)
+    pgraph = FFTpredictionGraph(pd, mackeygen)
 
-    restore_step = 15001
-    restore_and_plot = True
+    # train this.
+    gpu_options = tf.GPUOptions(visible_device_list=str(pd['GPUs'])[1:-1])
+    # gpu_options = tf.GPUOptions(per_process_gpu_memory_fraction=1.0)
+    config = tf.ConfigProto(allow_soft_placement=True,
+                            log_device_placement=False,
+                            gpu_options=gpu_options)
+    with tf.Session(graph=pgraph.graph, config=config) as sess:
+      pgraph.saver.restore(sess, save_path=path
+                           + '/weights/' + 'cpk' + '-' + str(restore_step))
+      if not pd['fft']:
+        np_loss, summary_to_file, np_global_step, \
+            datenc_np, encout_np, datdec_np, decout_np, \
+            datand_np = \
+            sess.run([pgraph.loss, pgraph.summary_sum, pgraph.global_step,
+                      pgraph.data_encoder_gt, pgraph.encoder_out,
+                      pgraph.data_decoder_gt, pgraph.decoder_out, pgraph.data_nd])
+      else:
+        np_loss, summary_to_file, np_global_step, \
+            datenc_np, encout_np, datdec_np, decout_np, \
+            datand_np, window_np = \
+            sess.run([pgraph.loss, pgraph.summary_sum, pgraph.global_step,
+                      pgraph.data_encoder_gt, pgraph.encoder_out,
+                      pgraph.data_decoder_gt, pgraph.decoder_out, pgraph.data_nd,
+                      pgraph.window])
 
-    decoder_out_np1, data_decoder_np1 = \
-        run_experiment(spikes_instead_of_states, base_dir, dimensions, cell_type,
-                       num_units, sample_prob, pred_samples, num_proj,
-                       init_learning_rate, decay_rate, decay_steps, iterations,
-                       GPUs, batch_size, tmax, delta_t, steps, fft,
-                       window_function, window_size, overlap,
-                       step_size, fft_pred_samples, freq_loss,
-                       use_residuals, epsilon, restore_and_plot,
-                       restore_path1, restore_step, '15krcNofft1.pdf',
-                       return_data=True)
+    plt.plot(decout_np[0, :, 0], label=label)
+    if gt:
+        plt.plot(datdec_np[0, :, 0], label='ground-truth')
+    
+restore_step = 8000
+path2 = '/home/moritz/infcuda/fft_pred_networks/logs/\
+mackey2/2019-03-11 13:45:41_gru_size_156_fft\
+_True_bs_100_ps_512_dis_0_lr_0.004_dr_0.95_\
+ds_390_sp_1.0_rc_True_pt_154727_wf_learned_\
+plank_ws_128_ol_64_ffts_64_fftp_9_fl_None_eps_0.01'
+plot(path2, restore_step, label='plank-gru')
 
-    restore_path2 = '/home/moritz/infcuda/fft_pred_networks/logs/tf_1d_paper/2018-11-14 15:52:35__iw_cGRU__act_mod_relu_units_260_stfl_True_ga_mod_sigmoid_fft_False_bs_250_ps_256_lr_0.001_dr_0.9_ds_10000_sp_1.0_rc_False_pt_409243_1d/'
-    spikes_instead_of_states, base_dir, dimensions, cell_type, \
-        num_units, sample_prob, pred_samples, num_proj, \
-        init_learning_rate, decay_rate, decay_steps, iterations, \
-        GPUs, batch_size, tmax, delta_t, steps, fft, \
-        window_function, window_size, overlap, \
-        step_size, fft_pred_samples, freq_loss, \
-        use_residuals, epsilon, _, _, _ = pickle.load(open(restore_path2
-                                                           + '/param.pkl', 'rb'))
+path3 = '/home/moritz/infcuda/fft_pred_networks/logs/mackey2/\
+2019-03-11 13:16:45_gru_size_188_fft_False_bs_100_\
+ps_512_dis_0_lr_0.004_dr_0.95_ds_390_sp_1.0_rc_True\
+_pt_154788_linre'
+plot(path3, restore_step, label='reshape-gru')
 
-    restore_step = 15001
-    restore_and_plot = True
+path = '/home/moritz/infcuda/fft_pred_networks/logs/mackey2\
+/2019-03-11 13:22:06_gru_size_226_fft_False_bs_100_ps_512\
+_dis_0_lr_0.004_dr_0.95_ds_390_sp_1.0_rc_True_pt_154811'
 
-    decoder_out_np2, data_decoder_np2 = \
-        run_experiment(spikes_instead_of_states, base_dir, dimensions, cell_type,
-                       num_units, sample_prob, pred_samples, num_proj,
-                       init_learning_rate, decay_rate, decay_steps, iterations,
-                       GPUs, batch_size, tmax, delta_t, steps, fft,
-                       window_function, window_size, overlap,
-                       step_size, fft_pred_samples, freq_loss,
-                       use_residuals, epsilon, restore_and_plot,
-                       restore_path2, restore_step, '15krcNofft2.pdf',
-                       return_data=True)
-
-    restore_path3 = '/home/moritz/infcuda/fft_pred_networks/logs/tf_1d_paper/2018-11-16 13:17:58__iw_cGRU__act_mod_relu_units_250_stfl_True_ga_mod_sigmoid_fft_True_bs_250_ps_256_lr_0.001_dr_0.9_ds_10000_sp_1.0_rc_False_pt_410537_wf_hann_ws_32_ol_24_ffts_8_fftp_33_fl_log_mse_time_eps_0.001_1d/'
-    spikes_instead_of_states, base_dir, dimensions, cell_type, \
-        num_units, sample_prob, pred_samples, num_proj, \
-        init_learning_rate, decay_rate, decay_steps, iterations, \
-        GPUs, batch_size, tmax, delta_t, steps, fft, \
-        window_function, window_size, overlap, \
-        step_size, fft_pred_samples, freq_loss, \
-        use_residuals, epsilon, _, _, _ = pickle.load(open(restore_path3
-                                                           + '/param.pkl', 'rb'))
-
-    restore_step = 15001
-    restore_and_plot = True
-    GPUs = [0]
-
-    decoder_out_np3, data_decoder_np3 = \
-        run_experiment(spikes_instead_of_states, base_dir, dimensions, cell_type,
-                       num_units, sample_prob, pred_samples, num_proj,
-                       init_learning_rate, decay_rate, decay_steps, iterations,
-                       GPUs, batch_size, tmax, delta_t, steps, fft,
-                       window_function, window_size, overlap,
-                       step_size, fft_pred_samples, freq_loss,
-                       use_residuals, epsilon, restore_and_plot,
-                       restore_path3, restore_step, '15krcNofft3.pdf',
-                       return_data=True)
-
-    plt.close()
-    plt.figure()
-    batch = 89
-    plt.plot(decoder_out_np1[batch, :, 0], label='Fourier cgRNN')
-    plt.plot(decoder_out_np3[batch, :, 0], label='log Fourier cgRNN')
-    plt.plot(decoder_out_np2[batch, :, 0], label='cgRNN')
-    plt.plot(data_decoder_np1[batch, :, 0], label='target')
-    plt.legend()
-    plt.xlabel('sample no.')
-    plt.ylabel('sample value')
-    plt.savefig('fft_time_preds.pdf')
-    plt.close()
-
-if 0:
-    window_size = 32
-    # extract a logfile plot.
-    plot_path = '/home/moritz/infcuda/fft_pred_networks/logs/tf_1d_paper/'
-    logs = return_logs(plot_path, window_size, vtag='time_loss')
-    plt.plot(logs[1][0][0], logs[1][0][1], label='Fourier cgRNN')
-    plt.plot(logs[4][0][0], logs[4][0][1], label='log Fourier cgRNN')
-    plt.plot(logs[2][0][0], logs[2][0][1], label='cgRNN')
-    plt.ylim([0.0, 0.025])
-    plt.ylabel('time-domain mean squared error')
-    plt.xlabel('weight-updates')
-    plt.legend()
-    plt.savefig('freq_time_mse_steps.pdf')
-    plt.close()
-
-    plt.plot(logs[1][0][0]/15001.0*133, logs[1][0][1], label='Fourier cgRNN')
-    plt.plot(logs[4][0][0]/15001.0*142, logs[4][0][1], label='log Fourier cgRNN')
-    plt.plot(logs[2][0][0]/15001.0*691, logs[2][0][1], label='cgRNN')
-    plt.ylim([0.0, 0.025])
-    plt.ylabel('time-domain mean squared error')
-    plt.xlabel('training-time [min]')
-    plt.legend()
-    plt.savefig('freq_time_mse_training_time.pdf')
-    plt.close()
-
-if 0:
-    win = scisig.get_window('hann', 256)
-    plt.plot(win)
-    plt.xlabel('sample no.')
-    plt.ylabel('window magnitude')
-    plt.savefig('hann_window.pdf')
-
-
-# supplemental plots.
-if 0:
-    base_path = '/home/moritz/infcuda/fft_pred_networks/logs/suppl/'
-    restore_step = 20001
-    restore_and_plot = True
-    # time only
-    restore_path1 = base_path + '2018-11-22 13:43:31__iw_cGRU__act_mod_relu_units_250_stfl_True_ga_mod_sigmoid_fft_True_bs_250_ps_256_lr_0.001_dr_0.9_ds_10000_sp_1.0_rc_False_pt_410537_wf_hann_ws_32_ol_24_ffts_8_fftp_33_fl_None_eps_0.001_1d'
-    spikes_instead_of_states, base_dir, dimensions, cell_type, \
-        num_units, sample_prob, pred_samples, num_proj, \
-        init_learning_rate, decay_rate, decay_steps, iterations, \
-        GPUs, batch_size, tmax, delta_t, steps, fft, \
-        window_function, window_size, overlap, \
-        step_size, fft_pred_samples, freq_loss, \
-        use_residuals, epsilon, _, _, _ = pickle.load(open(restore_path1
-                                                           + '/param.pkl', 'rb'))
-    GPUs = [0]
-    decoder_out_np1, data_decoder_np1 = \
-        run_experiment(spikes_instead_of_states, base_dir, dimensions, cell_type,
-                       num_units, sample_prob, pred_samples, num_proj,
-                       init_learning_rate, decay_rate, decay_steps, iterations,
-                       GPUs, batch_size, tmax, delta_t, steps, fft,
-                       window_function, window_size, overlap,
-                       step_size, fft_pred_samples, freq_loss,
-                       use_residuals, epsilon, restore_and_plot,
-                       restore_path1, restore_step, 'time_only.pdf',
-                       return_data=True)
-
-    # mse time
-    restore_path2 = base_path + '2018-11-22 14:58:52__iw_cGRU__act_mod_relu_units_250_stfl_True_ga_mod_sigmoid_fft_True_bs_250_ps_256_lr_0.001_dr_0.9_ds_10000_sp_1.0_rc_False_pt_410537_wf_hann_ws_32_ol_24_ffts_8_fftp_33_fl_mse_time_eps_0.001_1d'
-    spikes_instead_of_states, base_dir, dimensions, cell_type, \
-        num_units, sample_prob, pred_samples, num_proj, \
-        init_learning_rate, decay_rate, decay_steps, iterations, \
-        GPUs, batch_size, tmax, delta_t, steps, fft, \
-        window_function, window_size, overlap, \
-        step_size, fft_pred_samples, freq_loss, \
-        use_residuals, epsilon, _, _, _ = pickle.load(open(restore_path2
-                                                           + '/param.pkl', 'rb'))
-
-    GPUs = [0]
-    decoder_out_np2, data_decoder_np2 = \
-        run_experiment(spikes_instead_of_states, base_dir, dimensions, cell_type,
-                       num_units, sample_prob, pred_samples, num_proj,
-                       init_learning_rate, decay_rate, decay_steps, iterations,
-                       GPUs, batch_size, tmax, delta_t, steps, fft,
-                       window_function, window_size, overlap,
-                       step_size, fft_pred_samples, freq_loss,
-                       use_residuals, epsilon, restore_and_plot,
-                       restore_path2, restore_step, 'mse_time.pdf',
-                       return_data=True)
-
-    # mse_log_mse_dlambda
-    restore_path3 = base_path + '2018-11-22 17:07:44__iw_cGRU__act_mod_relu_units_250_stfl_True_ga_mod_sigmoid_fft_True_bs_250_ps_256_lr_0.001_dr_0.9_ds_10000_sp_1.0_rc_False_pt_410537_wf_hann_ws_32_ol_24_ffts_8_fftp_33_fl_mse_log_mse_dlambda_eps_0.001_1d'
-    spikes_instead_of_states, base_dir, dimensions, cell_type, \
-        num_units, sample_prob, pred_samples, num_proj, \
-        init_learning_rate, decay_rate, decay_steps, iterations, \
-        GPUs, batch_size, tmax, delta_t, steps, fft, \
-        window_function, window_size, overlap, \
-        step_size, fft_pred_samples, freq_loss, \
-        use_residuals, epsilon, _, _, _ = pickle.load(open(restore_path3
-                                                           + '/param.pkl', 'rb'))
-
-    GPUs = [0]
-    decoder_out_np3, data_decoder_np3 = \
-        run_experiment(spikes_instead_of_states, base_dir, dimensions, cell_type,
-                       num_units, sample_prob, pred_samples, num_proj,
-                       init_learning_rate, decay_rate, decay_steps, iterations,
-                       GPUs, batch_size, tmax, delta_t, steps, fft,
-                       window_function, window_size, overlap,
-                       step_size, fft_pred_samples, freq_loss,
-                       use_residuals, epsilon, restore_and_plot,
-                       restore_path3, restore_step, 'mse_log_mse_dlambda.pdf',
-                       return_data=True)
-
-    # freq_mse
-    restore_path4 = base_path + '2018-11-22 12:27:58__iw_cGRU__act_mod_relu_units_250_stfl_True_ga_mod_sigmoid_fft_True_bs_250_ps_256_lr_0.001_dr_0.9_ds_10000_sp_1.0_rc_False_pt_410537_wf_hann_ws_32_ol_24_ffts_8_fftp_33_fl_mse_eps_None_1d'
-    spikes_instead_of_states, base_dir, dimensions, cell_type, \
-        num_units, sample_prob, pred_samples, num_proj, \
-        init_learning_rate, decay_rate, decay_steps, iterations, \
-        GPUs, batch_size, tmax, delta_t, steps, fft, \
-        window_function, window_size, overlap, \
-        step_size, fft_pred_samples, freq_loss, \
-        use_residuals, epsilon, _, _, _ = pickle.load(open(restore_path4
-                                                           + '/param.pkl', 'rb'))
-
-    GPUs = [0]
-    decoder_out_np4, data_decoder_np4 = \
-        run_experiment(spikes_instead_of_states, base_dir, dimensions, cell_type,
-                       num_units, sample_prob, pred_samples, num_proj,
-                       init_learning_rate, decay_rate, decay_steps, iterations,
-                       GPUs, batch_size, tmax, delta_t, steps, fft,
-                       window_function, window_size, overlap,
-                       step_size, fft_pred_samples, freq_loss,
-                       use_residuals, epsilon, restore_and_plot,
-                       restore_path4, restore_step, 'mse.pdf',
-                       return_data=True)
-
-    # log mse mse
-    restore_path5 = base_path + '2018-11-22 13:54:01__iw_cGRU__act_mod_relu_units_250_stfl_True_ga_mod_sigmoid_fft_True_bs_250_ps_256_lr_0.001_dr_0.9_ds_10000_sp_1.0_rc_False_pt_410537_wf_hann_ws_32_ol_24_ffts_8_fftp_33_fl_log_mse_mse_eps_None_1d'
-    spikes_instead_of_states, base_dir, dimensions, cell_type, \
-        num_units, sample_prob, pred_samples, num_proj, \
-        init_learning_rate, decay_rate, decay_steps, iterations, \
-        GPUs, batch_size, tmax, delta_t, steps, fft, \
-        window_function, window_size, overlap, \
-        step_size, fft_pred_samples, freq_loss, \
-        use_residuals, epsilon, _, _, _ = pickle.load(open(restore_path5
-                                                           + '/param.pkl', 'rb'))
-
-    GPUs = [0]
-    decoder_out_np5, data_decoder_np5 = \
-        run_experiment(spikes_instead_of_states, base_dir, dimensions, cell_type,
-                       num_units, sample_prob, pred_samples, num_proj,
-                       init_learning_rate, decay_rate, decay_steps, iterations,
-                       GPUs, batch_size, tmax, delta_t, steps, fft,
-                       window_function, window_size, overlap,
-                       step_size, fft_pred_samples, freq_loss,
-                       use_residuals, epsilon, restore_and_plot,
-                       restore_path5, restore_step, 'log_mse_mse.pdf',
-                       return_data=True)
-
-
-    # log mse mse time
-    restore_path6 = base_path + '2018-11-22 15:29:10__iw_cGRU__act_mod_relu_units_250_stfl_True_ga_mod_sigmoid_fft_True_bs_250_ps_256_lr_0.001_dr_0.9_ds_10000_sp_1.0_rc_False_pt_410537_wf_hann_ws_32_ol_24_ffts_8_fftp_33_fl_log_mse_mse_time_eps_0.001_1d'
-    spikes_instead_of_states, base_dir, dimensions, cell_type, \
-        num_units, sample_prob, pred_samples, num_proj, \
-        init_learning_rate, decay_rate, decay_steps, iterations, \
-        GPUs, batch_size, tmax, delta_t, steps, fft, \
-        window_function, window_size, overlap, \
-        step_size, fft_pred_samples, freq_loss, \
-        use_residuals, epsilon, _, _, _ = pickle.load(open(restore_path6
-                                                           + '/param.pkl', 'rb'))
-
-    GPUs = [0]
-    decoder_out_np6, data_decoder_np6 = \
-        run_experiment(spikes_instead_of_states, base_dir, dimensions, cell_type,
-                       num_units, sample_prob, pred_samples, num_proj,
-                       init_learning_rate, decay_rate, decay_steps, iterations,
-                       GPUs, batch_size, tmax, delta_t, steps, fft,
-                       window_function, window_size, overlap,
-                       step_size, fft_pred_samples, freq_loss,
-                       use_residuals, epsilon, restore_and_plot,
-                       restore_path6, restore_step, 'log_mse_mse_time.pdf',
-                       return_data=True)
-
-    # log mse
-    restore_path7 = base_path + '2018-11-22 14:21:23__iw_cGRU__act_mod_relu_units_250_stfl_True_ga_mod_sigmoid_fft_True_bs_250_ps_256_lr_0.001_dr_0.9_ds_10000_sp_1.0_rc_False_pt_410537_wf_hann_ws_32_ol_24_ffts_8_fftp_33_fl_log_mse_eps_None_1d'
-    spikes_instead_of_states, base_dir, dimensions, cell_type, \
-        num_units, sample_prob, pred_samples, num_proj, \
-        init_learning_rate, decay_rate, decay_steps, iterations, \
-        GPUs, batch_size, tmax, delta_t, steps, fft, \
-        window_function, window_size, overlap, \
-        step_size, fft_pred_samples, freq_loss, \
-        use_residuals, epsilon, _, _, _ = pickle.load(open(restore_path7
-                                                           + '/param.pkl', 'rb'))
-
-    GPUs = [0]
-    decoder_out_np7, data_decoder_np7 = \
-        run_experiment(spikes_instead_of_states, base_dir, dimensions, cell_type,
-                       num_units, sample_prob, pred_samples, num_proj,
-                       init_learning_rate, decay_rate, decay_steps, iterations,
-                       GPUs, batch_size, tmax, delta_t, steps, fft,
-                       window_function, window_size, overlap,
-                       step_size, fft_pred_samples, freq_loss,
-                       use_residuals, epsilon, restore_and_plot,
-                       restore_path7, restore_step, 'log_mse.pdf',
-                       return_data=True)
-
-    plt.close()
-    plt.figure()
-    #batch = 89
-    batch = 0
-    plt.plot(decoder_out_np1[batch, :, 0], label='t-mse')
-    plt.plot(decoder_out_np2[batch, :, 0], label='t-mse, f-mse')
-    # plt.plot(decoder_out_np3[batch, :, 0], label='t-mse, f-mse, log-f-mse-dt')
-    # plt.plot(decoder_out_np4[batch, :, 0], label='f-mse')
-    # plt.plot(decoder_out_np5[batch, :, 0], label='f-mse, ln-f-mse')
-    plt.plot(decoder_out_np6[batch, :, 0], label='t-mse, f-mse, ln-f-mse')
-    # plt.plot(decoder_out_np7[batch, :, 0], label='ln-f-mse')
-    plt.plot(data_decoder_np1[batch, :, 0], label='target')
-    plt.legend()
-    plt.ylim([-0.1, 0.8])
-    plt.xlabel('sample no.')
-    plt.ylabel('sample value')
-    plt.savefig('supplemental_viz.pdf')
-    plt.close()
-
-
-if 0:
-    plt.close()
-    plt.figure()
-    # supplemental logfile plots.
-    window_size = 128
-    # extract a logfile plot.
-    plot_path = '/home/moritz/infcuda/fft_pred_networks/logs/suppl/'
-    logs = return_logs(plot_path, window_size, vtag='time_loss')
-    plt.plot(logs[5][0][0], logs[5][0][1], label='t-mse')
-    plt.plot(logs[6][0][0], logs[6][0][1], label='t-mse, f-mse')
-    plt.plot(logs[3][0][0], logs[3][0][1], label='t-mse, f-mse, ln-f-mse-dt')
-    plt.plot(logs[2][0][0], logs[2][0][1], label='f-mse')
-    plt.plot(logs[8][0][0], logs[8][0][1], label='f-mse, ln-f-mse')
-    plt.plot(logs[0][0][0], logs[0][0][1], label='t-mse, f-mse, ln-f-mse')
-    plt.plot(logs[7][0][0], logs[7][0][1], label='ln-f-mse')
-    plt.ylim([0.0, 0.05])
-    plt.ylabel('time-domain mean squared error')
-    plt.xlabel('weight-updates')
-    plt.legend()
-    # plt.show()
-    plt.savefig('supplementary_convergence.pdf')
-    plt.close()
-
-
-# ws convergence plots.
-if 1:
-    plt.close()
-    plt.figure()
-    # supplemental logfile plots.
-    window_size = 128
-    # extract a logfile plot.
-    plot_path = '/home/moritz/infcuda/fft_pred_networks/logs/tf_1d_paper_ws/'
-    logs = return_logs(plot_path, window_size, vtag='time_loss')
-    plt.plot(logs[2][0][0][:100], logs[2][0][1][:100], label='ws_16')
-    plt.plot(logs[3][0][0][:100], logs[3][0][1][:100], label='ws_32')
-    # plt.plot(logs[6][0][0], logs[6][0][1], label='ws_48')
-    plt.plot(logs[4][0][0][:100], logs[4][0][1][:100], label='ws_64')
-    # plt.plot(logs[1][0][0], logs[1][0][1], label='ws_80')
-    plt.plot(logs[5][0][0][:100], logs[5][0][1][:100], label='ws_96')
-    plt.ylim([0.0, 0.02])
-    plt.ylabel('time-domain mean squared error')
-    plt.xlabel('weight-updates')
-    plt.legend()
-    # # plt.show()
-    plt.savefig('window_size_study.pdf')
-    plt.close()
+plot(path, restore_step, label='time-gru', gt=True)
+plt.legend(bbox_to_anchor=(1.05, 1), loc=2, borderaxespad=0.)
+plt.show()
+# tikz.save('mackey_fit.tex')

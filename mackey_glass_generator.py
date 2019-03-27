@@ -21,12 +21,14 @@ def generate_mackey(batch_size=100, tmax=200, delta_t=1, rnd=True):
         def mackey(x, tau, gamma=0.1, beta=0.2, n=10):
             return beta*x[:, -tau]/(1 + tf.pow(x[:, -tau], n)) - gamma*x[:, -1]
 
-        tau = 17
+        tau = int(17*(1/delta_t))
         x0 = tf.ones([tau])
         x0 = tf.stack(batch_size*[x0], axis=0)
         if rnd:
             print('Mackey initial state is random.')
             x0 += tf.random_uniform(x0.shape, -0.1, 0.1)
+        else:
+            x0 += tf.random_uniform(x0.shape, -0.1, 0.1, seed=0)
 
         x = x0
         with tf.variable_scope("forward_euler"):
@@ -40,9 +42,11 @@ def generate_mackey(batch_size=100, tmax=200, delta_t=1, rnd=True):
 if __name__ == "__main__":
     tf.enable_eager_execution()
     import matplotlib.pyplot as plt
-    mackey = generate_mackey(tmax=1200, delta_t=1)
+    # import matplotlib2tikz as tikz
+    mackey = generate_mackey(tmax=1200, delta_t=0.1, rnd=True)
     print(mackey.shape)
     plt.plot(mackey[0, :].numpy())
+    # tikz.save('mackey.tex')
     plt.show()
 
 
