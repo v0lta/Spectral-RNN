@@ -8,4 +8,4 @@ http://www.wolter.tech/wordpress/wp-content/uploads/2019/02/power_data.zip
 And extract it in the power experiments folder. Then run `power_load_pred_exp.py`
 with the desired parameters.
 
-The experiments in music_exp and human motion exp where not too promising.
+The experiments in music_exp worked and outperformed https://arxiv.org/abs/1705.09792 but not  https://arxiv.org/pdf/1711.04845.pdf. The experiments in human motion exp where not too promising.
