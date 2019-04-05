@@ -21,8 +21,6 @@ class PowerDataHandler(object):
     def __init__(self, path, context=15, samples_per_day=96, test_keys=None):
         '''
         Creates a power data handler.
-        The code assumes that 
-
         '''
         self.path = path
         self.context = context
@@ -96,7 +94,7 @@ class PowerDataHandler(object):
 
     def get_train_complete(self):
         complete_data = []
-        
+
         for key_pair in self.training_keys:
             try:
                 current_year = self.files[key_pair[0]][key_pair[1]]

@@ -41,7 +41,6 @@ def gaussian_window(window_size):
         w = tf.math.exp(w)
         return w
 
-
 # def kaiser_window(alpha, window_size):
 #     # numerical issues nans in half of the window....
 #     # do not use for now.
