@@ -16,7 +16,8 @@ class PhysioHandler(object):
     '''
 
     def __init__(self, set_path='./data/set-a/',
-                 label_file='set-a_outcome.txt',
+                 label_file='./data/set-a_outcome.txt',
+                 batch_size=100, max_length=None,
                  cut_at=None):
         '''
         Creates a power data handler.
@@ -27,7 +28,9 @@ class PhysioHandler(object):
         Returns:
             physio dict: A dictionary with the physionet samples.
         '''
+        self.batch_size = batch_size
         self.path = set_path
+        self.steps_per_epoch = 4000//self.batch_size
 
         # walk trough subfolders of the path and find csv files.
         self.files = {}
@@ -62,7 +65,10 @@ class PhysioHandler(object):
         self.patient_dict = patient_dict
         self.key_lst = list(self.patient_dict.keys())
         self.matrix_dict = self.scale_and_merge()
-        self.max_length = np.max(self.lengths())
+        if max_length is not None:
+            self.max_length = max_length
+        else:
+            self.max_length = np.max(self.lengths())
         self.mean_dict, self.std_dict = self.compute_mean_and_std()
 
         # load the labels.
@@ -268,23 +274,35 @@ class PhysioHandler(object):
             epoch.append((padded_mat, label_array, key))
         return epoch
 
-    def get_batches(self, batch_size):
+    def get_batches(self):
         '''
         pad matrices and return a batch.
         '''
-        assert len(self.patient_dict) % batch_size == 0, 'batch_size invalid'
+        assert len(self.patient_dict) % self.batch_size == 0, 'batch_size invalid'
         epoch = self.epoch_lst
         random.shuffle(epoch)
         data_lst = []
         label_lst = []
         for el in epoch:
-            data_lst.append(el[0])
-            label_lst.append(el[1])
+            data_lst.append(np.transpose(el[0]))
+            label_lst.append(np.expand_dims(el[1], -1))
         data_array = np.array(data_lst)
-        data_batches = np.split(data_array, 4000//batch_size, axis=0)
+        data_batches = np.split(data_array, self.steps_per_epoch, axis=0)
         label_array = np.array(label_lst)
-        label_batches = np.split(label_array, 4000//batch_size, axis=0)
+        label_batches = np.split(label_array, self.steps_per_epoch, axis=0)
         return data_batches, label_batches
+
+    def generator(self):
+        '''
+        Return a single batch every time the generator is called.
+        '''
+        assert len(self.patient_dict) % self.batch_size == 0, 'batch_size invalid'
+        epoch = self.epoch_lst
+        random.shuffle(epoch)
+        for el in epoch:
+            x = np.transpose(el[0])
+            y = np.expand_dims(el[1], -1)
+            yield x, y
 
 
 if __name__ == "__main__":
