@@ -1,16 +1,39 @@
 import numpy as np
 import tensorflow as tf
 import tensorflow.keras.layers as layers
-import tensorflow.keras.losses as losses
-import tensorflow.keras.optimizers as optimizers
-import physionet_handler
+import tensorflow.losses as losses
+import tensorflow.train as train
 
+import physionet_handler
+from IPython.core.debugger import Tracer
+debug_here = Tracer()
+
+
+def compute_parameter_total(trainable_variables):
+    total_parameters = 0
+    for variable in trainable_variables:
+        # shape is an array of tf.Dimension
+        shape = variable.get_shape()
+        # print('var_name', variable.name, 'shape', shape, 'dim', len(shape))
+        variable_parameters = 1
+        for dim in shape:
+            # print(dim)
+            variable_parameters *= dim.value
+        # print('parameters', variable_parameters)
+        total_parameters += variable_parameters
+    print('total:', total_parameters)
+    return total_parameters
+
+
+# TODO: Add imputation and STFT.
+# TODO: Fix preprocessing.
 
 # network parameters
 epochs = 500
 batch_size = 100
 quantity_no = 42
 activation = layers.ReLU()
+learning_rate = 0.001
 
 train_set = './data/set-a/'
 label_file = './data/set-a_outcome.txt'
@@ -35,31 +58,68 @@ for layer_no in range(0, len(filters)):
     layer_lst.append(layers.Conv1D(filters[layer_no], kernel_size[layer_no],
                                    strides[layer_no], padding, data_format,
                                    activation=activation))
+layer_lst.append(layers.Dense(500, activation=None))
 layer_lst.append(layers.Dense(1, activation=None))
 
-model = tf.keras.Sequential(layer_lst)
-loss_fun = losses.BinaryCrossentropy(from_logits=True)
-opt = optimizers.Adam(lr=0.001)
-model.compile(opt, loss=loss_fun, metrics=['accuracy'])
+graph = tf.Graph()
+with graph.as_default():
+    input_values = tf.placeholder(tf.float32,
+                                  [batch_size, physionet.max_length,
+                                   len(physionet.recorded_quantities)])
+    targets = tf.placeholder(tf.float32, [batch_size, 1])
+    hidden_and_out = [input_values]
+    for layer in layer_lst:
+        hidden_and_out.append(layer(hidden_and_out[-1]))
 
-# model.fit(x=physionet.generator(), epochs=epochs,
-#           steps_per_epoch=physionet.steps_per_epoch)
+    out = tf.squeeze(hidden_and_out[-1], 1)
+    loss = losses.sigmoid_cross_entropy(targets, out)
 
-val_batches = val_physionet.get_batches()
-for e in range(0, epochs):
-    image_batches, target_batches = physionet.get_batches()
-    assert len(image_batches) == len(target_batches)
-    for i in range(len(image_batches)):
-        x = image_batches[i]
-        y = target_batches[i]
-        hist = model.fit(x=x, y=y, verbose=0)
-        # print(hist.history['loss'])
-    print('epoch', e+1, 'of', epochs, 'done')
-    # validate
-    if e % 10 == 0:
-        test_acc = []
-        for j in range(len(val_batches[0])):
-            x_val = val_batches[0][j]
-            y_val = val_batches[1][j]
-            test_acc.append(model.test_on_batch(x_val, y_val, reset_metrics=True)[1])
-        print('test acc', np.mean(test_acc))
+    opt = train.AdamOptimizer(learning_rate)
+    weight_update = opt.minimize(loss)
+
+    sig_out = tf.nn.sigmoid(out)
+    acc = tf.metrics.accuracy(labels=targets, predictions=sig_out)
+    init_global = tf.initializers.global_variables()
+    init_local = tf.initializers.local_variables()
+    parameter_total = compute_parameter_total(tf.trainable_variables())
+
+
+with tf.Session(graph=graph) as sess:
+    sess.run([init_global, init_local])
+    print('parameter_total:', parameter_total)
+    val_batches = val_physionet.get_batches()
+    for e in range(0, epochs):
+        image_batches, target_batches = physionet.get_batches()
+        assert len(image_batches) == len(target_batches)
+        # validate
+        if e % 10 == 0:
+            test_loss_lst = []
+            test_acc_lst = []
+            for j in range(len(val_batches[0])):
+                x_val = val_batches[0][j]
+                y_val = val_batches[1][j]
+                feed_dict = {input_values: x_val,
+                             targets: y_val}
+                val_loss, val_out, val_acc = sess.run(
+                    [loss, sig_out, acc], feed_dict=feed_dict)
+                test_loss_lst.append(val_loss)
+                test_acc_lst.append(val_acc)
+            print('test loss', np.mean(test_loss_lst))
+            print('test acc', np.mean(test_acc_lst))
+        train_loss_lst = []
+        train_acc_lst = []
+        for i in range(len(image_batches)):
+            x = image_batches[i]
+            y = target_batches[i]
+            feed_dict = {input_values: x,
+                         targets: y}
+            train_loss, train_acc, _ = sess.run([loss, acc, weight_update],
+                                                feed_dict=feed_dict)
+            train_loss_lst.append(train_loss)
+            train_acc_lst.append(train_acc)
+        if e % 10 == 0:
+            print('train loss', np.mean(train_loss))
+            print('train acc', np.mean(train_acc))
+            print('epoch', e+1, 'of', epochs, 'done')
+    debug_here()
+    print('hoho')
