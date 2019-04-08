@@ -27,9 +27,10 @@ def compute_parameter_total(trainable_variables):
 
 # TODO: Add imputation and STFT.
 # TODO: Fix preprocessing.
+# TODO: add everyone survives baseline.
 
 # network parameters
-epochs = 500
+epochs = 501
 batch_size = 100
 quantity_no = 42
 activation = layers.ReLU()
@@ -58,7 +59,7 @@ for layer_no in range(0, len(filters)):
     layer_lst.append(layers.Conv1D(filters[layer_no], kernel_size[layer_no],
                                    strides[layer_no], padding, data_format,
                                    activation=activation))
-layer_lst.append(layers.Dense(500, activation=None))
+layer_lst.append(layers.Dense(400, activation=activation))
 layer_lst.append(layers.Dense(1, activation=None))
 
 graph = tf.Graph()
@@ -89,8 +90,6 @@ with tf.Session(graph=graph) as sess:
     print('parameter_total:', parameter_total)
     val_batches = val_physionet.get_batches()
     for e in range(0, epochs):
-        image_batches, target_batches = physionet.get_batches()
-        assert len(image_batches) == len(target_batches)
         # validate
         if e % 10 == 0:
             test_loss_lst = []
@@ -104,8 +103,12 @@ with tf.Session(graph=graph) as sess:
                     [loss, sig_out, acc], feed_dict=feed_dict)
                 test_loss_lst.append(val_loss)
                 test_acc_lst.append(val_acc)
-            print('test loss', np.mean(test_loss_lst))
-            print('test acc', np.mean(test_acc_lst))
+            # print('test loss', np.mean(test_loss_lst))
+            print('test acc ', np.mean(test_acc_lst))
+
+        # get new shuffled batch.
+        image_batches, target_batches = physionet.get_batches()
+        assert len(image_batches) == len(target_batches)
         train_loss_lst = []
         train_acc_lst = []
         for i in range(len(image_batches)):
@@ -118,8 +121,8 @@ with tf.Session(graph=graph) as sess:
             train_loss_lst.append(train_loss)
             train_acc_lst.append(train_acc)
         if e % 10 == 0:
-            print('train loss', np.mean(train_loss))
-            print('train acc', np.mean(train_acc))
+            # print('train loss', np.mean(train_loss))
+            print('train acc ', np.mean(train_acc))
             print('epoch', e+1, 'of', epochs, 'done')
     debug_here()
     print('hoho')
