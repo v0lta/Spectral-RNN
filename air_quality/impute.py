@@ -25,7 +25,7 @@ sequence_length = 36
 air_handler = AirDataHandler(path_in, path_gt,
                              batch_size=batch_size,
                              sequence_length=sequence_length)
-epochs = 20000
+epochs = 6000
 
 filters = [5, 10, 15, 20, 25, 30, 35, 40]
 kernel_size = [[6, 6], [6, 6], [6, 3], [6, 3], [3, 3], [3, 3], [2, 3],
@@ -69,7 +69,7 @@ def mean_absolute_error(labels, predictions, mask=None):
         return np.sum(np.abs(predictions - labels))/np.prod(labels.shape)
 
 
-def mask_nan_to_num(input_array, dropout_rate=0.35):
+def mask_nan_to_num(input_array, dropout_rate=0.4):
     if dropout_rate > 0:
         random_array = np.random.uniform(0, 1, input_array.shape)
         input_array = np.where(random_array > dropout_rate, input_array, np.NaN)
@@ -89,10 +89,12 @@ with tf.Session(graph=graph.tf_graph) as sess:
         input_lst, target_lst = air_handler.get_epoch()
         assert len(input_lst) == len(target_lst)
         for i in range(len(input_lst)):
-            input_array = np.expand_dims(np.transpose(input_lst[i], [0, 2, 1]), -1)
-            target_array = np.expand_dims(np.transpose(target_lst[i], [0, 2, 1]), -1)
+            input_array = np.expand_dims(input_lst[i], -1)
+            target_array = np.expand_dims(target_lst[i], -1)
             input_array = mask_nan_to_num(input_array)
             target_array = mask_nan_to_num(target_array, dropout_rate=0)
+            removed_mask = input_array[:, :, :, 1] - target_array[:, :, :, 1]
+            input_array[:, :, :, 1] = removed_mask
             feed_dict = {graph.input_values: input_array,
                          graph.targets: np.expand_dims(target_array[:, :, :, 0], -1)}
             loss_np, input_loss_np, _ = sess.run([graph.loss, graph.input_loss,
@@ -100,30 +102,47 @@ with tf.Session(graph=graph.tf_graph) as sess:
                                                  feed_dict=feed_dict)
             loss_lst.append(loss_np)
         if e % print_every == 0:
+            mre_idt_lst = []
+            mre_val_lst = []
+            val_loss_lst = []
+            batch_size_lst = []
             # print('train', e, i, loss_np, input_loss_np, loss_np/input_loss_np*100)
             # do a validation pass over the data.
-            norm_data_val, norm_data_gt_val = air_handler.get_validation_data()
-            norm_data_val = mask_nan_to_num(norm_data_val, dropout_rate=0)
-            norm_data_gt_val = mask_nan_to_num(norm_data_gt_val, dropout_rate=0)
-            feed_dict = {graph.input_values: norm_data_val,
-                         graph.targets: np.expand_dims(norm_data_gt_val[:, :, :, 0], -1)}
-            loss_np_val, input_loss_np_val, test_out_np_val = \
-                sess.run([graph.loss, graph.input_loss, graph.test_out],
-                         feed_dict=feed_dict)
+            input_lst_val, target_lst_val = air_handler.get_validation_data()
+            for j in range(len(input_lst_val)):
+                norm_data_val = np.expand_dims(input_lst_val[j], -1)
+                norm_data_gt_val = np.expand_dims(target_lst_val[j], -1)
+                norm_data_val = mask_nan_to_num(norm_data_val, dropout_rate=0)
+                norm_data_gt_val = mask_nan_to_num(norm_data_gt_val, dropout_rate=0)
+                feed_dict = {graph.input_values: norm_data_val,
+                             graph.targets: np.expand_dims(norm_data_gt_val[:, :, :, 0],
+                                                           -1)
+                             }
+                loss_np_val, input_loss_np_val, test_out_np_val = \
+                    sess.run([graph.loss, graph.input_loss, graph.test_out],
+                             feed_dict=feed_dict)
             # print('val  ', e, i, loss_np_val, input_loss_np_val,
             #       loss_np_val/input_loss_np_val*100)
-            removed_mask = norm_data_val[:, :, :, 1] - norm_data_gt_val[:, :, :, 1]
-            mean = 0
-            std = 1
-            mre_idt = mean_relative_error(norm_data_gt_val[:, :, :, 0]*std + mean,
-                                          norm_data_val[:, :, :, 0]*std + mean,
-                                          mask=removed_mask)
-            mae_val = mean_absolute_error(norm_data_gt_val[:, :, :, 0]*std + mean,
-                                          test_out_np_val*std + mean,
-                                          mask=removed_mask)
-            mre_val = mean_relative_error(norm_data_gt_val[:, :, :, 0]*std + mean,
-                                          test_out_np_val*std + mean,
-                                          mask=removed_mask)
+                removed_mask = norm_data_val[:, :, :, 1] - norm_data_gt_val[:, :, :, 1]
+                mean = air_handler.mean
+                std = air_handler.std
+                mre_idt = mean_relative_error(norm_data_gt_val[:, :, :, 0]*std + mean,
+                                              norm_data_val[:, :, :, 0]*std + mean,
+                                              mask=removed_mask)
+                # mae_val = mean_absolute_error(norm_data_gt_val[:, :, :, 0]*std + mean,
+                #                               test_out_np_val[:, :, :, 0]*std + mean,
+                #                               mask=removed_mask)
+                mre_val = mean_relative_error(norm_data_gt_val[:, :, :, 0]*std + mean,
+                                              test_out_np_val[:, :, :, 0]*std + mean,
+                                              mask=removed_mask)
+                mre_idt_lst.append(mre_idt)
+                mre_val_lst.append(mre_val)
+                val_loss_lst.append(loss_np_val)
+                assert input_lst_val[j].shape[0] == target_lst_val[j].shape[0]
+                batch_size_lst.append(input_lst_val[j].shape[0])
+            mre_idt = np.average(mre_idt_lst, weights=batch_size_lst)
+            mre_val = np.average(mre_val_lst, weights=batch_size_lst)
+            loss_np_val = np.average(val_loss_lst, weights=batch_size_lst)
             print(e, loss_np, loss_np_val, 'mre_val', mre_val, mre_idt)
             val_loss_lst.append(loss_np_val)
             val_mre_lst.append(mre_val)
@@ -132,7 +151,7 @@ with tf.Session(graph=graph.tf_graph) as sess:
     plt.show()
     plt.loglog(val_loss_lst)
     plt.show()
-    plt.loglog(val_mre_lst)
+    plt.plot(val_mre_lst)
     plt.show()
     plt.imshow(np.concatenate([norm_data_val[0, :, :, 0],
                                test_out_np_val[0, :, :, 0],

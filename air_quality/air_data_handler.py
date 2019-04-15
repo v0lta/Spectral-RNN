@@ -86,12 +86,12 @@ class AirDataHandler(object):
         self.norm_data_val = (self.data_array_val - self.mean)/self.std
         self.norm_data_gt_val = (self.data_array_gt_val - self.mean)/self.std
 
-    def get_epoch(self):
+    def format_batches(self, x_data, y_data, train=True):
         '''
-        Partition the normalized data array into a list
+        Partition normalized data arrays into a list
         of batches.
         '''
-        data_shape = self.norm_data.shape
+        data_shape = x_data.shape
         batch_no = int(data_shape[0]/self._sequence_length)
         select = batch_no*self._sequence_length
 
@@ -101,10 +101,11 @@ class AirDataHandler(object):
             batched_data = np.stack(batched_data, 0)
             return batched_data
 
-        batch_data = batch(self.norm_data, batch_no, select)
-        batch_data_gt = batch(self.norm_data_gt, batch_no, select)
+        batch_data = batch(x_data, batch_no, select)
+        batch_data_gt = batch(y_data, batch_no, select)
         idx = list(range(batch_no))
-        random.shuffle(idx)
+        if train:
+            random.shuffle(idx)
         return_data = np.zeros(batch_data.shape)
         return_data_gt = np.zeros(batch_data_gt.shape)
         for i, j in enumerate(idx):
@@ -118,12 +119,17 @@ class AirDataHandler(object):
 
         return_lst = np.split(creturn_data, baches_per_epoch, 0)
         return_lst_gt = np.split(creturn_data_gt, baches_per_epoch, 0)
+        if not train:
+            return_lst.append(return_data[cut:, :, :])
+            return_lst_gt.append(return_data_gt[cut:, :, :])
         return return_lst, return_lst_gt
 
+    def get_epoch(self):
+        return self.format_batches(self.norm_data, self.norm_data_gt)
+
     def get_validation_data(self):
-        debug_here()
-        return np.expand_dims(np.expand_dims(self.norm_data_val, 0), -1), \
-            np.expand_dims(np.expand_dims(self.norm_data_gt_val, 0), -1)
+        return self.format_batches(self.norm_data_val, self.norm_data_gt_val,
+                                   train=False)
 
 
 if __name__ == "__main__":
