@@ -159,8 +159,6 @@ class MergePowerHandler(PowerDataHandler):
         self.mean, self.std = self.compute_mean_and_std()
 
 
-
-
 if __name__ == "__main__":
     if False:
         import matplotlib.pyplot as plt

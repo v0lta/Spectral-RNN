@@ -18,6 +18,7 @@ class PhysioHandler(object):
     def __init__(self, set_path='./data/set-a/',
                  label_file='./data/set-a_outcome.txt',
                  batch_size=100, max_length=None,
+                 mean_dict=None, std_dict=None,
                  cut_at=None):
         '''
         Creates a power data handler.
@@ -64,12 +65,18 @@ class PhysioHandler(object):
                 patient_dict[file_key] = patient_value_dict
         self.patient_dict = patient_dict
         self.key_lst = list(self.patient_dict.keys())
-        self.matrix_dict = self.scale_and_merge()
         if max_length is not None:
             self.max_length = max_length
         else:
             self.max_length = np.max(self.lengths())
-        self.mean_dict, self.std_dict = self.compute_mean_and_std()
+        if mean_dict is None:
+            assert std_dict is None
+            self.mean_dict, self.std_dict = self.compute_mean_and_std()
+        else:
+            assert std_dict is not None
+            self.mean_dict = mean_dict
+            self.std_dict = std_dict
+        self.matrix_dict = self.scale_and_merge()
 
         # load the labels.
         with open(label_file, newline='') as csvfile:
@@ -135,10 +142,14 @@ class PhysioHandler(object):
         mean_dict = {}
         std_dict = {}
         for key, val in val_dict.items():
-            mean_dict[key] = np.mean(val)
-            std_dict[key] = np.std(val)
-            if std_dict[key] < 0.001:
-                std_dict[key] = 1.0
+            if key == 'TimePoints':
+                mean_dict[key] = 0
+                std_dict[key] = np.max(val)
+            else:
+                mean_dict[key] = np.mean(val)
+                std_dict[key] = np.std(val)
+                if std_dict[key] < 0.001:
+                    std_dict[key] = 1.0
         return mean_dict, std_dict
 
     def time_string_to_seconds(self, time_string):
@@ -235,7 +246,7 @@ class PhysioHandler(object):
                 if max_val > max_dict[key]:
                     max_dict[key] = max_val
 
-        # scale by maximum value.
+        # scale by mean division and std-division.
         scaled_data = {}
         for file_key, data_dict in formatted_data.items():
             # print(file_key)
@@ -244,7 +255,8 @@ class PhysioHandler(object):
             for data_key in self.recorded_quantities:
                 try:
                     array = data_dict[data_key]
-                    scaled_row = array/max_dict[data_key]
+                    scaled_row = array - self.mean_dict[data_key]
+                    scaled_row = scaled_row/self.std_dict[data_key]
                 except KeyError:
                     scaled_row = np.array([np.NaN]*len(data_dict['TimePoints']))
 
@@ -311,13 +323,13 @@ if __name__ == "__main__":
     set_path = './data/set-a/'
     label_file = './data/set-a_outcome.txt'
     physio_handler = PhysioHandler(set_path, label_file)
-    batch = physio_handler.get_batches(25)
+    batch = physio_handler.get_batches()
     len_lst = physio_handler.lengths()
     # plt.hist(len_lst)
     # plt.show()
-    # example_mat = batch[0][0][0, :, :]
-    # plt.imshow(example_mat)
-    # plt.show()
+    example_mat = batch[0][0][0, :, :]
+    plt.imshow(example_mat)
+    plt.show()
     # spec = np.abs(scisig.stft(example_mat, nperseg=12))[-1]
     # plt.imshow(np.concatenate(np.squeeze(np.split(spec, spec.shape[0], axis=0))))
     # plt.show()
