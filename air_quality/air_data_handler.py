@@ -145,7 +145,7 @@ class AirDataHandler(object):
 
     def get_epoch(self):
         return self.format_batches(self.norm_data, self.norm_data_gt,
-                                   step_size=self.step_size)
+                                   step_size=self._step_size)
 
     def get_validation_data(self):
         return self.format_batches(self.norm_data_val, self.norm_data_gt_val,
