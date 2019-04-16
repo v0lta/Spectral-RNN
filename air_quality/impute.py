@@ -23,12 +23,12 @@ path_gt = './SampleData/pm25_ground.txt'
 path_in = './SampleData/pm25_missing.txt'
 batch_size = 25
 sequence_length = 36
-step_size = None
+step_size = 18
 air_handler = AirDataHandler(path_in, path_gt,
                              batch_size=batch_size,
                              sequence_length=sequence_length,
                              step_size=step_size)
-epochs = 30000
+epochs = 2000
 
 filters = [5, 10, 15, 20, 25, 30, 35, 40]
 kernel_size = [[6, 6], [6, 6], [6, 3], [6, 3], [3, 3], [3, 3], [2, 3],
@@ -92,6 +92,7 @@ with tf.Session(graph=graph.tf_graph) as sess:
     loss_lst = []
     val_loss_lst = []
     val_mre_lst = []
+    input_lst_val, target_lst_val = air_handler.get_validation_data()
     for e in range(epochs):
         input_lst, target_lst = air_handler.get_epoch()
         assert len(input_lst) == len(target_lst)
@@ -116,7 +117,6 @@ with tf.Session(graph=graph.tf_graph) as sess:
             batch_size_lst = []
             # print('train', e, i, loss_np, input_loss_np, loss_np/input_loss_np*100)
             # do a validation pass over the data.
-            input_lst_val, target_lst_val = air_handler.get_validation_data()
             for j in range(len(input_lst_val)):
                 norm_data_val = np.expand_dims(input_lst_val[j], -1)
                 norm_data_gt_val = np.expand_dims(target_lst_val[j], -1)

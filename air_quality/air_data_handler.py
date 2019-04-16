@@ -89,14 +89,14 @@ class AirDataHandler(object):
         self.norm_data_val = (self.data_array_val - self.mean)/self.std
         self.norm_data_gt_val = (self.data_array_gt_val - self.mean)/self.std
 
-    def format_batches(self, x_data, y_data, train=True):
+    def format_batches(self, x_data, y_data, train=True, step_size=None):
         '''
         Partition normalized data arrays into a list
         of batches.
         '''
-        if self._step_size:
+        if step_size:
             data_shape = x_data.shape
-            batch_no = int(data_shape[0]/self._step_size)
+            batch_no = int(data_shape[0]/step_size)
             select = None
 
             def batch(data_array, batch_no, select):
@@ -105,7 +105,7 @@ class AirDataHandler(object):
                                         mode='constant')
                 dap_shape = data_array_pad.shape[0]
                 batched_data = []
-                for i in range(0, dap_shape-self._sequence_length, self._step_size):
+                for i in range(0, dap_shape-self._sequence_length, step_size):
                     batched_data.append(data_array_pad[i:(i+self._sequence_length), :])
                 return np.stack(batched_data)
         else:
@@ -144,11 +144,12 @@ class AirDataHandler(object):
         return return_lst, return_lst_gt
 
     def get_epoch(self):
-        return self.format_batches(self.norm_data, self.norm_data_gt)
+        return self.format_batches(self.norm_data, self.norm_data_gt,
+                                   step_size=self.step_size)
 
     def get_validation_data(self):
         return self.format_batches(self.norm_data_val, self.norm_data_gt_val,
-                                   train=False)
+                                   train=False, step_size=1)
 
 
 if __name__ == "__main__":
