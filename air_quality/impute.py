@@ -1,5 +1,6 @@
 import tensorflow as tf
 import numpy as np
+import scipy.signal as signal
 import tensorflow as tf
 import tensorflow.keras.layers as layers
 import tensorflow.losses as losses
@@ -8,7 +9,7 @@ import matplotlib.pyplot as plt
 from air_data_handler import AirDataHandler
 # from imputation_graphs import CNNImputationGraph
 from imputation_graphs import DfnImputation
-
+from imputation_graphs import CNNImputationFFT
 
 from IPython.core.debugger import Tracer
 debug_here = Tracer()
@@ -22,10 +23,12 @@ path_gt = './SampleData/pm25_ground.txt'
 path_in = './SampleData/pm25_missing.txt'
 batch_size = 25
 sequence_length = 36
+step_size = None
 air_handler = AirDataHandler(path_in, path_gt,
                              batch_size=batch_size,
-                             sequence_length=sequence_length)
-epochs = 6000
+                             sequence_length=sequence_length,
+                             step_size=step_size)
+epochs = 30000
 
 filters = [5, 10, 15, 20, 25, 30, 35, 40]
 kernel_size = [[6, 6], [6, 6], [6, 3], [6, 3], [3, 3], [3, 3], [2, 3],
@@ -34,7 +37,7 @@ stride_size = [[2, 1], [2, 2], [2, 1], [2, 1], [1, 1], [1, 1], [1, 1],
                [1, 1]]
 assert len(filters) == len(kernel_size)
 
-dropout_rate = 0.5
+dropout_rate = 0.55
 padding = 'valid'
 activation = layers.ReLU()
 
@@ -45,6 +48,10 @@ activation = layers.ReLU()
 graph = DfnImputation(learning_rate=0.0001,
                       dropout_rate=dropout_rate,
                       sequence_length=sequence_length)
+
+# graph = CNNImputationFFT(learning_rate=0.0001,
+#                          dropout_rate=0.0,
+#                          sequence_length=sequence_length)
 
 
 def mean_relative_error(labels, predictions, mask=None):
@@ -93,6 +100,7 @@ with tf.Session(graph=graph.tf_graph) as sess:
             target_array = np.expand_dims(target_lst[i], -1)
             input_array = mask_nan_to_num(input_array)
             target_array = mask_nan_to_num(target_array, dropout_rate=0)
+            # debug_here()
             removed_mask = input_array[:, :, :, 1] - target_array[:, :, :, 1]
             input_array[:, :, :, 1] = removed_mask
             feed_dict = {graph.input_values: input_array,
@@ -104,7 +112,7 @@ with tf.Session(graph=graph.tf_graph) as sess:
         if e % print_every == 0:
             mre_idt_lst = []
             mre_val_lst = []
-            val_loss_lst = []
+            eval_loss_lst = []
             batch_size_lst = []
             # print('train', e, i, loss_np, input_loss_np, loss_np/input_loss_np*100)
             # do a validation pass over the data.
@@ -121,8 +129,6 @@ with tf.Session(graph=graph.tf_graph) as sess:
                 loss_np_val, input_loss_np_val, test_out_np_val = \
                     sess.run([graph.loss, graph.input_loss, graph.test_out],
                              feed_dict=feed_dict)
-            # print('val  ', e, i, loss_np_val, input_loss_np_val,
-            #       loss_np_val/input_loss_np_val*100)
                 removed_mask = norm_data_val[:, :, :, 1] - norm_data_gt_val[:, :, :, 1]
                 mean = air_handler.mean
                 std = air_handler.std
@@ -137,19 +143,19 @@ with tf.Session(graph=graph.tf_graph) as sess:
                                               mask=removed_mask)
                 mre_idt_lst.append(mre_idt)
                 mre_val_lst.append(mre_val)
-                val_loss_lst.append(loss_np_val)
+                eval_loss_lst.append(loss_np_val)
                 assert input_lst_val[j].shape[0] == target_lst_val[j].shape[0]
                 batch_size_lst.append(input_lst_val[j].shape[0])
             mre_idt = np.average(mre_idt_lst, weights=batch_size_lst)
             mre_val = np.average(mre_val_lst, weights=batch_size_lst)
-            loss_np_val = np.average(val_loss_lst, weights=batch_size_lst)
+            loss_np_val = np.average(eval_loss_lst, weights=batch_size_lst)
             print(e, loss_np, loss_np_val, 'mre_val', mre_val, mre_idt)
             val_loss_lst.append(loss_np_val)
             val_mre_lst.append(mre_val)
-
-    plt.loglog(loss_lst)
+    print('best', np.min(val_mre_lst))
+    plt.plot(loss_lst)
     plt.show()
-    plt.loglog(val_loss_lst)
+    plt.plot(val_loss_lst)
     plt.show()
     plt.plot(val_mre_lst)
     plt.show()

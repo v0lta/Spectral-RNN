@@ -3,6 +3,7 @@ import csv
 import random
 import numpy as np
 import matplotlib.pyplot as plt
+from matplotlib import animation
 
 from IPython.core.debugger import Tracer
 debug_here = Tracer()
@@ -16,7 +17,8 @@ class AirDataHandler(object):
     '''
 
     def __init__(self, path_in,
-                 path_gt, batch_size=10, sequence_length=168):
+                 path_gt, batch_size=10, sequence_length=168,
+                 step_size=None):
         '''
         Creates a power data handler.
         '''
@@ -24,6 +26,7 @@ class AirDataHandler(object):
         self.path_gt = path_gt
         self._batch_size = batch_size
         self._sequence_length = sequence_length
+        self._step_size = step_size
 
         def read_file(current_path):
             with open(current_path, newline='') as csvfile:
@@ -91,18 +94,34 @@ class AirDataHandler(object):
         Partition normalized data arrays into a list
         of batches.
         '''
-        data_shape = x_data.shape
-        batch_no = int(data_shape[0]/self._sequence_length)
-        select = batch_no*self._sequence_length
+        if self._step_size:
+            data_shape = x_data.shape
+            batch_no = int(data_shape[0]/self._step_size)
+            select = None
 
-        def batch(data_array, batch_no, select):
-            to_batches = data_array[:select, :]
-            batched_data = np.split(to_batches, batch_no, 0)
-            batched_data = np.stack(batched_data, 0)
-            return batched_data
+            def batch(data_array, batch_no, select):
+                to_pad = int(self._sequence_length/2)
+                data_array_pad = np.pad(data_array, [[to_pad, to_pad], [0, 0]],
+                                        mode='constant')
+                dap_shape = data_array_pad.shape[0]
+                batched_data = []
+                for i in range(0, dap_shape-self._sequence_length, self._step_size):
+                    batched_data.append(data_array_pad[i:(i+self._sequence_length), :])
+                return np.stack(batched_data)
+        else:
+            data_shape = x_data.shape
+            batch_no = int(data_shape[0]/self._sequence_length)
+            select = batch_no*self._sequence_length
+
+            def batch(data_array, batch_no, select):
+                to_batches = data_array[:select, :]
+                batched_data = np.split(to_batches, batch_no, 0)
+                batched_data = np.stack(batched_data, 0)
+                return batched_data
 
         batch_data = batch(x_data, batch_no, select)
         batch_data_gt = batch(y_data, batch_no, select)
+        # debug_here()
         idx = list(range(batch_no))
         if train:
             random.shuffle(idx)
@@ -137,11 +156,11 @@ if __name__ == "__main__":
     path_gt = './SampleData/pm25_ground.txt'
     path_in = './SampleData/pm25_missing.txt'
     air_handler = AirDataHandler(path_in, path_gt, batch_size=10,
-                                 sequence_length=168)
+                                 sequence_length=36,
+                                 step_size=1)
     epoch = air_handler.get_epoch()
-
-    plt.imshow(epoch[0][0][0])
-    plt.show()
+    # plt.imshow(epoch[0][0][0])
+    # plt.show()
 
     flat = air_handler.norm_data.flatten()
     mm5 = [0 if np.isnan(x) else x for x in flat]
@@ -154,15 +173,15 @@ if __name__ == "__main__":
     # filter_gt = np.fft.irfft(spectrum)
     # plt.subplot(2, 1, 1)
     # plt.subplot(2, 1, 2)
-    plt.plot(mm5[:, 1])
-    plt.plot(filter_gt[:, 1])
-    plt.show()
+    # plt.plot(mm5[:, 1])
+    # plt.plot(filter_gt[:, 1])
+    # plt.show()
 
     spectrum = np.fft.rfft(mm5.transpose())
     spectrum_filt = np.fft.rfft(filter_gt.transpose())
-    plt.plot(np.abs(spectrum).transpose()[:, 0])
-    plt.plot(np.abs(spectrum_filt).transpose()[:, 0])
-    plt.show()
+    # plt.plot(np.abs(spectrum).transpose()[:, 0])
+    # plt.plot(np.abs(spectrum_filt).transpose()[:, 0])
+    # plt.show()
 
     # compute an STFT.
     f, t, Zxx = signal.stft(mm5.transpose(), nperseg=256)
@@ -170,3 +189,44 @@ if __name__ == "__main__":
     Zxx_split = np.split(Zxx_abs, Zxx_abs.shape[0], 0)
     Zxx_split = [np.squeeze(Zxx_el) for Zxx_el in Zxx_split]
     Zxx_conc = np.concatenate(Zxx_split, -1)
+
+    def play_single_video(np_video, save=False, path=None, channels=1):
+        """Play a single numpy array of shape [time, hight, width, 3]
+           as RGB video.
+        """
+        # np_video = load_video(path)
+        frame_no = np_video.shape[0]
+
+        fig = plt.figure()  # make figure
+        if channels == 3:
+            im = plt.imshow(np_video[0, :, :, :])
+        else:
+            im = plt.imshow(np_video[0, :, :, 0])
+
+        # function to update figure
+        def updatefig(j):
+            # set the data in the axesimage object
+            if channels == 3:
+                im.set_array(np_video[j, :, :, :])
+            else:
+                im.set_array(np_video[j, :, :, 0])
+            # return the artists set
+            return im,
+
+        # kick off the animation
+        # interval; Delay between frames in milliseconds. Defaults to 200.
+        anim = animation.FuncAnimation(fig, updatefig, frames=range(frame_no),
+                                       interval=200, blit=True)
+        if save is True:
+            if path is None:
+                print("missing path. Saving to result.mp4 and result.pkl")
+                path = 'result'
+            anim.save(path + '.mp4', fps=10, writer="avconv", codec="libx264")
+            import pickle
+            pickle.dump(np_video, open(path + '.pkl', 'wb'))
+
+        plt.show()
+
+    val_epoch = air_handler.get_validation_data()
+    play_single_video(np.stack(val_epoch[0][:-1]))
+
