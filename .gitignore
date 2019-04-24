@@ -19,6 +19,7 @@ power_experiments/power_data/
 power_experiments/log/
 person_activity/
 air_quality/SampleData/
+air_quality/logs/
 q.log
 
 # Byte-compiled / optimized / DLL files
