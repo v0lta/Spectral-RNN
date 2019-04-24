@@ -215,7 +215,7 @@ def istft(Zxx, window, nperseg=None, noverlap=None, nfft=None,
         #     raise ValueError('Window, STFT shape and noverlap do not satisfy the '
         #                      'COLA constraint.')
 
-        xsubs = tf.spectral.irfft(Zxx)[..., :nperseg]
+        xsubs = tf.spectral.irfft(Zxx, fft_length=nfft)[..., :nperseg]
         # This takes care of the 'spectrum' scaling.
         xsubs_scaled = xsubs * tf.reduce_sum(window)
         unscaled = tfsignal.overlap_and_add(xsubs_scaled*window, nstep)
