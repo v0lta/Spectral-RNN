@@ -3,71 +3,11 @@ import tensorflow as tf
 import tensorflow.contrib.signal as tfsignal
 import scipy.signal as scisig
 import matplotlib.pyplot as plt
+from lorenz_data_generator import LorenzGenerator
+from mackey_glass_generator import MackeyGenerator
 # from mpl_toolkits.mplot3d import Axes3D
 from IPython.core.debugger import Tracer
 debug_here = Tracer()
-
-
-def generate_data(tmax=20, delta_t=0.01, sigma=10.0,
-                  beta=8.0/3.0, rho=28.0, batch_size=100,
-                  rnd=True):
-    """
-    Generate synthetic training data using the Lorenz system
-    of equations (https://en.wikipedia.org/wiki/Lorenz_system):
-    dxdt = sigma*(y - x)
-    dydt = x * (rho - z) - y
-    dzdt = x*y - beta*z
-    The system is simulated using a forward euler scheme
-    (https://en.wikipedia.org/wiki/Euler_method).
-
-    Params:
-        tmax: The simulation time.
-        delta_t: The step size.
-        sigma: The first Lorenz parameter.
-        beta: The second Lorenz parameter.
-        rho: The thirs Lorenz parameter.
-        batch_size: The first batch dimension.
-        rnd: If true the lorenz seed is random.
-    Returns:
-        spikes: A Tensor of shape [batch_size, time, 1],
-        states: A Tensor of shape [batch_size, time, 3].
-    """
-    with tf.variable_scope('lorenz_generator'):
-        # multi-dimensional data.
-        def lorenz(x, t):
-            return tf.stack([sigma*(x[:, 1] - x[:, 0]),
-                             x[:, 0]*(rho - x[:, 2]) - x[:, 1],
-                             x[:, 0]*x[:, 1] - beta*x[:, 2]],
-                            axis=1)
-
-        state0 = tf.constant([8.0, 6.0, 30.0])
-        state0 = tf.stack(batch_size*[state0], axis=0)
-        if rnd:
-            print('Lorenz initial state is random.')
-            state0 += tf.random_uniform([batch_size, 3], -4, 4)
-        else:
-            add_lst = []
-            for i in range(batch_size):
-                add_lst.append([0, float(i)*(1.0/batch_size), 0])
-            add_tensor = tf.stack(add_lst, axis=0)
-            state0 += add_tensor
-        states = [state0]
-        with tf.variable_scope("forward_euler"):
-            for _ in range(int(tmax/delta_t)):
-                states.append(states[-1] + delta_t*lorenz(states[-1], None))
-        states = tf.stack(states, axis=1)
-
-        # fig = plt.figure()
-        # ax = fig.gca(projection='3d')
-        # ax.plot(states[:, 0], states[:, 1], states[:, 2], label='lorenz curve')
-        # plt.show()
-
-        # single dimensional data.
-        spikes = tf.expand_dims(tf.square(states[:, :, 0]), -1)
-        # normalize
-        states = states/tf.reduce_max(tf.abs(states))
-        spikes = spikes/tf.reduce_max(spikes)
-    return spikes, states
 
 
 def zero_ext(x, n, axis=-1):
@@ -243,17 +183,25 @@ if __name__ == "__main__":
 
     # Do some testing!
     # params
-    batch_size = 64
-    window_size = 32
-    overlap = int(window_size*0.75)
+    batch_size = 12
+    window_size = 128
+    overlap = int(window_size*0.5)
     window = tf.constant(scisig.get_window('hann', window_size),
                          dtype=tf.float32)
+    tmax = 10.24
+    delta_t = 0.01
+    spikes_instead_of_states = True
     # code
-    spikes, states = generate_data(batch_size=batch_size, delta_t=0.01, tmax=10.24)
+    # gen = LorenzGenerator(spikes_instead_of_states, batch_size,
+    #                       tmax, delta_t, restore_and_plot=False)
+    gen = MackeyGenerator(batch_size, tmax=1200, delta_t=0.1)
+    spikes = gen()
+
+    # spikes, states = generate_data(batch_size=batch_size, , )
     # plt.plot(spikes.numpy()[0, :, :])
     # plt.savefig('spikes.pdf')
     # plt.show()
-    if 1:
+    if 0:
         tmp_last_spikes = tf.transpose(spikes, [0, 2, 1])
         result_tf, result_np = stft(tmp_last_spikes, window, window_size, overlap,
                                     debug=True)
@@ -268,7 +216,6 @@ if __name__ == "__main__":
         plt.imshow(np.log((np.abs(result_tf.numpy()[0, 0, :, :].T))))
         plt.colorbar()
         plt.show()
-        debug_here()
 
         error = np.linalg.norm((np.transpose(result_tf.numpy(), [0, 1, 3, 2])
                                 - sci_res).flatten())
@@ -307,61 +254,6 @@ if __name__ == "__main__":
         plt.show()
 
     if 0:
-        # test the 3d version.
-        fig = plt.figure()
-        ax = fig.add_subplot(111, projection='3d')
-        # ax.plot(states.numpy()[0, :, 0],
-        #         states.numpy()[0, :, 1],
-        #         states.numpy()[0, :, 2])
-        # plt.show()
-
-        tmp_last_states = tf.transpose(states, [0, 2, 1])
-        result_tf, result_np = stft(tmp_last_states, window, window_size, overlap,
-                                    debug=True)
-        tmp_f, tmp_t, sci_res = scisig.stft(tmp_last_states.numpy(),
-                                            window,
-                                            nperseg=window_size,
-                                            noverlap=overlap,
-                                            axis=-1)
-        error = np.linalg.norm((np.transpose(result_tf.numpy(), [0, 1, 3, 2])
-                                - sci_res).flatten())
-        print('machine precision:', np.finfo(result_tf.numpy().dtype).eps)
-        print('error_tf_scipy', error)
-        error2 = np.linalg.norm((np.transpose(result_np, [0, 1, 3, 2])
-                                 - sci_res).flatten())
-        print('error_np_scipy', error2)
-        error3 = np.linalg.norm((result_tf.numpy() - result_np).flatten())
-        print('error_np_tf', error3)
-        # TODO: why is the error still 9*eps?
-
-        # test the istft.
-        # scaled = istft(tf.transpose(tf.constant(sci_res), [0, 1, 3, 2]),
-        #                window=window,
-        #                nperseg=window_size,
-        #                noverlap=overlap,
-        #                debug=True)
-        # debug_here()
-        scaled = istft(result_tf,
-                       window,
-                       nperseg=window_size,
-                       noverlap=overlap,
-                       debug=True)  # epsilon=1e-3)
-
-        _, scisig_np = scisig.istft(sci_res, window,
-                                    nperseg=window_size,
-                                    noverlap=overlap)
-        error4 = np.linalg.norm((scaled.numpy() - scisig_np).flatten())
-        print('istft error tf', error4)
-
-        ax.plot(scisig_np[0, 0, :],
-                scisig_np[0, 1, :],
-                scisig_np[0, 2, :])
-        ax.plot(scaled.numpy()[0, 0, :],
-                scaled.numpy()[0, 1, :],
-                scaled.numpy()[0, 2, :])
-        plt.show()
-
-    if 0:
         # import matplotlib2tikz as tikz
 
         # autocorrelation analysis.
@@ -380,3 +272,33 @@ if __name__ == "__main__":
         plt.ylabel('autocorrelation')
         plt.show()
         # tikz.save('spikes_autocorr.tex')
+
+    if 1:
+        # FFT compression test.
+        tmp_last_spikes = tf.transpose(spikes, [0, 2, 1])
+        print(tmp_last_spikes.shape)
+        result_tf, result_np = stft(tmp_last_spikes, window, window_size, overlap,
+                                    debug=True)
+
+        # keep only half of the freqs.
+        compression_level = 10
+        mask_shape = result_tf.shape
+        mask = tf.concat([tf.ones(int(int(mask_shape[-1])/compression_level),
+                                  tf.float32),
+                          tf.zeros(int(mask_shape[-1]) -
+                                   int(int(mask_shape[-1])/compression_level))], -1)
+        scaled = istft(result_tf,
+                       window,
+                       nperseg=window_size,
+                       noverlap=overlap,
+                       debug=True)
+        compressed_spec = result_tf*tf.complex(mask, 0.0)
+        compressed = istft(compressed_spec,
+                           window,
+                           nperseg=window_size,
+                           noverlap=overlap,
+                           debug=True)
+        print(mask)
+        plt.plot(scaled.numpy()[0, 0, :])
+        plt.plot(compressed.numpy()[0, 0, :])
+        plt.show()

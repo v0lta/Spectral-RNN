@@ -3,12 +3,8 @@ import os
 import datetime
 import numpy as np
 import random
-import ipdb
-debug_here = ipdb.set_trace
-
-
-def exit():
-    os._exit(1)
+import pdb
+debug_here = pdb.set_trace
 
 
 class PowerDataHandler(object):
@@ -65,7 +61,6 @@ class PowerDataHandler(object):
                                 day_data.append((forecast, true_value))
                                 # ipdb.set_trace()
 
-
                     # TODO: check head append to year list!
                     year = name.split('-')[-2].split('_')[-1][:4]
                     # assert root.split('/')[-1] == head[-1].split('|')[-1][3:-1]
@@ -80,19 +75,16 @@ class PowerDataHandler(object):
                                  ('germany_Amprion', '2018'),
                                  ('austria_CTA', '2017'),
                                  ('belgium_CTA', '2016')]
-        else: 
-            self.testing_keys = test_keys 
-
-
+        else:
+            self.testing_keys = test_keys
         self.training_keys = []
         for key in self.files.keys():
             for year in ['2018', '2017', '2015', '2016']:
                 if (key, year) not in self.testing_keys:
                     self.training_keys.append((key, year))
-
         self.mean, self.std = self.compute_mean_and_std()
 
-    def get_train_complete(self):
+    def get_train_complete(self, debug=False):
         complete_data = []
 
         for key_pair in self.training_keys:
@@ -100,7 +92,10 @@ class PowerDataHandler(object):
                 current_year = self.files[key_pair[0]][key_pair[1]]
                 complete_data.append(current_year)
             except KeyError:
-                print('missing', key_pair)
+                if debug:
+                    print('missing', key_pair)
+                else:
+                    pass
         return complete_data
 
     def compute_mean_and_std(self):
@@ -109,7 +104,7 @@ class PowerDataHandler(object):
         gt_std = np.sqrt(np.var(np.concatenate(complete_data, 0)[:, :, 1].flatten()))
         return gt_mean, gt_std
 
-    def _get_set(self, keys, shuffle=False):
+    def _get_set(self, keys, shuffle=False, debug=False):
         batch_lst = []
         for key_pair in keys:
             try:
@@ -117,7 +112,10 @@ class PowerDataHandler(object):
                 for i in range(0, current_year.shape[0]-self.context):
                     batch_lst.append(current_year[i:i+self.context, :, :])
             except KeyError:
-                print('missing', key_pair)
+                if debug:
+                    print('missing', key_pair)
+                else:
+                    pass
         # shuffle the batches.
         if shuffle:
             random.shuffle(batch_lst)
@@ -133,6 +131,7 @@ class PowerDataHandler(object):
 class MergePowerHandler(PowerDataHandler):
     """A power handler consiting of multiple power handlers using differing
        sampling rates."""
+
     def __init__(self, context, power_handler_lst, testing_keys):
         self.context = context
         self._samples_per_day = np.min([ph._samples_per_day for ph in power_handler_lst])
@@ -194,7 +193,7 @@ if __name__ == "__main__":
                      ('france_CTA', '2018')]
         power_handler = PowerDataHandler(path, samples_per_day=24)
         train_set = power_handler.get_training_set()
-    if True:
+    if False:
         context_days = 15
         path = './power_data/15m_by_country_by_company/'
         power_handler_min15 = PowerDataHandler(path, context_days, samples_per_day=96,
@@ -215,3 +214,47 @@ if __name__ == "__main__":
                                                          power_handler_min15],
                                           testing_keys=testing_keys)
         train_set = power_handler.get_training_set()
+    if True:
+        import numpy as np
+        import scipy.signal as scisig
+        import tensorflow as tf
+        tf.enable_eager_execution()
+        import matplotlib.pyplot as plt
+        context_days = 15
+        # play with compression on the power data set.
+        import sys
+        sys.path.insert(0, "../")
+        import eager_STFT as STFT
+        path = './power_data/1h_by_country_by_company/'
+        power_handler_1h = PowerDataHandler(path, context_days, samples_per_day=24,
+                                            test_keys={})
+        test_data = power_handler_1h.get_train_complete()[0][:, :, 1].flatten()
+        window_size = 128
+        overlap = int(window_size*0.5)
+        window = tf.constant(scisig.get_window('hann', window_size),
+                             dtype=tf.float32)
+        test_data = np.expand_dims(np.expand_dims(test_data, 0), 0)
+        test_data = tf.constant(test_data, tf.float32)
+        result_tf = STFT.stft(test_data, window, window_size, overlap)
+
+        # keep only half of the freqs.
+        compression_level = 2.5
+        mask_shape = result_tf.shape
+        print('remaining coefficients', int(int(mask_shape[-1])/compression_level))
+        mask = tf.concat([tf.ones(int(int(mask_shape[-1])/compression_level),
+                                  tf.float32),
+                          tf.zeros(int(mask_shape[-1]) -
+                                   int(int(mask_shape[-1])/compression_level))], -1)
+        scaled = STFT.istft(result_tf,
+                            window,
+                            nperseg=window_size,
+                            noverlap=overlap)
+        compressed_spec = result_tf*tf.complex(mask, 0.0)
+        compressed = STFT.istft(compressed_spec,
+                                window,
+                                nperseg=window_size,
+                                noverlap=overlap)
+        print(mask)
+        plt.plot(scaled.numpy()[0, 0, :])
+        plt.plot(compressed.numpy()[0, 0, :])
+        plt.show()
