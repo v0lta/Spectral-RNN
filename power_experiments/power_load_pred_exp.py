@@ -21,7 +21,7 @@ if pd['prediction_days'] > 1:
     pd['context_days'] = pd['prediction_days']*2
 else:
     pd['context_days'] = 15
-pd['base_dir'] = 'log/power_pred_60d_1h/exploration/'
+pd['base_dir'] = 'log/power_pred_60d_1h/exploration2/'
 pd['cell_type'] = 'gru'
 pd['num_units'] = 166
 pd['sample_prob'] = 1.0
@@ -29,7 +29,7 @@ pd['init_learning_rate'] = 0.004
 pd['decay_rate'] = 0.95
 
 
-pd['epochs'] = 1  # 80
+pd['epochs'] = 80
 pd['GPUs'] = [0]
 pd['batch_size'] = 100
 # window_function = 'hann'
@@ -38,8 +38,8 @@ pd['batch_size'] = 100
 pd['window_function'] = 'learned_gaussian'
 pd['fft_compression_rate'] = None
 pd['freq_loss'] = None
-pd['use_residuals'] = False
-pd['fft'] = True
+pd['use_residuals'] = True  # TODO: think about this!
+pd['fft'] = False
 pd['linear_reshape'] = False
 pd['stiefel'] = False
 
@@ -114,16 +114,16 @@ else:
 lpd_lst = []
 
 # cell_size_loop
-fft_loop = True
+fft_loop = False
 if fft_loop:
     assert pd['fft'] is True
     assert pd['linear_reshape'] is False
     for num_units in [10, 25, 50, 100, 150, 200]:
         # window_loop
-        for window in ['hann', 'learned_tukey', 'learned_plank', 'learned_gaussian',
-                       'learned_gauss_plank']:
+        for window in ['hann', 'learned_tukey', 'learned_gaussian',
+                       'boxcar']:
             # compression loop:
-            for compression in [1.5, 2, 2.5, 3, 3.5, 4, 5]:
+            for compression in [None, 1.5, 2, 2.5, 3, 3.5, 4, 5]:
                 # cell_type loop:
                 for cell_type in ['gru', 'cgRNN']:
                     cpd = pd.copy()
@@ -145,12 +145,12 @@ if reshape_loop:
     for num_units in [10, 25, 50, 100, 150, 200]:
         # cell_type loop:
         for cell_type in ['gru', 'cgRNN']:
-            cpd = pd.copy()
-            cpd['num_units'] = num_units
-            cpd['cell_type'] = cell_type
-            lpd_lst.append(cpd)
+                cpd = pd.copy()
+                cpd['num_units'] = num_units
+                cpd['cell_type'] = cell_type
+                lpd_lst.append(cpd)
 
-time_loop = False
+time_loop = True
 if time_loop:
     assert pd['fft'] is False
     assert pd['linear_reshape'] is False
@@ -158,9 +158,11 @@ if time_loop:
     for num_units in [10, 25, 50, 100, 150, 200]:
         # cell_type loop:
         for cell_type in ['gru', 'cgRNN']:
-            cpd['num_units'] = num_units
-            cpd['cell_type'] = cell_type
-            lpd_lst.append(cpd)
+            # residual loop
+            for use_residuals in [True, False]:
+                cpd['num_units'] = num_units
+                cpd['cell_type'] = cell_type
+                lpd_lst.append(cpd)
 
 for exp_no, lpd in enumerate(lpd_lst):
     print('---------- Experiment', exp_no, 'of', len(lpd_lst), '----------')
@@ -245,7 +247,7 @@ for exp_no, lpd in enumerate(lpd_lst):
                               pgraph.decoder_out, pgraph.data_nd],
                              feed_dict=feed_dict)
                 stop = time.time()
-                if it % 10 == 0:
+                if it % 100 == 0:
                     print('it: %5d, loss: %5.6f, time: %1.2f [s], epoch: %3d of %3d'
                           % (it, np_loss, stop-start, e, lpd['epochs']))
 

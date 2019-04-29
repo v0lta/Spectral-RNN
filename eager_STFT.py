@@ -281,7 +281,7 @@ if __name__ == "__main__":
                                     debug=True)
 
         # keep only half of the freqs.
-        compression_level = 10
+        compression_level = 16
         mask_shape = result_tf.shape
         mask = tf.concat([tf.ones(int(int(mask_shape[-1])/compression_level),
                                   tf.float32),
@@ -297,7 +297,7 @@ if __name__ == "__main__":
                            window,
                            nperseg=window_size,
                            noverlap=overlap,
-                           debug=True)
+                           debug=True, epsilon=0.01)
         print(mask)
         plt.plot(scaled.numpy()[0, 0, :])
         plt.plot(compressed.numpy()[0, 0, :])

@@ -11,15 +11,15 @@ debug_here = Pdb().set_trace
 
 pd = {}
 
-pd['base_dir'] = 'logs/mackey2/explore/'
+pd['base_dir'] = 'logs/mackey2/explore4/'
 pd['cell_type'] = 'cgRNN'
 pd['num_units'] = 128
 pd['sample_prob'] = 1.0
-pd['init_learning_rate'] = 0.004
-pd['decay_rate'] = 0.95
-pd['decay_steps'] = 390
+pd['init_learning_rate'] = 0.001
+pd['decay_rate'] = 0.9
+pd['decay_steps'] = 1000
 
-pd['iterations'] = 8000
+pd['iterations'] = 20000
 pd['GPUs'] = [0]
 pd['batch_size'] = 100
 pd['window_function'] = 'hann'
@@ -29,8 +29,8 @@ pd['window_function'] = 'hann'
 # pd['window_function'] = 'learned_gauss_plank'
 pd['freq_loss'] = None
 pd['use_residuals'] = True
-pd['fft'] = True
-pd['linear_reshape'] = False
+pd['fft'] = False
+pd['linear_reshape'] = True
 pd['stiefel'] = False
 
 # data parameters
@@ -60,7 +60,7 @@ if pd['fft']:
     if pd['window_function'] == 'boxcar':
         pd['epsilon'] = 0.0
     else:
-        pd['epsilon'] = 1e-2
+        pd['epsilon'] = 1e-3
 else:
     pd['epsilon'] = None
 
@@ -68,53 +68,61 @@ else:
 lpd_lst = []
 
 # cell_size_loop
-fft_loop = True
+fft_loop = pd['fft']
 if fft_loop:
     assert pd['fft'] is True
     assert pd['linear_reshape'] is False
-    for num_units in [10, 25, 50, 100, 150, 200]:
+    for num_units in [4, 8, 16, 32, 64, 128]:
         # window_loop
-        for window in ['hann', 'learned_tukey', 'learned_plank', 'learned_gaussian',
-                       'learned_gauss_plank']:
+        for window in ['hann', 'learned_tukey', 'learned_gaussian', 'boxcar']:
             # compression loop:
-            for compression in [None, 1.5, 2, 2.5, 3, 3.5, 4, 5]:
+            for compression in [None, 2, 4, 8, 16, 32]:
                 # cell_type loop:
                 for cell_type in ['gru', 'cgRNN']:
-                    cpd = pd.copy()
-                    cpd['window_function'] = window
-                    cpd['fft_compression_rate'] = compression
-                    cpd['num_units'] = num_units
-                    cpd['cell_type'] = cell_type
-                    if cpd['fft_compression_rate']:
-                        cpd['num_proj'] = int((cpd['window_size']//2 + 1)
-                                              / cpd['fft_compression_rate'])
-                    else:
-                        cpd['num_proj'] = int((cpd['window_size']//2 + 1))
-                    lpd_lst.append(cpd)
+                    # residual loop
+                    for use_residuals in [True, False]:
+                        cpd = pd.copy()
+                        cpd['window_function'] = window
+                        cpd['fft_compression_rate'] = compression
+                        cpd['num_units'] = num_units
+                        cpd['cell_type'] = cell_type
+                        cpd['use_residuals'] = use_residuals
+                        if cpd['fft_compression_rate']:
+                            cpd['num_proj'] = int((cpd['window_size']//2 + 1)
+                                                  / cpd['fft_compression_rate'])
+                        else:
+                            cpd['num_proj'] = int((cpd['window_size']//2 + 1))
+                        lpd_lst.append(cpd)
 
-reshape_loop = False
+reshape_loop = pd['linear_reshape']
 if reshape_loop:
     assert pd['fft'] is False
     assert pd['linear_reshape'] is True
-    for num_units in [10, 25, 50, 100, 150, 200]:
+    for num_units in [4, 8, 16, 32, 64, 128]:
         # cell_type loop:
         for cell_type in ['gru', 'cgRNN']:
-            cpd = pd.copy()
-            cpd['num_units'] = num_units
-            cpd['cell_type'] = cell_type
-            lpd_lst.append(cpd)
+            # residual loop
+            for use_residuals in [True, False]:
+                cpd = pd.copy()
+                cpd['num_units'] = num_units
+                cpd['cell_type'] = cell_type
+                cpd['use_residuals'] = use_residuals
+                lpd_lst.append(cpd)
 
-time_loop = False
+time_loop = not (pd['linear_reshape'] or pd['fft'])
 if time_loop:
     assert pd['fft'] is False
     assert pd['linear_reshape'] is False
-    for num_units in [10, 25, 50, 100, 150, 200]:
+    for num_units in [4, 6, 8, 16, 32, 64, 128]:
         # cell_type loop:
         for cell_type in ['gru', 'cgRNN']:
-            cpd = pd.copy()
-            cpd['num_units'] = num_units
-            cpd['cell_type'] = cell_type
-            lpd_lst.append(cpd)
+            # residual loop
+            for use_residuals in [True, False]:
+                cpd = pd.copy()
+                cpd['num_units'] = num_units
+                cpd['cell_type'] = cell_type
+                cpd['use_residuals'] = use_residuals
+                lpd_lst.append(cpd)
 
 
 for exp_no, lpd in enumerate(lpd_lst):
@@ -151,7 +159,7 @@ for exp_no, lpd in enumerate(lpd_lst):
 
     print('---------- Experiment', exp_no, 'of', len(lpd_lst), '----------')
     print(param_str)
-    print(lpd)
+    # print(lpd)
     summary_writer = tf.summary.FileWriter(lpd['base_dir'] + lpd['time_str'] + param_str,
                                            graph=pgraph.graph)
     # dump the parameters
