@@ -11,7 +11,7 @@ debug_here = Pdb().set_trace
 
 pd = {}
 
-pd['base_dir'] = 'logs/mackey2/explore4/'
+pd['base_dir'] = 'logs/mackey1k2c8d/'
 pd['cell_type'] = 'cgRNN'
 pd['num_units'] = 128
 pd['sample_prob'] = 1.0
@@ -21,7 +21,7 @@ pd['decay_steps'] = 1000
 
 pd['iterations'] = 20000
 pd['GPUs'] = [0]
-pd['batch_size'] = 100
+pd['batch_size'] = 12
 pd['window_function'] = 'hann'
 # pd['window_function'] = 'learned_tukey'
 # pd['window_function'] = 'learned_plank'
@@ -29,20 +29,20 @@ pd['window_function'] = 'hann'
 # pd['window_function'] = 'learned_gauss_plank'
 pd['freq_loss'] = None
 pd['use_residuals'] = True
-pd['fft'] = False
-pd['linear_reshape'] = True
+pd['fft'] = True
+pd['linear_reshape'] = False
 pd['stiefel'] = False
 
 # data parameters
-pd['tmax'] = 1024
-pd['delta_t'] = 1.0
+pd['tmax'] = 256
+pd['delta_t'] = 0.1
 pd['input_samples'] = int(pd['tmax']/pd['delta_t'])
 pd['generator'] = MackeyGenerator(pd['batch_size'],
                                   pd['tmax'], pd['delta_t'],
                                   restore_and_plot=False)
 
 pd['window_size'] = 128
-pd['pred_samples'] = 512
+pd['pred_samples'] = 1280
 pd['discarded_samples'] = 0
 pd['overlap'] = int(pd['window_size']*0.5)
 pd['step_size'] = pd['window_size'] - pd['overlap']
@@ -72,57 +72,49 @@ fft_loop = pd['fft']
 if fft_loop:
     assert pd['fft'] is True
     assert pd['linear_reshape'] is False
-    for num_units in [4, 8, 16, 32, 64, 128]:
+    # cell_type loop:
+    for cell_type in ['gru', 'cgRNN']:
         # window_loop
-        for window in ['hann', 'learned_tukey', 'learned_gaussian', 'boxcar']:
-            # compression loop:
-            for compression in [None, 2, 4, 8, 16, 32]:
-                # cell_type loop:
-                for cell_type in ['gru', 'cgRNN']:
-                    # residual loop
-                    for use_residuals in [True, False]:
-                        cpd = pd.copy()
-                        cpd['window_function'] = window
-                        cpd['fft_compression_rate'] = compression
-                        cpd['num_units'] = num_units
-                        cpd['cell_type'] = cell_type
-                        cpd['use_residuals'] = use_residuals
-                        if cpd['fft_compression_rate']:
-                            cpd['num_proj'] = int((cpd['window_size']//2 + 1)
-                                                  / cpd['fft_compression_rate'])
-                        else:
-                            cpd['num_proj'] = int((cpd['window_size']//2 + 1))
-                        lpd_lst.append(cpd)
+        for window in ['hann', 'learned_tukey', 'boxcar']:
+            # cell size_loop.
+            for num_units in [8, 32, 128]:
+                # compression loop:
+                for compression in [None, 2, 8, 32]:
+                    cpd = pd.copy()
+                    cpd['window_function'] = window
+                    cpd['fft_compression_rate'] = compression
+                    cpd['num_units'] = num_units
+                    cpd['cell_type'] = cell_type
+                    if cpd['fft_compression_rate']:
+                        cpd['num_proj'] = int((cpd['window_size']//2 + 1)
+                                              / cpd['fft_compression_rate'])
+                    else:
+                        cpd['num_proj'] = int((cpd['window_size']//2 + 1))
+                    lpd_lst.append(cpd)
 
 reshape_loop = pd['linear_reshape']
 if reshape_loop:
     assert pd['fft'] is False
     assert pd['linear_reshape'] is True
-    for num_units in [4, 8, 16, 32, 64, 128]:
-        # cell_type loop:
-        for cell_type in ['gru', 'cgRNN']:
-            # residual loop
-            for use_residuals in [True, False]:
-                cpd = pd.copy()
-                cpd['num_units'] = num_units
-                cpd['cell_type'] = cell_type
-                cpd['use_residuals'] = use_residuals
-                lpd_lst.append(cpd)
+    # cell_type loop:
+    for cell_type in ['gru', 'cgRNN']:
+        for num_units in [8, 32, 128]:
+            cpd = pd.copy()
+            cpd['num_units'] = num_units
+            cpd['cell_type'] = cell_type
+            lpd_lst.append(cpd)
 
 time_loop = not (pd['linear_reshape'] or pd['fft'])
 if time_loop:
     assert pd['fft'] is False
     assert pd['linear_reshape'] is False
-    for num_units in [4, 6, 8, 16, 32, 64, 128]:
-        # cell_type loop:
-        for cell_type in ['gru', 'cgRNN']:
-            # residual loop
-            for use_residuals in [True, False]:
-                cpd = pd.copy()
-                cpd['num_units'] = num_units
-                cpd['cell_type'] = cell_type
-                cpd['use_residuals'] = use_residuals
-                lpd_lst.append(cpd)
+    for cell_type in ['gru', 'cgRNN']:
+        for num_units in [8, 32, 128]:
+            # cell_type loop:
+            cpd = pd.copy()
+            cpd['num_units'] = num_units
+            cpd['cell_type'] = cell_type
+            lpd_lst.append(cpd)
 
 
 for exp_no, lpd in enumerate(lpd_lst):
@@ -188,18 +180,18 @@ for exp_no, lpd in enumerate(lpd_lst):
             else:
                 np_loss, summary_to_file, np_global_step, _, \
                     datenc_np, encout_np, datdec_np, decout_np, \
-                    datand_np, window_np = \
+                    datand_np, data_encoder_time_np, window_np = \
                     sess.run([pgraph.loss, pgraph.summary_sum, pgraph.global_step,
-                              pgraph.training_op, pgraph.data_encoder_gt,
-                              pgraph.encoder_out, pgraph.data_decoder_gt,
-                              pgraph.decoder_out, pgraph.data_nd,
+                              pgraph.training_op,
+                              pgraph.data_encoder_gt, pgraph.encoder_out,
+                              pgraph.data_decoder_gt, pgraph.decoder_out,
+                              pgraph.data_nd, pgraph.data_encoder_time,
                               pgraph.window])
-
             stop = time.time()
             if it % 100 == 0:
                 print('it: %5d, loss: %5.6f, time: %1.2f [s]'
                       % (it, np_loss, stop-start))
-
+            # debug_here()
             summary_writer.add_summary(summary_to_file, global_step=np_global_step)
 
             if it % 100 == 0:
@@ -250,4 +242,3 @@ for exp_no, lpd in enumerate(lpd_lst):
         print('Saving a copy.')
         pgraph.saver.save(sess, lpd['base_dir'] + time_str + param_str + '/weights/cpk',
                           global_step=np_global_step)
-

@@ -88,22 +88,25 @@ class FFTpredictionGraph(object):
                     in_data_fft = eagerSTFT.stft(tmp_in_data, window,
                                                  pd['window_size'], pd['overlap'])
                     freqs = int(in_data_fft.shape[-1])
-                    in_data_fft = tf.transpose(in_data_fft, [0, 2, 3, 1])
                     idft_shape = in_data_fft.shape.as_list()
-                    if idft_shape[-1] == 1:
-                        in_data_fft = tf.squeeze(in_data_fft, axis=-1)
+                    if idft_shape[1] == 1:
+                        # in the one dimensional case squeeze the dim away.
+                        in_data_fft = tf.squeeze(in_data_fft, axis=1)
+                        if pd['fft_compression_rate']:
+                            compressed_freqs = int(freqs/pd['fft_compression_rate'])
+                            print('fft_compression_rate', pd['fft_compression_rate'],
+                                  'freqs', freqs,
+                                  'compressed_freqs', compressed_freqs)
+                            # remove frequencies from the last dimension.
+                            return in_data_fft[..., :compressed_freqs], idft_shape, freqs
+                        else:
+                            return in_data_fft, idft_shape, freqs
                     else:
-                        in_data_fft = tf.reshape(in_data_fft, [idft_shape[0],
-                                                               idft_shape[1],
-                                                               -1])
-                    if pd['fft_compression_rate']:
-                        compressed_freqs = int(freqs/pd['fft_compression_rate'])
-                        print('fft_compression_rate', pd['fft_compression_rate'],
-                              'freqs', freqs,
-                              'compressed_freqs', compressed_freqs)
-                        return in_data_fft[:, :, :compressed_freqs], idft_shape, freqs
-                    else:
-                        return in_data_fft, idft_shape, freqs
+                        # arrange as batch time freq dim
+                        in_data_fft = tf.transpose(in_data_fft, [0, 2, 3, 1])
+                        # TODO: Implement the multidimensional case.
+                        raise NotImplementedError
+
                 data_encoder_freq, _, enc_freqs = \
                     transpose_stft_squeeze(data_encoder_time, window, pd)
                 data_decoder_freq, dec_shape, dec_freqs = \
@@ -156,11 +159,9 @@ class FFTpredictionGraph(object):
                 print('cell type not supported.')
 
             if pd['fft']:
-                encoder_in = data_encoder_freq[:, :-1, :]
-                encoder_out_gt = data_encoder_freq[:, 1:, :]
+                encoder_in = data_encoder_freq
             else:
-                encoder_in = data_encoder_time[:, :-1, :]
-                encoder_out_gt = data_encoder_time[:, 1:, :]
+                encoder_in = data_encoder_time
 
             with tf.variable_scope("encoder_decoder") as scope:
                 zero_state = cell.zero_state(pd['batch_size'], dtype=dtype)
@@ -195,10 +196,10 @@ class FFTpredictionGraph(object):
                     decoder_out = tf.complex(decoder_out[:, :, :int(decoder_freqs_t2/2)],
                                              decoder_out[:, :, int(decoder_freqs_t2/2):])
                     encoder_out = tf.complex(encoder_out[:, :, :int(decoder_freqs_t2/2)],
-                                             encoder_out[:, :, :int(decoder_freqs_t2/2)])
-                    encoder_out_gt = tf.complex(
-                        encoder_out_gt[:, :, :int(decoder_freqs_t2/2)],
-                        encoder_out_gt[:, :, :int(decoder_freqs_t2/2)])
+                                             encoder_out[:, :, int(decoder_freqs_t2/2):])
+                    encoder_in = tf.complex(
+                        encoder_in[:, :, :int(decoder_freqs_t2/2)],
+                        encoder_in[:, :, int(decoder_freqs_t2/2):])
 
             if pd['fft']:
                 if (pd['freq_loss'] == 'complex_abs') \
@@ -218,8 +219,7 @@ class FFTpredictionGraph(object):
                     tf.summary.scalar('f_complex_square', prd_loss)
 
                 def expand_dims_and_transpose(input_tensor, pd, freqs):
-                    output = tf.expand_dims(input_tensor, -1)
-                    output = tf.transpose(output, [0, 3, 1, 2])
+                    output = tf.expand_dims(input_tensor, 1)
                     if pd['fft_compression_rate']:
                         zero_coeffs = freqs - int(input_tensor.shape[-1])
                         zero_stack = tf.zeros(output.shape[:-1].as_list()
@@ -235,7 +235,7 @@ class FFTpredictionGraph(object):
                                               nperseg=pd['window_size'],
                                               noverlap=pd['overlap'],
                                               epsilon=pd['epsilon'])
-                data_encoder_gt = expand_dims_and_transpose(encoder_out_gt, pd, enc_freqs)
+                data_encoder_gt = expand_dims_and_transpose(encoder_in, pd, enc_freqs)
                 data_decoder_gt = expand_dims_and_transpose(data_decoder_freq, pd,
                                                             dec_freqs)
                 data_encoder_gt = eagerSTFT.istft(data_encoder_gt, window,
@@ -256,10 +256,10 @@ class FFTpredictionGraph(object):
                                          [pd['batch_size'],
                                           -1,
                                           1])
-                data_encoder_gt = encoder_out_gt
+                data_encoder_gt = encoder_in
                 data_decoder_gt = data_decoder_time
             else:
-                data_encoder_gt = encoder_out_gt
+                data_encoder_gt = encoder_in
                 data_decoder_gt = data_decoder_time
 
             time_loss = tf.losses.mean_squared_error(
@@ -319,5 +319,6 @@ class FFTpredictionGraph(object):
             self.data_decoder_gt = data_decoder_gt
             self.decoder_out = decoder_out
             self.data_nd = data_nd
+            self.data_encoder_time = data_encoder_time
             if pd['fft']:
                 self.window = window

@@ -180,7 +180,6 @@ if __name__ == "__main__":
         tf.enable_eager_execution()
     except ValueError:
         print("tensorflow is already in eager mode.")
-
     # Do some testing!
     # params
     batch_size = 12
@@ -188,13 +187,13 @@ if __name__ == "__main__":
     overlap = int(window_size*0.5)
     window = tf.constant(scisig.get_window('hann', window_size),
                          dtype=tf.float32)
-    tmax = 10.24
+    # tmax = 10.24
     delta_t = 0.01
     spikes_instead_of_states = True
     # code
     # gen = LorenzGenerator(spikes_instead_of_states, batch_size,
     #                       tmax, delta_t, restore_and_plot=False)
-    gen = MackeyGenerator(batch_size, tmax=1200, delta_t=0.1)
+    gen = MackeyGenerator(batch_size, tmax=280, delta_t=0.1)
     spikes = gen()
 
     # spikes, states = generate_data(batch_size=batch_size, , )
@@ -241,7 +240,7 @@ if __name__ == "__main__":
                        nperseg=window_size,
                        noverlap=overlap,
                        debug=True)
-        debug_here()
+        # debug_here()
 
         _, scisig_np = scisig.istft(sci_res, window='hann',
                                     nperseg=window_size,
@@ -277,11 +276,10 @@ if __name__ == "__main__":
         # FFT compression test.
         tmp_last_spikes = tf.transpose(spikes, [0, 2, 1])
         print(tmp_last_spikes.shape)
-        result_tf, result_np = stft(tmp_last_spikes, window, window_size, overlap,
-                                    debug=True)
+        result_tf = stft(tmp_last_spikes, window, window_size, overlap)
 
         # keep only half of the freqs.
-        compression_level = 16
+        compression_level = 32
         mask_shape = result_tf.shape
         mask = tf.concat([tf.ones(int(int(mask_shape[-1])/compression_level),
                                   tf.float32),
@@ -290,15 +288,24 @@ if __name__ == "__main__":
         scaled = istft(result_tf,
                        window,
                        nperseg=window_size,
-                       noverlap=overlap,
-                       debug=True)
-        compressed_spec = result_tf*tf.complex(mask, 0.0)
+                       noverlap=overlap)
+        if 0:
+            compressed_spec = result_tf*tf.complex(mask, 0.0)
+        else:
+            freqs = int(result_tf.shape[-1])
+            compressed_freqs = int(freqs/compression_level)
+            result_tf_cut = result_tf[..., :compressed_freqs]
+            zero_coeffs = freqs - int(result_tf_cut.shape[-1])
+            zero_stack = tf.zeros(result_tf.shape[:-1].as_list()
+                                  + [zero_coeffs], tf.complex64)
+            compressed_spec = tf.concat([result_tf_cut, zero_stack], -1)
+
+        # print(compressed_spec[0, 0, 0, :])
         compressed = istft(compressed_spec,
                            window,
                            nperseg=window_size,
                            noverlap=overlap,
-                           debug=True, epsilon=0.01)
-        print(mask)
+                           debug=True, epsilon=0.001)
         plt.plot(scaled.numpy()[0, 0, :])
         plt.plot(compressed.numpy()[0, 0, :])
         plt.show()

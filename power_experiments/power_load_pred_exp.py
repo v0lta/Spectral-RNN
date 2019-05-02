@@ -21,7 +21,7 @@ if pd['prediction_days'] > 1:
     pd['context_days'] = pd['prediction_days']*2
 else:
     pd['context_days'] = 15
-pd['base_dir'] = 'log/power_pred_60d_1h/exploration2/'
+pd['base_dir'] = 'log/power_pred_60d_1h/definite2/'
 pd['cell_type'] = 'gru'
 pd['num_units'] = 166
 pd['sample_prob'] = 1.0
@@ -38,9 +38,9 @@ pd['batch_size'] = 100
 pd['window_function'] = 'learned_gaussian'
 pd['fft_compression_rate'] = None
 pd['freq_loss'] = None
-pd['use_residuals'] = True  # TODO: think about this!
+pd['use_residuals'] = True
 pd['fft'] = False
-pd['linear_reshape'] = False
+pd['linear_reshape'] = True
 pd['stiefel'] = False
 
 if fifteen_minute_sampling is True:
@@ -81,7 +81,7 @@ else:
     pd['power_handler'] = power_handler
 
 if pd['prediction_days'] > 1:
-    pd['window_size'] = int(pd['samples_per_day']*4)
+    pd['window_size'] = int(pd['samples_per_day']*5)
     pd['pred_samples'] = int(pd['prediction_days']*pd['samples_per_day'])
     pd['discarded_samples'] = 0
 else:
@@ -89,7 +89,7 @@ else:
     pd['discarded_samples'] = int(pd['samples_per_day']*0.5)
     pd['window_size'] = int(pd['samples_per_day'])
 
-pd['overlap'] = int(pd['window_size']*0.75)
+pd['overlap'] = int(pd['window_size']*0.5)
 pd['step_size'] = pd['window_size'] - pd['overlap']
 pd['fft_pred_samples'] = pd['pred_samples'] // pd['step_size'] + 1
 pd['input_samples'] = pd['context_days']*pd['samples_per_day']
@@ -114,18 +114,18 @@ else:
 lpd_lst = []
 
 # cell_size_loop
-fft_loop = False
+fft_loop = pd['fft']
 if fft_loop:
     assert pd['fft'] is True
     assert pd['linear_reshape'] is False
-    for num_units in [10, 25, 50, 100, 150, 200]:
-        # window_loop
-        for window in ['hann', 'learned_tukey', 'learned_gaussian',
-                       'boxcar']:
-            # compression loop:
-            for compression in [None, 1.5, 2, 2.5, 3, 3.5, 4, 5]:
-                # cell_type loop:
-                for cell_type in ['gru', 'cgRNN']:
+    # cell_type loop:
+    for cell_type in ['gru', 'cgRNN']:
+        # size loop.
+        for num_units in [8, 32, 128]:
+            # window_loop
+            for window in ['hann', 'learned_tukey', 'learned_gaussian', 'boxcar']:
+                # compression loop:
+                for compression in [None, 2, 4]:
                     cpd = pd.copy()
                     cpd['window_function'] = window
                     cpd['fft_compression_rate'] = compression
@@ -138,11 +138,11 @@ if fft_loop:
                         cpd['num_proj'] = int((cpd['window_size']//2 + 1))
                     lpd_lst.append(cpd)
 
-reshape_loop = False
+reshape_loop = pd['linear_reshape']
 if reshape_loop:
     assert pd['fft'] is False
     assert pd['linear_reshape'] is True
-    for num_units in [10, 25, 50, 100, 150, 200]:
+    for num_units in [8, 32, 128]:
         # cell_type loop:
         for cell_type in ['gru', 'cgRNN']:
                 cpd = pd.copy()
@@ -150,19 +150,17 @@ if reshape_loop:
                 cpd['cell_type'] = cell_type
                 lpd_lst.append(cpd)
 
-time_loop = True
+time_loop = not (pd['linear_reshape'] or pd['fft'])
 if time_loop:
     assert pd['fft'] is False
     assert pd['linear_reshape'] is False
     cpd = pd.copy()
-    for num_units in [10, 25, 50, 100, 150, 200]:
-        # cell_type loop:
-        for cell_type in ['gru', 'cgRNN']:
-            # residual loop
-            for use_residuals in [True, False]:
-                cpd['num_units'] = num_units
-                cpd['cell_type'] = cell_type
-                lpd_lst.append(cpd)
+    for cell_type in ['gru', 'cgRNN']:
+        for num_units in [8, 32, 128]:
+            # cell_type loop:
+            cpd['num_units'] = num_units
+            cpd['cell_type'] = cell_type
+            lpd_lst.append(cpd)
 
 for exp_no, lpd in enumerate(lpd_lst):
     print('---------- Experiment', exp_no, 'of', len(lpd_lst), '----------')
