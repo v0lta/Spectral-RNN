@@ -1,6 +1,6 @@
 import tensorflow as tf
-from IPython.core.debugger import Tracer
-debug_here = Tracer()
+from IPython.core.debugger import Pdb
+debug_here = Pdb().set_trace
 
 
 def complex_conv1D(h, filter_width, depth, stride, padding, scope='', reuse=None):
@@ -113,8 +113,12 @@ class ComplexUpSampling2D(tf.keras.layers.UpSampling2D):
     A complex valued 2D-upsampling layer.
     '''
 
-    def __init__(self, size=(2, 2), data_format=None, **kwargs):
-        super().__init__(size=size, data_format=None, **kwargs)
+    def __init__(self, size=(2, 2), data_format='channels_last',
+                 interpolation='nearest'):
+        super().__init__(size=size, data_format=data_format,
+                         interpolation=interpolation)
+        self.size = size
+        self.data_format = data_format
 
     def __call__(self, z):
         x = tf.real(z)
@@ -122,14 +126,19 @@ class ComplexUpSampling2D(tf.keras.layers.UpSampling2D):
         # ok, because bilinear interpolation involves the sum
         # of scaled entries at the nodes.
         cat_x = tf.concat([x, y], axis=-1)
+        # in_shape = cat_x.shape.as_list()
+        # assert len(in_shape) == 4
+        # new_size = (in_shape[1]*self.size[0],
+        #             in_shape[2]*self.size[1])
         up = super().__call__(cat_x)
+        # up = tf.image.resize_bilinear(images=cat_x, size=new_size)
+        # up = tf.image.resize_nearest_neighbor(images=cat_x, size=new_size)
         up_2 = tf.split(up, axis=-1, num_or_size_splits=2)
         up_z = tf.complex(up_2[0], up_2[1])
         return up_z
 
 
 class SplitRelu(object):
-
     def __init__(self, scope=''):
         self._scope = scope
 

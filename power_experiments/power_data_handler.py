@@ -3,8 +3,8 @@ import os
 import datetime
 import numpy as np
 import random
-import pdb
-debug_here = pdb.set_trace
+from IPython.core.debugger import Pdb
+debug_here = Pdb().set_trace
 import sys
 sys.path.insert(0, "../")
 import custom_conv as cconv
@@ -266,35 +266,37 @@ if __name__ == "__main__":
         plt.imshow(np.log(np.abs(result_tf[0, 0, :, :].numpy())))
         plt.show()
 
-        # keep only half of the freqs average.
-        stride = (1, 1, 2, 1)
-        # filter_hight, filter_width, in_channels, depth
-        rkernel = 1*tf.ones([1, 1, 1, 1], dtype=tf.float32)
-        ikernel = tf.zeros([1, 1, 1, 1], dtype=tf.float32)
-        result_tf_btfc = tf.transpose(result_tf, [0, 2, 3, 1])
-        x = tf.real(result_tf_btfc)
-        y = tf.imag(result_tf_btfc)
+        if 0:
+            # keep only half of the freqs average.
+            stride = (1, 1, 2, 1)
+            # filter_hight, filter_width, in_channels, depth
+            rkernel = 1.*tf.ones([1, 1, 1, 1], dtype=tf.float32)
+            ikernel = tf.zeros([1, 1, 1, 1], dtype=tf.float32)
+            result_tf_btfc = tf.transpose(result_tf, [0, 2, 3, 1])
+            x = tf.real(result_tf_btfc)
+            y = tf.imag(result_tf_btfc)
 
-        cat_x = tf.concat([x, y], axis=-1)
-        cat_kernel_4_real = tf.concat([rkernel, -ikernel], axis=-2)
-        cat_kernel_4_imag = tf.concat([ikernel, rkernel], axis=-2)
-        cat_kernels_4_complex = tf.concat([cat_kernel_4_real,
-                                           cat_kernel_4_imag],
-                                          axis=-1)
+            cat_x = tf.concat([x, y], axis=-1)
+            cat_kernel_4_real = tf.concat([rkernel, -ikernel], axis=-2)
+            cat_kernel_4_imag = tf.concat([ikernel, rkernel], axis=-2)
+            cat_kernels_4_complex = tf.concat([cat_kernel_4_real,
+                                               cat_kernel_4_imag],
+                                              axis=-1)
 
-        conv = tf.nn.conv2d(input=cat_x, filter=cat_kernels_4_complex,
-                            strides=stride, padding='SAME')
-        conv_2 = tf.split(conv, axis=-1, num_or_size_splits=2)
-        res = tf.complex(conv_2[0], conv_2[1])
+            conv = tf.nn.conv2d(input=cat_x, filter=cat_kernels_4_complex,
+                                strides=stride, padding='SAME')
+            conv_2 = tf.split(conv, axis=-1, num_or_size_splits=2)
+            res = tf.complex(conv_2[0], conv_2[1])
 
-        # upsample to see what was lost.
-        cup2d = cconv.ComplexUpSampling2D(size=(1, 2))
-        res_up = cup2d(res)
-        toistft = tf.transpose(res_up, [0, 3, 1, 2])
-        mean_time = STFT.istft(toistft,
-                               window,
-                               nperseg=window_size,
-                               noverlap=overlap)
-        plt.plot(scaled.numpy()[0, 0, :])
-        plt.plot(mean_time.numpy()[0, 0, :])
-        plt.show()
+            # upsample to see what was lost.
+            cup2d = cconv.ComplexUpSampling2D(size=(1, 2),
+                                              interpolation='bilinear')
+            res_up = cup2d(res)
+            toistft = tf.transpose(res_up, [0, 3, 1, 2])
+            mean_time = STFT.istft(toistft,
+                                   window,
+                                   nperseg=window_size,
+                                   noverlap=overlap)
+            plt.plot(scaled.numpy()[0, 0, :])
+            plt.plot(mean_time.numpy()[0, 0, :])
+            plt.show()

@@ -194,7 +194,7 @@ if __name__ == "__main__":
     # gen = LorenzGenerator(spikes_instead_of_states, batch_size,
     #                       tmax, delta_t, restore_and_plot=False)
     # gen = MackeyGenerator(batch_size, tmax=280, delta_t=0.1)
-    gen = MackeyGenerator(batch_size, tmax=280, delta_t=0.1)
+    gen = MackeyGenerator(batch_size, tmax=280, delta_t=0.5)
     spikes = gen()
 
     # spikes, states = generate_data(batch_size=batch_size, , )
@@ -235,13 +235,11 @@ if __name__ == "__main__":
         #                nperseg=window_size,
         #                noverlap=overlap,
         #                debug=True)
-        # debug_here()
         scaled = istft(result_tf,
                        window,
                        nperseg=window_size,
                        noverlap=overlap,
                        debug=True)
-        # debug_here()
 
         _, scisig_np = scisig.istft(sci_res, window='hann',
                                     nperseg=window_size,
@@ -314,5 +312,3 @@ if __name__ == "__main__":
         plt.show()
         plt.imshow(np.log(np.abs(result_tf[0, 0, :, :].numpy())))
         plt.show()
-
-        # plt.imshow(np.abs())

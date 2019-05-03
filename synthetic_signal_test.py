@@ -34,7 +34,7 @@ pd['linear_reshape'] = False
 pd['stiefel'] = False
 
 # data parameters
-pd['tmax'] = 256
+pd['tmax'] = 512
 pd['delta_t'] = 0.1
 pd['input_samples'] = int(pd['tmax']/pd['delta_t'])
 pd['generator'] = MackeyGenerator(pd['batch_size'],
@@ -42,7 +42,7 @@ pd['generator'] = MackeyGenerator(pd['batch_size'],
                                   restore_and_plot=False)
 
 pd['window_size'] = 128
-pd['pred_samples'] = 1280
+pd['pred_samples'] = 2560
 pd['discarded_samples'] = 0
 pd['overlap'] = int(pd['window_size']*0.5)
 pd['step_size'] = pd['window_size'] - pd['overlap']
@@ -73,13 +73,13 @@ if fft_loop:
     assert pd['fft'] is True
     assert pd['linear_reshape'] is False
     # cell_type loop:
-    for cell_type in ['gru', 'cgRNN']:
+    for cell_type in ['gru']:
         # window_loop
-        for window in ['hann', 'learned_tukey', 'boxcar']:
+        for window in ['hann', 'learned_tukey', 'learned_gaussian']:
             # cell size_loop.
-            for num_units in [8, 32, 128]:
+            for num_units in [32, 64]:
                 # compression loop:
-                for compression in [None, 2, 8, 32]:
+                for compression in [4, 16, 32]:
                     cpd = pd.copy()
                     cpd['window_function'] = window
                     cpd['fft_compression_rate'] = compression
@@ -97,8 +97,8 @@ if reshape_loop:
     assert pd['fft'] is False
     assert pd['linear_reshape'] is True
     # cell_type loop:
-    for cell_type in ['gru', 'cgRNN']:
-        for num_units in [8, 32, 128]:
+    for cell_type in ['gru']:
+        for num_units in [32, 64]:
             cpd = pd.copy()
             cpd['num_units'] = num_units
             cpd['cell_type'] = cell_type
@@ -108,8 +108,8 @@ time_loop = not (pd['linear_reshape'] or pd['fft'])
 if time_loop:
     assert pd['fft'] is False
     assert pd['linear_reshape'] is False
-    for cell_type in ['gru', 'cgRNN']:
-        for num_units in [8, 32, 128]:
+    for cell_type in ['gru']:
+        for num_units in [32, 64]:
             # cell_type loop:
             cpd = pd.copy()
             cpd['num_units'] = num_units

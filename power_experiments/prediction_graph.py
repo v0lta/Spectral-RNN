@@ -85,6 +85,10 @@ class FFTpredictionGraph(object):
                     window = tf.constant(window, tf.float32)
 
                 def transpose_stft_squeeze(in_data, window, pd):
+                    '''
+                    Compute a windowed stft and do low pass filtering if
+                    necessary.
+                    '''
                     tmp_in_data = tf.transpose(in_data, [0, 2, 1])
                     in_data_fft = eagerSTFT.stft(tmp_in_data, window,
                                                  pd['window_size'], pd['overlap'])
@@ -114,6 +118,19 @@ class FFTpredictionGraph(object):
                     transpose_stft_squeeze(data_decoder_time, window, pd)
                 assert enc_freqs == dec_freqs, 'encoder-decoder frequencies must agree'
                 fft_pred_samples = data_decoder_freq.shape[1].value
+
+                if pd['conv_fft_bins']:
+                    data_encoder_freq = tf.expand_dims(data_encoder_freq, -1)
+                    fft_bin_conv = cconv.ComplexConv2D(depth=1,
+                                                       filters=(1, 2),
+                                                       strides=(1, 2),
+                                                       padding='SAME',
+                                                       activation=None)
+                    data_decoder_freq = fft_bin_conv(data_encoder_freq)
+                    data_encoder_freq = tf.squeeze(data_encoder_freq, -1)
+                    # TODO: Test me!!
+                    debug_here()
+
             elif pd['linear_reshape']:
                 encoder_time_steps = data_encoder_time.shape[1].value//pd['step_size']
                 data_encoder_time = tf.reshape(data_encoder_time, [pd['batch_size'],
@@ -165,6 +182,7 @@ class FFTpredictionGraph(object):
                 encoder_in = data_encoder_time
 
             with tf.variable_scope("encoder_decoder") as scope:
+
                 zero_state = cell.zero_state(pd['batch_size'], dtype=dtype)
                 zero_state = LSTMStateTuple(encoder_in[:, 0, :], zero_state[1])
                 encoder_out, encoder_state = tf.nn.dynamic_rnn(cell, encoder_in,
@@ -178,7 +196,7 @@ class FFTpredictionGraph(object):
                     encoder_state = LSTMStateTuple(data_encoder_time[:, -1, :],
                                                    encoder_state[-1])
                 else:
-                    freqs = data_encoder_freq.shape[-1].value
+                    freqs = encoder_in.shape[-1].value
                     decoder_in = tf.zeros([pd['batch_size'],
                                            fft_pred_samples,
                                            freqs], dtype=dtype)
@@ -190,6 +208,19 @@ class FFTpredictionGraph(object):
                 decoder_out, _ = tf.nn.dynamic_rnn(cell, decoder_in,
                                                    initial_state=encoder_state,
                                                    dtype=dtype)
+
+                if pd['fft'] and pd['conv_fft_bins']:
+                    decoder_out = tf.expand_dims(decoder_out, -1)
+                    cup2d = cconv.ComplexUpSampling2D(size=(1, 2),
+                                                      interpolation='bilinear')
+                    fft_bin_conv = cconv.ComplexConv2D(depth=1,
+                                                       filters=(1, 3),
+                                                       strides=(1, 1),
+                                                       padding='SAME',
+                                                       activation=None)
+                    decoder_out = cup2d(decoder_out)
+                    decoder_out = tf.squeeze(decoder_out, -1)
+                    debug_here()
 
                 if pd['fft'] and pd['cell_type'] == 'gru':
                     # assemble complex output.

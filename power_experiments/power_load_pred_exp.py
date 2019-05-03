@@ -21,7 +21,7 @@ if pd['prediction_days'] > 1:
     pd['context_days'] = pd['prediction_days']*2
 else:
     pd['context_days'] = 15
-pd['base_dir'] = 'log/power_pred_60d_1h/definite2/'
+pd['base_dir'] = 'log/power_pred_60d_1h/test/'
 pd['cell_type'] = 'gru'
 pd['num_units'] = 166
 pd['sample_prob'] = 1.0
@@ -39,8 +39,8 @@ pd['window_function'] = 'learned_gaussian'
 pd['fft_compression_rate'] = None
 pd['freq_loss'] = None
 pd['use_residuals'] = True
-pd['fft'] = False
-pd['linear_reshape'] = True
+pd['fft'] = True
+pd['linear_reshape'] = False
 pd['stiefel'] = False
 
 if fifteen_minute_sampling is True:
