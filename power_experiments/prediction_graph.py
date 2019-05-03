@@ -4,7 +4,8 @@ import sys
 from IPython.core.debugger import Pdb
 debug_here = Pdb().set_trace
 sys.path.insert(0, "../")
-import custom_cells as cc
+import custom_cells as ccell
+import custom_conv as cconv
 import custom_optimizers as co
 from RNN_wrapper import ResidualWrapper
 from RNN_wrapper import RnnInputWrapper
@@ -122,19 +123,19 @@ class FFTpredictionGraph(object):
 
             if pd['cell_type'] == 'cgRNN':
                 if pd['stiefel']:
-                    cell = cc.StiefelGatedRecurrentUnit(pd['num_units'],
-                                                        num_proj=pd['num_proj'],
-                                                        complex_input=pd['fft'],
-                                                        complex_output=pd['fft'],
-                                                        activation=cc.mod_relu,
-                                                        stiefel=pd['stiefel'])
+                    cell = ccell.StiefelGatedRecurrentUnit(pd['num_units'],
+                                                           num_proj=pd['num_proj'],
+                                                           complex_input=pd['fft'],
+                                                           complex_output=pd['fft'],
+                                                           activation=ccell.mod_relu,
+                                                           stiefel=pd['stiefel'])
                 else:
-                    cell = cc.StiefelGatedRecurrentUnit(pd['num_units'],
-                                                        num_proj=pd['num_proj'],
-                                                        complex_input=pd['fft'],
-                                                        complex_output=pd['fft'],
-                                                        activation=cc.hirose,
-                                                        stiefel=pd['stiefel'])
+                    cell = ccell.StiefelGatedRecurrentUnit(pd['num_units'],
+                                                           num_proj=pd['num_proj'],
+                                                           complex_input=pd['fft'],
+                                                           complex_output=pd['fft'],
+                                                           activation=ccell.hirose,
+                                                           stiefel=pd['stiefel'])
                 cell = RnnInputWrapper(1.0, cell)
                 if pd['use_residuals']:
                     cell = ResidualWrapper(cell=cell)

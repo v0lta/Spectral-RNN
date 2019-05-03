@@ -193,6 +193,7 @@ if __name__ == "__main__":
     # code
     # gen = LorenzGenerator(spikes_instead_of_states, batch_size,
     #                       tmax, delta_t, restore_and_plot=False)
+    # gen = MackeyGenerator(batch_size, tmax=280, delta_t=0.1)
     gen = MackeyGenerator(batch_size, tmax=280, delta_t=0.1)
     spikes = gen()
 
@@ -279,7 +280,7 @@ if __name__ == "__main__":
         result_tf = stft(tmp_last_spikes, window, window_size, overlap)
 
         # keep only half of the freqs.
-        compression_level = 32
+        compression_level = 16
         mask_shape = result_tf.shape
         mask = tf.concat([tf.ones(int(int(mask_shape[-1])/compression_level),
                                   tf.float32),
@@ -309,3 +310,9 @@ if __name__ == "__main__":
         plt.plot(scaled.numpy()[0, 0, :])
         plt.plot(compressed.numpy()[0, 0, :])
         plt.show()
+        plt.imshow(np.abs(result_tf[0, 0, :, :].numpy()))
+        plt.show()
+        plt.imshow(np.log(np.abs(result_tf[0, 0, :, :].numpy())))
+        plt.show()
+
+        # plt.imshow(np.abs())

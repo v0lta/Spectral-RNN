@@ -90,9 +90,27 @@ class ComplexConv2D(object):
                     return tf.complex(conv_2[0], conv_2[1])
 
 
+class ComplexUpSampling1D(tf.keras.layers.UpSampling1D):
+    '''
+    A complex valued 1D-upsampling layer.
+    '''
+
+    def __init__(self, size=2, data_format=None, **kwargs):
+        super().__init__(size=size, data_format=None, **kwargs)
+
+    def __call__(self, z):
+        x = tf.real(z)
+        y = tf.imag(z)
+        cat_x = tf.concat([x, y], axis=-1)
+        up = super().__call__(cat_x)
+        up_2 = tf.split(up, axis=-1, num_or_size_splits=2)
+        up_z = tf.complex(up_2[0], up_2[1])
+        return up_z
+
+
 class ComplexUpSampling2D(tf.keras.layers.UpSampling2D):
     '''
-    A complex valued upsampling layer.
+    A complex valued 2D-upsampling layer.
     '''
 
     def __init__(self, size=(2, 2), data_format=None, **kwargs):
@@ -101,6 +119,8 @@ class ComplexUpSampling2D(tf.keras.layers.UpSampling2D):
     def __call__(self, z):
         x = tf.real(z)
         y = tf.imag(z)
+        # ok, because bilinear interpolation involves the sum
+        # of scaled entries at the nodes.
         cat_x = tf.concat([x, y], axis=-1)
         up = super().__call__(cat_x)
         up_2 = tf.split(up, axis=-1, num_or_size_splits=2)
