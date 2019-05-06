@@ -120,16 +120,16 @@ class FFTpredictionGraph(object):
                 fft_pred_samples = data_decoder_freq.shape[1].value
 
                 if pd['conv_fft_bins']:
-                    data_encoder_freq = tf.expand_dims(data_encoder_freq, -1)
-                    fft_bin_conv = cconv.ComplexConv2D(depth=1,
-                                                       filters=(1, 2),
-                                                       strides=(1, 2),
-                                                       padding='SAME',
-                                                       activation=None)
-                    data_decoder_freq = fft_bin_conv(data_encoder_freq)
-                    data_encoder_freq = tf.squeeze(data_encoder_freq, -1)
-                    # TODO: Test me!!
-                    debug_here()
+                    with tf.variable_scope('downsampling'):
+                        data_encoder_freq = tf.expand_dims(data_encoder_freq, -1)
+                        fft_bin_conv = cconv.ComplexConv2D(depth=1,
+                                                           filters=(1, 2),
+                                                           strides=(1, 2),
+                                                           padding='SAME',
+                                                           activation=None,
+                                                           scope='_down')
+                        data_encoder_freq = fft_bin_conv(data_encoder_freq)
+                        data_encoder_freq = tf.squeeze(data_encoder_freq, -1)
 
             elif pd['linear_reshape']:
                 encoder_time_steps = data_encoder_time.shape[1].value//pd['step_size']
@@ -209,19 +209,6 @@ class FFTpredictionGraph(object):
                                                    initial_state=encoder_state,
                                                    dtype=dtype)
 
-                if pd['fft'] and pd['conv_fft_bins']:
-                    decoder_out = tf.expand_dims(decoder_out, -1)
-                    cup2d = cconv.ComplexUpSampling2D(size=(1, 2),
-                                                      interpolation='bilinear')
-                    fft_bin_conv = cconv.ComplexConv2D(depth=1,
-                                                       filters=(1, 3),
-                                                       strides=(1, 1),
-                                                       padding='SAME',
-                                                       activation=None)
-                    decoder_out = cup2d(decoder_out)
-                    decoder_out = tf.squeeze(decoder_out, -1)
-                    debug_here()
-
                 if pd['fft'] and pd['cell_type'] == 'gru':
                     # assemble complex output.
                     decoder_freqs_t2 = decoder_out.shape[-1].value
@@ -232,6 +219,22 @@ class FFTpredictionGraph(object):
                     encoder_in = tf.complex(
                         encoder_in[:, :, :int(decoder_freqs_t2/2)],
                         encoder_in[:, :, int(decoder_freqs_t2/2):])
+
+            if pd['fft'] and pd['conv_fft_bins']:
+                decoder_out = tf.expand_dims(decoder_out, -1)
+                with tf.variable_scope('upsampling'):
+                    cup2d = cconv.ComplexUpSampling2D(size=(1, 2),
+                                                      interpolation='bilinear')
+                    fft_bin_conv = cconv.ComplexConv2D(depth=1,
+                                                       filters=(1, 3),
+                                                       strides=(1, 1),
+                                                       padding='SAME',
+                                                       activation=None,
+                                                       scope='_up')
+                    decoder_out = cup2d(decoder_out)
+                    decoder_out = fft_bin_conv(decoder_out)
+                decoder_out = tf.squeeze(decoder_out, -1)
+                decoder_out = decoder_out[:, :, :dec_freqs]
 
             if pd['fft']:
                 if (pd['freq_loss'] == 'complex_abs') \
@@ -258,41 +261,17 @@ class FFTpredictionGraph(object):
                                               + [zero_coeffs], tf.complex64)
                         output = tf.concat([output, zero_stack], -1)
                     return output
-                encoder_out = expand_dims_and_transpose(encoder_out, pd, enc_freqs)
                 decoder_out = expand_dims_and_transpose(decoder_out, pd, dec_freqs)
-                encoder_out = eagerSTFT.istft(encoder_out, window,
-                                              nperseg=pd['window_size'],
-                                              noverlap=pd['overlap'])
                 decoder_out = eagerSTFT.istft(decoder_out, window,
                                               nperseg=pd['window_size'],
                                               noverlap=pd['overlap'],
                                               epsilon=pd['epsilon'])
-                data_encoder_gt = expand_dims_and_transpose(encoder_in, pd, enc_freqs)
-                data_decoder_gt = expand_dims_and_transpose(data_decoder_freq, pd,
-                                                            dec_freqs)
-                data_encoder_gt = eagerSTFT.istft(data_encoder_gt, window,
-                                                  nperseg=pd['window_size'],
-                                                  noverlap=pd['overlap'])
-                data_decoder_gt = eagerSTFT.istft(data_decoder_gt, window,
-                                                  nperseg=pd['window_size'],
-                                                  noverlap=pd['overlap'])
-                encoder_out = tf.transpose(encoder_out, [0, 2, 1])
+                # data_encoder_gt = expand_dims_and_transpose(encoder_in, pd, enc_freqs)
                 decoder_out = tf.transpose(decoder_out, [0, 2, 1])
-                data_encoder_gt = tf.transpose(data_encoder_gt, [0, 2, 1])
-                data_decoder_gt = tf.transpose(data_decoder_gt, [0, 2, 1])
             elif pd['linear_reshape']:
                 decoder_out = tf.reshape(decoder_out,
                                          [pd['batch_size'],
                                           pd['pred_samples'], 1])
-                encoder_out = tf.reshape(encoder_out,
-                                         [pd['batch_size'],
-                                          -1,
-                                          1])
-                data_encoder_gt = encoder_in
-                data_decoder_gt = data_decoder_time
-            else:
-                data_encoder_gt = encoder_in
-                data_decoder_gt = data_decoder_time
 
             time_loss = tf.losses.mean_squared_error(
                 tf.real(data_decoder_time),
@@ -346,11 +325,11 @@ class FFTpredictionGraph(object):
             self.saver = tf.train.Saver()
             self.loss = loss
             self.global_step = global_step
-            self.data_encoder_gt = data_encoder_gt
-            self.encoder_out = encoder_out
-            self.data_decoder_gt = data_decoder_gt
+            # self.data_encoder_gt = data_encoder_gt
+            # self.data_decoder_gt = data_decoder_gt
             self.decoder_out = decoder_out
             self.data_nd = data_nd
             self.data_encoder_time = data_encoder_time
+            self.data_decoder_time = data_decoder_time
             if pd['fft']:
                 self.window = window

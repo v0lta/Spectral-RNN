@@ -16,7 +16,7 @@ def plot(path, restore_step, label, gt=False):
                                 restore_and_plot=True)
     pgraph = FFTpredictionGraph(pd, mackeygen)
 
-    # train this.
+    # plot this.
     gpu_options = tf.GPUOptions(visible_device_list=str(pd['GPUs'])[1:-1])
     # gpu_options = tf.GPUOptions(per_process_gpu_memory_fraction=1.0)
     config = tf.ConfigProto(allow_soft_placement=True,
@@ -27,43 +27,47 @@ def plot(path, restore_step, label, gt=False):
                            + '/weights/' + 'cpk' + '-' + str(restore_step))
       if not pd['fft']:
         np_loss, summary_to_file, np_global_step, \
-            datenc_np, encout_np, datdec_np, decout_np, \
+            datenc_np, datdec_np, decout_np, \
             datand_np = \
             sess.run([pgraph.loss, pgraph.summary_sum, pgraph.global_step,
-                      pgraph.data_encoder_gt, pgraph.encoder_out,
-                      pgraph.data_decoder_gt, pgraph.decoder_out, pgraph.data_nd])
+                      pgraph.data_encoder_time, pgraph.data_decoder_time, 
+                      pgraph.decoder_out, pgraph.data_nd])
       else:
         np_loss, summary_to_file, np_global_step, \
-            datenc_np, encout_np, datdec_np, decout_np, \
+            datenc_np, datdec_np, decout_np, \
             datand_np, window_np = \
             sess.run([pgraph.loss, pgraph.summary_sum, pgraph.global_step,
-                      pgraph.data_encoder_gt, pgraph.encoder_out,
-                      pgraph.data_decoder_gt, pgraph.decoder_out, pgraph.data_nd,
+                      pgraph.data_encoder_time, pgraph.data_decoder_time,
+                      pgraph.decoder_out, pgraph.data_nd,
                       pgraph.window])
 
     plt.plot(decout_np[0, :, 0], label=label)
     if gt:
         plt.plot(datdec_np[0, :, 0], label='ground-truth')
-    
-restore_step = 8000
-path2 = '/home/moritz/infcuda/fft_pred_networks/logs/\
-mackey2/2019-03-11 13:45:41_gru_size_156_fft\
-_True_bs_100_ps_512_dis_0_lr_0.004_dr_0.95_\
-ds_390_sp_1.0_rc_True_pt_154727_wf_learned_\
-plank_ws_128_ol_64_ffts_64_fftp_9_fl_None_eps_0.01'
-plot(path2, restore_step, label='plank-gru')
 
-path3 = '/home/moritz/infcuda/fft_pred_networks/logs/mackey2/\
-2019-03-11 13:16:45_gru_size_188_fft_False_bs_100_\
-ps_512_dis_0_lr_0.004_dr_0.95_ds_390_sp_1.0_rc_True\
-_pt_154788_linre'
+    
+restore_step = 20000
+path3 = '/home/moritz/infcuda/fft_pred_networks/logs/mackey1k2c8d_v2/\
+2019-05-03 18:57:292019-05-03 18:57:29_gru_size_64_fft_False_bs_12_ps\
+_2560_dis_0_lr_0.001_dr_0.9_ds_1000_sp_1.0_rc_True_pt_28928_linre'
 plot(path3, restore_step, label='reshape-gru')
 
-path = '/home/moritz/infcuda/fft_pred_networks/logs/mackey2\
-/2019-03-11 13:22:06_gru_size_226_fft_False_bs_100_ps_512\
-_dis_0_lr_0.004_dr_0.95_ds_390_sp_1.0_rc_True_pt_154811'
+path2 = '/home/moritz/infcuda/fft_pred_networks/logs/mackey1k2c8d_v2/\
+2019-05-04 14:30:192019-05-04 14:30:19_gru_size_64_fft_True_bs_12\
+_ps_2560_dis_0_lr_0.001_dr_0.9_ds_1000_sp_1.0_rc_True_pt_13508_wf\
+_hann_ws_128_ol_64_ffts_64_fftp_41_fl_None_eps_0.001_fftcr_32'
 
+# path2 = '/home/moritz/infcuda/fft_pred_networks/logs/mackey1k2c8d_v2/\
+# 2019-05-04 11:21:232019-05-04 11:21:23_gru_size_64_\
+# fft_True_bs_12_ps_2560_dis_0_lr_0.001_dr_0.9_ds_1000\
+# _sp_1.0_rc_True_pt_14536_wf_hann_ws_128_ol_64_ffts_64_fftp_41\
+# _fl_None_eps_0.001_fftcr_16'
+plot(path2, restore_step, label='fft-gru')
+
+path = '/home/moritz/infcuda/fft_pred_networks/logs/mackey1k2c8d_v2/\
+2019-05-04 13:17:172019-05-04 13:17:17_gru_size_64_fft_False_bs_12_\
+ps_2560_dis_0_lr_0.001_dr_0.9_ds_1000_sp_1.0_rc_True_pt_12737'
 plot(path, restore_step, label='time-gru', gt=True)
 plt.legend(bbox_to_anchor=(1.05, 1), loc=2, borderaxespad=0.)
-plt.show()
-# tikz.save('mackey_fit.tex')
+# plt.show()
+tikz.save('mackey_fit_final.tex')

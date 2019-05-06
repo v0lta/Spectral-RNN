@@ -21,7 +21,7 @@ if pd['prediction_days'] > 1:
     pd['context_days'] = pd['prediction_days']*2
 else:
     pd['context_days'] = 15
-pd['base_dir'] = 'log/power_pred_60d_1h/test/'
+pd['base_dir'] = 'log/power_pred_60d_1h/test_conv_bin/'
 pd['cell_type'] = 'gru'
 pd['num_units'] = 166
 pd['sample_prob'] = 1.0
@@ -37,6 +37,7 @@ pd['batch_size'] = 100
 # pd['window_function'] = 'learned_plank'
 pd['window_function'] = 'learned_gaussian'
 pd['fft_compression_rate'] = None
+pd['conv_fft_bins'] = True
 pd['freq_loss'] = None
 pd['use_residuals'] = True
 pd['fft'] = True
@@ -98,6 +99,8 @@ if pd['fft']:
     # debug_here()
     if pd['fft_compression_rate']:
         pd['num_proj'] = int((pd['window_size']//2 + 1) / pd['fft_compression_rate'])
+    elif pd['conv_fft_bins']:
+        pd['num_proj'] = int((pd['window_size']//2 + 1) / 2)
     else:
         pd['num_proj'] = int((pd['window_size']//2 + 1))
 elif pd['linear_reshape']:
@@ -125,7 +128,7 @@ if fft_loop:
             # window_loop
             for window in ['hann', 'learned_tukey', 'learned_gaussian', 'boxcar']:
                 # compression loop:
-                for compression in [None, 2, 4]:
+                for compression in [None]:
                     cpd = pd.copy()
                     cpd['window_function'] = window
                     cpd['fft_compression_rate'] = compression
@@ -134,6 +137,8 @@ if fft_loop:
                     if cpd['fft_compression_rate']:
                         cpd['num_proj'] = int((cpd['window_size']//2 + 1)
                                               / cpd['fft_compression_rate'])
+                    elif pd['conv_fft_bins']:
+                        cpd['num_proj'] = int((pd['window_size']//2 + 1) / 2) + 1
                     else:
                         cpd['num_proj'] = int((cpd['window_size']//2 + 1))
                     lpd_lst.append(cpd)
@@ -237,11 +242,11 @@ for exp_no, lpd in enumerate(lpd_lst):
                     [lpd['batch_size'], lpd['context_days']*lpd['samples_per_day'], 1])}
 
                 np_loss, summary_to_file, np_global_step, _, \
-                    datenc_np, encout_np, datdec_np, decout_np, \
+                    datenc_np, datdec_np, decout_np, \
                     datand_np = \
                     sess.run([pgraph.loss, pgraph.summary_sum, pgraph.global_step,
-                              pgraph.training_op, pgraph.data_encoder_gt,
-                              pgraph.encoder_out, pgraph.data_decoder_gt,
+                              pgraph.training_op, pgraph.data_encoder_time,
+                              pgraph.data_decoder_time,
                               pgraph.decoder_out, pgraph.data_nd],
                              feed_dict=feed_dict)
                 stop = time.time()
@@ -300,18 +305,20 @@ for exp_no, lpd in enumerate(lpd_lst):
                 feed_dict = {pgraph.data_nd: gt}
                 if lpd['fft']:
                     np_loss, np_global_step, \
-                        datenc_np, encout_np, datdec_np, decout_np, \
+                        datenc_np, datdec_np, decout_np, \
                         datand_np, window_np = \
-                        sess.run([pgraph.loss, pgraph.global_step, pgraph.data_encoder_gt,
-                                  pgraph.encoder_out, pgraph.data_decoder_gt,
+                        sess.run([pgraph.loss, pgraph.global_step,
+                                  pgraph.data_encoder_time,
+                                  pgraph.data_decoder_time,
                                   pgraph.decoder_out, pgraph.data_nd, pgraph.window],
                                  feed_dict=feed_dict)
                 else:
                     np_loss, np_global_step, \
-                        datenc_np, encout_np, datdec_np, decout_np, \
+                        datenc_np, datdec_np, decout_np, \
                         datand_np = \
-                        sess.run([pgraph.loss, pgraph.global_step, pgraph.data_encoder_gt,
-                                  pgraph.encoder_out, pgraph.data_decoder_gt,
+                        sess.run([pgraph.loss, pgraph.global_step,
+                                  pgraph.data_encoder_time,
+                                  pgraph.data_decoder_time,
                                   pgraph.decoder_out, pgraph.data_nd],
                                  feed_dict=feed_dict)
                 net_pred = decout_np[0, :, 0]*power_handler.std + power_handler.mean

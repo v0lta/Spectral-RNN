@@ -10,8 +10,7 @@ from IPython.core.debugger import Pdb
 debug_here = Pdb().set_trace
 
 pd = {}
-
-pd['base_dir'] = 'logs/mackey1k2c8d/'
+pd['base_dir'] = 'logs/mackey1k2c8d_v2_window/'
 pd['cell_type'] = 'cgRNN'
 pd['num_units'] = 128
 pd['sample_prob'] = 1.0
@@ -48,6 +47,9 @@ pd['overlap'] = int(pd['window_size']*0.5)
 pd['step_size'] = pd['window_size'] - pd['overlap']
 pd['fft_pred_samples'] = pd['pred_samples'] // pd['step_size'] + 1
 pd['fft_compression_rate'] = None
+# dont touch!
+pd['conv_fft_bins'] = None
+
 
 if pd['fft']:
     pd['num_proj'] = int(pd['window_size']//2 + 1)
@@ -79,7 +81,7 @@ if fft_loop:
             # cell size_loop.
             for num_units in [32, 64]:
                 # compression loop:
-                for compression in [4, 16, 32]:
+                for compression in [None, 2, 16, 32]:
                     cpd = pd.copy()
                     cpd['window_function'] = window
                     cpd['fft_compression_rate'] = compression
