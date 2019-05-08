@@ -12,6 +12,7 @@ physionet2012_experiments/data/
 music_exp/numpy/
 music_exp/raw/
 music_exp/networks/musicnet/
+eeg/data/
 human_motion_exp/data/
 human_motion_exp/experiments/
 power_experiments/power_pred_logs/
