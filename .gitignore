@@ -23,6 +23,9 @@ air_quality/SampleData/
 air_quality/logs/
 q.log
 
+# matlab .mat files.
+*.mat
+
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]
