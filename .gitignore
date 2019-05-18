@@ -22,6 +22,8 @@ person_activity/
 air_quality/SampleData/
 air_quality/logs/
 q.log
+brain_decode/data/
+brain_decode/log/
 
 # matlab .mat files.
 *.mat
