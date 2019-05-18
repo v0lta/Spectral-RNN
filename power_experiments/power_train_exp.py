@@ -1,4 +1,3 @@
-import sys
 import io
 import time
 import pickle
@@ -10,18 +9,17 @@ from prediction_graph import FFTpredictionGraph
 from IPython.core.debugger import Pdb
 debug_here = Pdb().set_trace
 
-
-fifteen_minute_sampling = False
+fifteen_minute_sampling = True
 
 # set up a parameter dictionary.
 pd = {}
 
-pd['prediction_days'] = 60
+pd['prediction_days'] = 1
 if pd['prediction_days'] > 1:
     pd['context_days'] = pd['prediction_days']*2
 else:
     pd['context_days'] = 15
-pd['base_dir'] = 'log/power_pred_60d_1h/test_conv_bin/'
+pd['base_dir'] = 'log/power_pred_1d_15_min/paper_exp2/'
 pd['cell_type'] = 'gru'
 pd['num_units'] = 166
 pd['sample_prob'] = 1.0
@@ -37,7 +35,8 @@ pd['batch_size'] = 100
 # pd['window_function'] = 'learned_plank'
 pd['window_function'] = 'learned_gaussian'
 pd['fft_compression_rate'] = None
-pd['conv_fft_bins'] = True
+pd['conv_fft_bins'] = None
+pd['fully_fft_comp'] = None  #TODO: fixme
 pd['freq_loss'] = None
 pd['use_residuals'] = True
 pd['fft'] = True
@@ -100,7 +99,9 @@ if pd['fft']:
     if pd['fft_compression_rate']:
         pd['num_proj'] = int((pd['window_size']//2 + 1) / pd['fft_compression_rate'])
     elif pd['conv_fft_bins']:
-        pd['num_proj'] = int((pd['window_size']//2 + 1) / 2)
+        pd['num_proj'] = int((pd['window_size']//2 + 1) / pd['conv_fft_bins'])
+    elif pd['fully_fft_comp']:
+        pd['num_proj'] = int((pd['window_size']//2 + 1) / pd['fully_fft_comp'])
     else:
         pd['num_proj'] = int((pd['window_size']//2 + 1))
 elif pd['linear_reshape']:
@@ -122,34 +123,40 @@ if fft_loop:
     assert pd['fft'] is True
     assert pd['linear_reshape'] is False
     # cell_type loop:
-    for cell_type in ['gru', 'cgRNN']:
+    for cell_type in ['gru']:  # cgRNN
         # size loop.
-        for num_units in [8, 32, 128]:
+        for num_units in [64]:
             # window_loop
-            for window in ['hann', 'learned_tukey', 'learned_gaussian', 'boxcar']:
+            for window in ['learned_gaussian']:
                 # compression loop:
                 for compression in [None]:
-                    cpd = pd.copy()
-                    cpd['window_function'] = window
-                    cpd['fft_compression_rate'] = compression
-                    cpd['num_units'] = num_units
-                    cpd['cell_type'] = cell_type
-                    if cpd['fft_compression_rate']:
-                        cpd['num_proj'] = int((cpd['window_size']//2 + 1)
-                                              / cpd['fft_compression_rate'])
-                    elif pd['conv_fft_bins']:
-                        cpd['num_proj'] = int((pd['window_size']//2 + 1) / 2) + 1
-                    else:
-                        cpd['num_proj'] = int((cpd['window_size']//2 + 1))
-                    lpd_lst.append(cpd)
+                    for conv_compression in [None]:
+                        cpd = pd.copy()
+                        cpd['window_function'] = window
+                        cpd['fft_compression_rate'] = compression
+                        cpd['conv_fft_bins'] = conv_compression
+                        cpd['num_units'] = num_units
+                        cpd['cell_type'] = cell_type
+                        if cpd['fft_compression_rate']:
+                            cpd['num_proj'] = int((cpd['window_size']//2 + 1)
+                                                  / cpd['fft_compression_rate'])
+                        elif cpd['conv_fft_bins']:
+                            cpd['num_proj'] = int((cpd['window_size']//2 + 1)
+                                                  / cpd['conv_fft_bins']) + 1
+                        elif pd['fully_fft_comp']:
+                            cpd['num_proj'] = int((pd['window_size']//2 + 1)
+                                                  / pd['fully_fft_comp'])
+                        else:
+                            cpd['num_proj'] = int((cpd['window_size']//2 + 1))
+                        lpd_lst.append(cpd)
 
 reshape_loop = pd['linear_reshape']
 if reshape_loop:
     assert pd['fft'] is False
     assert pd['linear_reshape'] is True
-    for num_units in [8, 32, 128]:
+    for num_units in [64]:
         # cell_type loop:
-        for cell_type in ['gru', 'cgRNN']:
+        for cell_type in ['gru']:
                 cpd = pd.copy()
                 cpd['num_units'] = num_units
                 cpd['cell_type'] = cell_type
@@ -160,8 +167,8 @@ if time_loop:
     assert pd['fft'] is False
     assert pd['linear_reshape'] is False
     cpd = pd.copy()
-    for cell_type in ['gru', 'cgRNN']:
-        for num_units in [8, 32, 128]:
+    for cell_type in ['gru']:
+        for num_units in [64]:
             # cell_type loop:
             cpd['num_units'] = num_units
             cpd['cell_type'] = cell_type
@@ -194,13 +201,19 @@ for exp_no, lpd in enumerate(lpd_lst):
         param_str += '_fftp_' + str(lpd['fft_pred_samples'])
         param_str += '_fl_' + str(lpd['freq_loss'])
         param_str += '_eps_' + str(lpd['epsilon'])
-        param_str += '_fftcr_' + str(lpd['fft_compression_rate'])
+        if lpd['fft_compression_rate']:
+            param_str += '_fftcr_' + str(lpd['fft_compression_rate'])
 
     if lpd['stiefel']:
         param_str += '_stfl'
 
     if lpd['linear_reshape']:
         param_str += '_linre'
+        assert lpd['conv_fft_bins'] is None
+
+    if lpd['conv_fft_bins']:
+        param_str += '_conv_fft_bins_' + str(lpd['conv_fft_bins'])
+        assert lpd['linear_reshape'] is False
 
     # do each of the experiments in the parameter dictionary list.
     print(param_str)
@@ -232,7 +245,6 @@ for exp_no, lpd in enumerate(lpd_lst):
                 return batch_lst
 
             batch_lst = organize_into_batches(training_batches)
-            # ilpdb.set_trace()
 
             for it, batch in enumerate(batch_lst):
                 start = time.time()
@@ -321,17 +333,17 @@ for exp_no, lpd in enumerate(lpd_lst):
                                   pgraph.data_decoder_time,
                                   pgraph.decoder_out, pgraph.data_nd],
                                  feed_dict=feed_dict)
-                net_pred = decout_np[0, :, 0]*power_handler.std + power_handler.mean
-                official_pred = official_pred[0, -lpd['pred_samples']:, 0]
-                gt = gt[0, -lpd['pred_samples']:, 0]
+                net_pred = decout_np[:, :, 0]*power_handler.std + power_handler.mean
+                official_pred = official_pred[:, -lpd['pred_samples']:, 0]
+                gt = gt[:, -lpd['pred_samples']:, 0]
                 mse_lst_net.append(
-                    np.mean((gt[lpd['discarded_samples']:]
-                             - net_pred[lpd['discarded_samples']:lpd['pred_samples']])
+                    np.mean((gt[:, lpd['discarded_samples']:]
+                             - net_pred[:, lpd['discarded_samples']:lpd['pred_samples']])
                             ** 2))
                 mse_lst_off.append(
                     np.mean((
-                        gt[lpd['discarded_samples']:]
-                        - official_pred[lpd['discarded_samples']:lpd['pred_samples']])
+                        gt[:, lpd['discarded_samples']:]
+                        - official_pred[:, lpd['discarded_samples']:lpd['pred_samples']])
                         ** 2))
                 print('.', end='')
             mse_net = np.mean(np.array(mse_lst_net))

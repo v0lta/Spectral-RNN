@@ -271,7 +271,7 @@ if __name__ == "__main__":
         plt.show()
         # tikz.save('spikes_autocorr.tex')
 
-    if 1:
+    if 0:
         # FFT compression test.
         tmp_last_spikes = tf.transpose(spikes, [0, 2, 1])
         print(tmp_last_spikes.shape)
@@ -311,4 +311,71 @@ if __name__ == "__main__":
         plt.imshow(np.abs(result_tf[0, 0, :, :].numpy()))
         plt.show()
         plt.imshow(np.log(np.abs(result_tf[0, 0, :, :].numpy())))
+        plt.show()
+
+    if 1:
+        import matplotlib.pyplot as plt
+        from mpl_toolkits.mplot3d import Axes3D
+        # test multi-dimensional Lorenz.
+        batch_size = 12
+        window_size = 128
+        overlap = int(window_size*0.5)
+        window = tf.constant(scisig.get_window('hann', window_size),
+                             dtype=tf.float32)
+        tmax = 10.24
+        delta_t = 0.01
+        spikes_instead_of_states = False
+        # code
+        gen = LorenzGenerator(spikes_instead_of_states, batch_size,
+                              tmax, delta_t, restore_and_plot=False)
+        circs = gen()
+
+        tmp_last_lorenz = tf.transpose(circs, [0, 2, 1])
+        result_tf, result_np = stft(tmp_last_lorenz, window, window_size, overlap,
+                                    debug=True)
+
+        tmp_f, tmp_t, sci_res = scisig.stft(tmp_last_lorenz.numpy(),
+                                            window=window,
+                                            nperseg=window_size,
+                                            noverlap=overlap,
+                                            axis=-1)
+
+        # debug_here()
+        plt.imshow(np.log((np.abs(result_tf.numpy()[0, 0, :, :].T))))
+        plt.colorbar()
+        plt.show()
+
+        error = np.linalg.norm((np.transpose(result_tf.numpy(), [0, 1, 3, 2])
+                                - sci_res).flatten())
+
+        print('machine precision:', np.finfo(result_tf.numpy().dtype).eps)
+        print('error_tf_scipy', error)
+        error2 = np.linalg.norm((np.transpose(result_np, [0, 1, 3, 2])
+                                 - sci_res).flatten())
+        print('error_np_scipy', error2)
+        error3 = np.linalg.norm((result_tf.numpy() - result_np).flatten())
+        print('error_np_tf', error3)
+        # TODO: why is the error still 9*eps?
+
+        # test the istft.
+        # scaled = istft(tf.transpose(tf.constant(sci_res), [0, 1, 3, 2]),
+        #                window=window,
+        #                nperseg=window_size,
+        #                noverlap=overlap,
+        #                debug=True)
+        scaled = istft(result_tf,
+                       window,
+                       nperseg=window_size,
+                       noverlap=overlap,
+                       debug=True)
+
+        _, scisig_np = scisig.istft(sci_res, window='hann',
+                                    nperseg=window_size,
+                                    noverlap=overlap)
+        error4 = np.linalg.norm((scaled.numpy() - scisig_np).flatten())
+        print('istft error tf', error4)
+
+        fig = plt.figure()
+        ax = fig.add_subplot(111, projection='3d')
+        ax.plot(scaled.numpy()[0, 0, :], scaled.numpy()[0, 1, :], scaled.numpy()[0, 2, :])
         plt.show()

@@ -10,21 +10,22 @@ from IPython.core.debugger import Pdb
 debug_here = Pdb().set_trace
 
 pd = {}
-pd['base_dir'] = 'logs/mackey1k2c8d_v2_window/'
+pd['base_dir'] = 'logs/mackey1k2c8d_v2_CvR_v2/'
 pd['cell_type'] = 'cgRNN'
-pd['num_units'] = 128
+pd['num_units'] = 64
 pd['sample_prob'] = 1.0
 pd['init_learning_rate'] = 0.001
 pd['decay_rate'] = 0.9
 pd['decay_steps'] = 1000
 
 pd['iterations'] = 20000
+# pd['iterations'] = 2
 pd['GPUs'] = [0]
 pd['batch_size'] = 12
-pd['window_function'] = 'hann'
+# pd['window_function'] = 'hann'
 # pd['window_function'] = 'learned_tukey'
 # pd['window_function'] = 'learned_plank'
-# pd['window_function'] = 'learned_gaussian'
+pd['window_function'] = 'learned_gaussian'
 # pd['window_function'] = 'learned_gauss_plank'
 pd['freq_loss'] = None
 pd['use_residuals'] = True
@@ -49,7 +50,7 @@ pd['fft_pred_samples'] = pd['pred_samples'] // pd['step_size'] + 1
 pd['fft_compression_rate'] = None
 # dont touch!
 pd['conv_fft_bins'] = None
-
+pd['fully_fft_comp'] = None  # TODO: fixme
 
 if pd['fft']:
     pd['num_proj'] = int(pd['window_size']//2 + 1)
@@ -75,13 +76,13 @@ if fft_loop:
     assert pd['fft'] is True
     assert pd['linear_reshape'] is False
     # cell_type loop:
-    for cell_type in ['gru']:
+    for cell_type in ['cgRNN', 'gru']:
         # window_loop
-        for window in ['hann', 'learned_tukey', 'learned_gaussian']:
+        for window in ['learned_gaussian']:
             # cell size_loop.
-            for num_units in [32, 64]:
+            for num_units in [64]:  # 32 ,45, 64
                 # compression loop:
-                for compression in [None, 2, 16, 32]:
+                for compression in [None, 32]:
                     cpd = pd.copy()
                     cpd['window_function'] = window
                     cpd['fft_compression_rate'] = compression
@@ -172,23 +173,17 @@ for exp_no, lpd in enumerate(lpd_lst):
             start = time.time()
             # array_split add elements here and there, the true data is at 1
             if not lpd['fft']:
-                np_loss, summary_to_file, np_global_step, _, \
-                    datenc_np, encout_np, datdec_np, decout_np, \
+                np_loss, summary_to_file, np_global_step, _, datdec_np, decout_np, \
                     datand_np = \
                     sess.run([pgraph.loss, pgraph.summary_sum, pgraph.global_step,
-                              pgraph.training_op, pgraph.data_encoder_gt,
-                              pgraph.encoder_out, pgraph.data_decoder_gt,
+                              pgraph.training_op, pgraph.data_decoder_time,
                               pgraph.decoder_out, pgraph.data_nd])
             else:
-                np_loss, summary_to_file, np_global_step, _, \
-                    datenc_np, encout_np, datdec_np, decout_np, \
-                    datand_np, data_encoder_time_np, window_np = \
+                np_loss, summary_to_file, np_global_step, _, datdec_np, decout_np, \
+                    datand_np, window_np = \
                     sess.run([pgraph.loss, pgraph.summary_sum, pgraph.global_step,
-                              pgraph.training_op,
-                              pgraph.data_encoder_gt, pgraph.encoder_out,
-                              pgraph.data_decoder_gt, pgraph.decoder_out,
-                              pgraph.data_nd, pgraph.data_encoder_time,
-                              pgraph.window])
+                              pgraph.training_op, pgraph.data_decoder_time,
+                              pgraph.decoder_out, pgraph.data_nd, pgraph.window])
             stop = time.time()
             if it % 100 == 0:
                 print('it: %5d, loss: %5.6f, time: %1.2f [s]'

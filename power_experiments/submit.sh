@@ -1,4 +1,4 @@
-#block(name=power_pred_fft, threads=2, memory=7500, subtasks=1, hours=96, gpus=1)
+#block(name=nips_power_fft, threads=2, memory=7500, subtasks=1, hours=48, gpus=1)
     echo "process subtask $SUBTASK_ID of $N_SUBTASKS"
-    ipython power_load_pred_exp.py
+    ipython power_train_exp.py
    

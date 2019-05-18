@@ -7,8 +7,8 @@ import tensorflow as tf
 import matplotlib.pyplot as plt
 import numpy as np
 import os
-from IPython.core.debugger import Tracer
-debug_here = Tracer()
+from IPython.core.debugger import Pdb
+debug_here = Pdb().set_trace
 
 
 def tensoboard_average(y, window):
@@ -66,7 +66,7 @@ def plot_logs(ps, legend, title, window_size=25, vtag='mse', ylim=[0.00, 0.35],
         plt.show()
 
 
-def return_logs(path, window_size=25, vtag='mse'):
+def return_logs(path, window_size=25, vtag='mse', filter_str=None):
     """
     Load loss values from logfiles smooth and return.
     Params:
@@ -107,4 +107,13 @@ def return_logs(path, window_size=25, vtag='mse'):
             yhat = y
         xhat = np.linspace(0, y.shape[0], yhat.shape[0])
         xy_lst.append([[xhat, yhat], p])
-    return xy_lst
+
+    if filter_str:
+        filtered_list = []
+        for element in xy_lst:
+            params_strs = element[-1].split('_')
+            if filter_str in params_strs:
+                filtered_list.append(element)
+        return filtered_list
+    else:
+        return xy_lst

@@ -163,7 +163,6 @@ if __name__ == "__main__":
         optimizer = tf.train.GradientDescentOptimizer(learning_rate=learning_rate)
         opt_op = optimizer.minimize(loss)
         init_op = tf.global_variables_initializer()
-        ipdb.set_trace()
 
     with tf.Session(graph=graph) as sess:
         for i in range(0, iterations):
@@ -171,3 +170,6 @@ if __name__ == "__main__":
             out_loss, out_window, out_epsilon, _ = sess.run([loss, window, epsilon,
                                                              opt_op])
             print(i, out_loss, out_epsilon)
+
+
+    

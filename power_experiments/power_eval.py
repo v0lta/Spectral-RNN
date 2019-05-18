@@ -6,23 +6,17 @@ import matplotlib2tikz as tikz
 from prediction_graph import FFTpredictionGraph
 
 
-def organize_into_batches(batches):
-    batch_total = len(batches)
-    split_into = int(batch_total/pd['batch_size'])
-    batch_lst = np.array_split(np.stack(batches),
-                               split_into)
-    return batch_lst
-
-
-# day-ahead.
-if 1:
-    path = '/home/moritz/infcuda/fft_pred_networks/power_experiments/\
-log/power_pred_60d_1h/2019-03-09 15:34:47_gru_size_166_fft_True_fm_False\
-_bs_100_ps_1440_dis_0_lr_0.004_dr_0.95_ds_455_sp_1.0_rc_False_pt_148337_\
-wf_learned_tukey_ws_96_ol_72_ffts_24_fftp_61_fl_None_eps_0.01'
+def get_pred(path, restore_step):
     pd = pickle.load(open(path + '/param.pkl', "rb"))
+    pd['fully_fft_comp'] = None
+
+    def organize_into_batches(batches):
+        batch_total = len(batches)
+        split_into = int(batch_total/pd['batch_size'])
+        batch_lst = np.array_split(np.stack(batches),
+                                   split_into)
+        return batch_lst
     pgraph = FFTpredictionGraph(pd)
-    restore_step = 26720
     power_handler = pd['power_handler']
 
     mse_lst_net = []
@@ -48,46 +42,127 @@ wf_learned_tukey_ws_96_ol_72_ffts_24_fftp_61_fl_None_eps_0.01'
                                            pd['context_days']*pd['samples_per_day'], 1])
             feed_dict = {pgraph.data_nd: gt_np}
             if pd['fft']:
-                np_loss, np_global_step, \
-                    datenc_np, encout_np, datdec_np, decout_np, \
+                np_loss, np_global_step, decout_np, \
                     datand_np, window_np = \
-                    sess.run([pgraph.loss, pgraph.global_step, pgraph.data_encoder_gt,
-                              pgraph.encoder_out, pgraph.data_decoder_gt,
+                    sess.run([pgraph.loss, pgraph.global_step,
                               pgraph.decoder_out, pgraph.data_nd, pgraph.window],
                              feed_dict=feed_dict)
             else:
-                np_loss, np_global_step, \
-                    datenc_np, encout_np, datdec_np, decout_np, \
+                np_loss, np_global_step, decout_np, \
                     datand_np = \
-                    sess.run([pgraph.loss, pgraph.global_step, pgraph.data_encoder_gt,
-                              pgraph.encoder_out, pgraph.data_decoder_gt,
+                    sess.run([pgraph.loss, pgraph.global_step,
                               pgraph.decoder_out, pgraph.data_nd],
                              feed_dict=feed_dict)
-            net_pred = decout_np[0, :, 0]*power_handler.std + power_handler.mean
-            official_pred = official_pred_np[0, -pd['pred_samples']:, 0]
-            gt = gt_np[0, -pd['pred_samples']:, 0]
+            net_pred = decout_np[:, :, 0]*power_handler.std + power_handler.mean
+            official_pred = official_pred_np[:, -pd['pred_samples']:, 0]
+            gt = gt_np[:, -pd['pred_samples']:, 0]
             mse_lst_net.append(
-                np.mean((gt[pd['discarded_samples']:]
-                         - net_pred[pd['discarded_samples']:pd['pred_samples']])**2))
+                np.mean((gt[:, pd['discarded_samples']:]
+                         - net_pred[:, pd['discarded_samples']:pd['pred_samples']])**2))
             mse_lst_off.append(
-                np.mean((gt[pd['discarded_samples']:]
-                         - official_pred[pd['discarded_samples']:pd['pred_samples']])**2))
+                np.mean((gt[:, pd['discarded_samples']:]
+                         - official_pred[:, pd['discarded_samples']:pd['pred_samples']]
+                         )**2))
             print(str(no) + ' ', end='')
 
-        plt.plot(gt[pd['discarded_samples']:], label='ground truth')
-        plt.plot(net_pred[pd['discarded_samples']:], label='fft_cgRNN')
-        plt.plot(official_pred[pd['discarded_samples']:], label='entsoe.eu')
-        plt.legend()
-        plt.show()
+    return decout_np, official_pred_np, gt_np, pd
 
-i = 90
-print(i)
-net_pred = decout_np[i, :, 0]*power_handler.std + power_handler.mean
-official_pred = official_pred_np[i, -pd['pred_samples']:, 0]
-gt = gt_np[i, -pd['pred_samples']:, 0]
-plt.plot(gt[pd['discarded_samples']:], label='ground truth')
-plt.plot(net_pred[pd['discarded_samples']:], label='fft_cgRNN')
-plt.legend()
-plt.ylim([6000, 14000])
-tikz.save('60d_fit.tex')
-plt.show()
+
+# 60 day predictions
+if 0:
+    restore_step = 26720
+    i = 90  # 90
+    print(i)
+
+    path = '/home/moritz/infcuda/fft_pred_networks/power_experiments/log/\
+    power_pred_60d_1h/conv_bin_exp/2019-05-06 14:22:25_gru_size_64_fft_\
+    False_fm_False_bs_100_ps_1440_dis_0_lr_0.004_dr_0.95_ds_455_sp_1.0\
+    _rc_True_pt_27900_linre'
+    decout_np, official_pred_np, gt_np, pd = get_pred(path, restore_step)
+    net_pred = decout_np[i, :, 0]*pd['power_handler'].std + pd['power_handler'].mean
+    official_pred = official_pred_np[i, - pd['pred_samples']:, 0]
+    gt = gt_np[i, -pd['pred_samples']:, 0]
+    plt.plot(net_pred[pd['discarded_samples']:], label='time-window')
+
+    path = '/home/moritz/infcuda/fft_pred_networks/power_experiments/log/\
+    power_pred_60d_1h/conv_bin_exp/2019-05-07 16:48:41_gru_size_64_fft_False\
+    _fm_False_bs_100_ps_1440_dis_0_lr_0.004_dr_0.95_ds_455_sp_1.0_rc_True_pt_12737'
+    decout_np, official_pred_np, gt_np, pd = get_pred(path, restore_step)
+    net_pred = decout_np[i, :, 0]*pd['power_handler'].std + pd['power_handler'].mean
+    official_pred = official_pred_np[i, - pd['pred_samples']:, 0]
+    gt = gt_np[i, -pd['pred_samples']:, 0]
+    # plt.plot(net_pred[pd['discarded_samples']:], label='time')
+
+    path = '/home/moritz/infcuda/fft_pred_networks/power_experiments/log/\
+    power_pred_60d_1h/conv_bin_exp/\
+    2019-05-06 16:58:46_gru_size_64_fft_True_fm_False_bs_\
+    100_ps_1440_dis_0_lr_0.004_dr_0.95_ds_455_sp_1.0_rc_True_pt_\
+    43835_wf_learned_gaussian_ws_120_ol_60_ffts_60_fftp_25_fl_None_eps_0.01_fftcr_None'
+    decout_np, official_pred_np, gt_np, pd = get_pred(path, restore_step)
+    net_pred = decout_np[i, :, 0]*pd['power_handler'].std + pd['power_handler'].mean
+    official_pred = official_pred_np[i, - pd['pred_samples']:, 0]
+    gt = gt_np[i, -pd['pred_samples']:, 0]
+    plt.plot(net_pred[pd['discarded_samples']:], label='fft')
+
+    path = '/home/moritz/infcuda/fft_pred_networks/power_experiments/log/\
+    power_pred_60d_1h/conv_bin_exp/\
+    2019-05-06 17:25:54_gru_size_64_fft_True_fm_False_bs_100_ps_1440\
+    _dis_0_lr_0.004_dr_0.95_ds_455_sp_1.0_rc_True_pt_20191_wf_learned_gaussian\
+    _ws_120_ol_60_ffts_60_fftp_25_fl_None_eps_0.01_fftcr_4'
+    decout_np, official_pred_np, gt_np, pd = get_pred(path, restore_step)
+    net_pred = decout_np[i, :, 0]*pd['power_handler'].std + pd['power_handler'].mean
+    official_pred = official_pred_np[i, - pd['pred_samples']:, 0]
+    gt = gt_np[i, -pd['pred_samples']:, 0]
+    plt.plot(net_pred[pd['discarded_samples']:], label='fft-4')
+
+    plt.plot(gt[pd['discarded_samples']:], label='ground truth')
+
+    plt.legend()
+    plt.ylim([6000, 14000])
+    # last week
+    plt.xlim([1250, 1450])
+    tikz.save('comparison_last_week_60d_fit.tex', standalone=True)
+    plt.show()
+
+# day ahead prediction.
+# 60 day predictions
+if 1:
+    restore_step = 8880
+
+    # for i in range(0, 90):
+    for i in [7]:
+        print('------------------------------', i)
+        x = np.linspace(0., 24., num=96)
+
+        path = '/home/moritz/infcuda/fft_pred_networks/power_experiments/log/\
+power_pred_1d_15_min/paper_exp2/2019-05-15 18:38:01_gru_size_64_fft_\
+False_fm_True_bs_100_ps_144_dis_48_lr_0.004_dr_0.95_ds_390_sp_1.0_rc_True_pt_12737'
+        decout_np, official_pred_np, gt_np, pd = get_pred(path, restore_step)
+        net_pred = decout_np[i, :, 0]*pd['power_handler'].std + pd['power_handler'].mean
+        plt.plot(x, net_pred[pd['discarded_samples']:], label='time')
+
+        path = '/home/moritz/infcuda/fft_pred_networks/power_experiments/log/\
+power_pred_1d_15_min/paper_exp2/2019-05-15 18:38:24_gru_size_64_fft_False\
+_fm_True_bs_100_ps_144_dis_48_lr_0.004_dr_0.95_ds_390_sp_1.0_rc_True_pt_24816_linre'
+        decout_np, official_pred_np, gt_np, pd = get_pred(path, restore_step)
+        net_pred = decout_np[i, :, 0]*pd['power_handler'].std + pd['power_handler'].mean
+        gt = gt_np[i, -pd['pred_samples']:, 0]
+        plt.plot(x, net_pred[pd['discarded_samples']:], label='time-window')
+
+        path = '/home/moritz/infcuda/fft_pred_networks/power_experiments/log/\
+power_pred_1d_15_min/paper_exp2/2019-05-16 13:10:25_gru_size_64_fft_True_\
+fm_True_bs_100_ps_144_dis_48_lr_0.004_dr_0.95_ds_390_sp_1.0_rc_True_pt_37667\
+_wf_learned_gaussian_ws_96_ol_48_ffts_48_fftp_4_fl_None_eps_0.01/'
+        decout_np, official_pred_np, gt_np, pd = get_pred(path, restore_step)
+        net_pred = decout_np[i, :, 0]*pd['power_handler'].std + pd['power_handler'].mean
+        plt.plot(x, net_pred[pd['discarded_samples']:], label='fft')
+
+        official_pred = official_pred_np[i, - pd['pred_samples']:, 0]
+        gt = gt_np[i, -pd['pred_samples']:, 0]
+        plt.plot(x, official_pred[pd['discarded_samples']:], label='entsoe.eu')
+        plt.plot(x, gt[pd['discarded_samples']:], label='ground-truth')
+        plt.legend()
+        plt.ylabel('power-load [MW]')
+        plt.xlabel('time [h]')
+        tikz.save('day_ahead plot.tex', standalone=True)
+        plt.show()
