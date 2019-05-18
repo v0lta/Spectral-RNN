@@ -24,6 +24,7 @@ air_quality/logs/
 q.log
 brain_decode/data/
 brain_decode/log/
+eeg/
 
 # matlab .mat files.
 *.mat
