@@ -27,10 +27,11 @@ def pd_to_string(pd):
             if dict_el:
                 param_str += '_' + key
         elif type(dict_el) == str:
-            param_str += '_' + dict_el
+            param_str += '/' + dict_el
         else:
-            param_str += '_' + key + '-' + str(dict_el)
+            param_str += '/' + key + '-' + str(dict_el)
     return param_str
+
 
 def load_bbci_data(filename, low_cut_hz, debug=False):
     load_sensor_names = None
@@ -132,29 +133,33 @@ pd = {}
 pd['window_function'] = 'learned_gaussian'
 pd["window_size"] = 128
 pd["overlap"] = int(pd['window_size']*0.5)
-pd['fft_compression_rate'] = None
+pd['fft_compression_rate'] = 0
 
 # RNN parameters
 pd['label_total'] = 4
-pd['num_units'] = 1024
-pd['dense_units'] = 512
+pd['num_units'] = [256]
+pd['p_layer'] = [False]
+assert len(pd['num_units']) == len(pd['p_layer'])
+pd['dense_units'] = 128
+pd['dropout'] = 0.5
+pd['input_dropout'] = 0.5
 
 # Train Data Parameters
 pd['magnitude_only'] = True
 pd['channels'] = 44
 # Learning Parameters
-pd["learning_rate"] = 0.001
-pd["epochs"] = 30
+pd["learning_rate"] = 0.003
+pd["epochs"] = 100
 pd["batch_size"] = 50
-
-pd["GPUs"] = [0]
+pd['learning_rate_decay'] = 0.9
+pd['decay_steps'] = 600
 
 # Data Loading Parameters
 low_cut_hz = 0
 subject_ids = 14
 
 pd['data_folder'] = './data/'
-pd['log_folder'] = './log/'
+pd['log_folder'] = './log/drop_1/'
 
 try:
     print('opening pickled version of the downsampled data.')
@@ -231,15 +236,8 @@ pd['time_str'] = time.strftime("%Y-%m-%d %H:%M:%S", time.gmtime())
 summary_writer = tf.summary.FileWriter(pd['log_folder'] + pd['time_str'] + param_str,
                                        graph=cgraph.graph)
 
-# create a session and train dat thing
-gpu_options = tf.GPUOptions(visible_device_list=str(pd['GPUs'])[1:-1])
-# gpu_options = tf.GPUOptions(per_process_gpu_memory_fraction=1.0)
-config = tf.ConfigProto(allow_soft_placement=True,
-                        log_device_placement=False,
-                        gpu_options=gpu_options)
-
 val_acc_lst = []
-with tf.Session(graph=cgraph.graph, config=config) as sess:
+with tf.Session(graph=cgraph.graph) as sess:
     cgraph.init_op.run()
     train_size = train_X_full.shape[0]
     iterations = int(train_size/pd['batch_size'])
@@ -272,15 +270,20 @@ with tf.Session(graph=cgraph.graph, config=config) as sess:
 
             feed_dict = {cgraph.data: x_in,
                          cgraph.labels: y_in}
-            loss, out, labels, _ = \
+            loss, out, labels, _, np_global_step, lr_summary = \
                 sess.run([cgraph.loss, cgraph.sig_out_center, cgraph.labels_one_hot,
-                          cgraph.weight_update],
+                          cgraph.weight_update, cgraph.global_step,
+                          cgraph.learning_rate_summary],
                          feed_dict=feed_dict)
             acc = np.mean(y_in == np.argmax(out, axis=-1))*100
             acc = np.round(acc, 1)
             loss = np.round(loss, 6)
             if i % 25 == 0:
                 print('epoch', e, 'it', i, 'loss', loss, 'accuracy', acc)
+            summary_writer.add_summary(lr_summary, global_step=np_global_step)
+            train_acc_summary = tf.Summary.Value(tag='train_acc', simple_value=acc)
+            train_acc_summary = tf.Summary(value=[train_acc_summary])
+            summary_writer.add_summary(train_acc_summary, global_step=np_global_step)
 
         # validation round
         val_y_total = None
@@ -291,15 +294,15 @@ with tf.Session(graph=cgraph.graph, config=config) as sess:
 
                 feed_dict = {cgraph.data: x_val_in,
                              cgraph.labels: y_val_in}
-                out, np_global_step = \
-                    sess.run([cgraph.sig_out_center, cgraph.global_step],
+                out, np_global_step, freq_abs_summary = \
+                    sess.run([cgraph.sig_out_center_val, cgraph.global_step,
+                              cgraph.freq_abs_summary],
                              feed_dict=feed_dict)
                 out_max = np.squeeze(np.argmax(out, axis=-1))
                 if val_out_max is None:
                     val_out_max = out_max
                 else:
                     val_out_max = np.concatenate([val_out_max, out_max], -1)
-
                 if val_y_total is None:
                     val_y_total = y_val_in
                 else:
@@ -307,6 +310,10 @@ with tf.Session(graph=cgraph.graph, config=config) as sess:
         assert (val_y_total == val_y_full).all()
         val_acc = np.mean(val_out_max == val_y_total)*100
         print('val acc', val_acc)
-        acc_summary = tf.Summary.Value(tag='mse_net_test', simple_value=val_acc)
+        acc_summary = tf.Summary.Value(tag='val_acc', simple_value=val_acc)
         acc_summary = tf.Summary(value=[acc_summary])
         summary_writer.add_summary(acc_summary, global_step=np_global_step)
+        summary_writer.add_summary(freq_abs_summary, global_step=np_global_step)
+
+    # test things.
+    # TODO.

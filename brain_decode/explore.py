@@ -151,7 +151,7 @@ print("Train Samples :", train_size)
 print("Validation Samples :", valid_size)
 print("Test Samples :", test_size)
 
-if 1:
+if 0:
     # test the tf stft.
     import matplotlib.pyplot as plt
     import scipy.signal as scisig
@@ -168,3 +168,7 @@ if 1:
                          nperseg=nperseg, noverlap=overlap)
     plt.imshow(np.abs(freq_sig.numpy()[0, 0, :, :]))
     plt.show()
+
+
+if 1:
+    # play with noise.
