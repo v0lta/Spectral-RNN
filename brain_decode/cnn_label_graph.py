@@ -26,33 +26,6 @@ def compute_parameter_total(trainable_variables):
     return total_parameters
 
 
-def concatenate_brnn_out(inputs, scope):
-    """
-    Turn a brnn into a prnn by input concatinations.
-    Args:
-        inputs: A time minor tensor [batch_size, time, input_size]
-        scope: the current scope
-    Returns:
-        inputs: Concatenated inputs [batch_size, time/2, input_size*2]
-        sequence_lengths: the lengths of the inputs sequences [batch_size]
-    """
-    input_shape = tf.Tensor.get_shape(inputs)
-    print('concat: initial shape: ', input_shape)
-    concat_inputs = []
-    for time_i in range(1, int(input_shape[1]), 2):
-        concat_input = tf.concat([inputs[:, time_i-1, :],
-                                  inputs[:, time_i, :]],
-                                 axis=1,
-                                 name='prnn_concat')
-        concat_inputs.append(concat_input)
-
-    inputs = tf.stack(concat_inputs, axis=1, name='prnn_pack')
-
-    concat_shape = tf.Tensor.get_shape(inputs)
-    print('concat: concat shape: ', concat_shape)
-    return inputs
-
-
 class SingleLabelClassificationGraph(object):
     """Come up with a single label for the classification
        problem. """
@@ -117,66 +90,70 @@ class SingleLabelClassificationGraph(object):
             # concatenate the complex numbers away or use absolute value.
             if pd['magnitude_only']:
                 data_freq_rnn = data_freq_abs
+            elif pd['magnitude_and_phase']:
+                data_freq_psi = tf.math.angle(data_freq)
+                data_freq_rnn = tf.concat([data_freq_abs, data_freq_psi], 1)
             else:
-                data_freq_rnn = tf.concat([tf.real(data_freq), tf.imag(data_freq)], -1)
-                freqs = freqs*2
+                # concatenate real and imaginary parts along the channel dimension.
+                data_freq_rnn = tf.concat([tf.real(data_freq), tf.imag(data_freq)], 1)
 
             # flatten the channels
-            time_steps = data_freq_rnn.shape.as_list()[2]
-            data_freq_rnn = tf.transpose(data_freq_rnn, [0, 2, 1, 3])
-            data_freq_rnn = tf.reshape(data_freq_rnn, [-1,
-                                                       time_steps,
-                                                       freqs*pd['channels']])
+            # time_steps = data_freq_rnn.shape.as_list()[2]
+            data_freq_rnn = tf.transpose(data_freq_rnn, [0, 2, 3, 1])
             print('data_freq shape', data_freq_rnn.shape)
             # run the rnn
             # bidirectional_layer = tf.keras.layers.Bidirectional(gru_cell)
             # outputs, _ = bidirectional_layer(data_freq_rnn)
             # tf-keras is terrible it's time to move to pytorch.
 
-            def run_rnn(data_freq_rnn, train):
+            def run_cnn(data_freq_rnn, train):
+                # data_freq_rnn = tf.expand_dims(data_freq_rnn, -1)
                 if train and pd['input_dropout']:
                     print('input_dropout', pd['input_dropout'])
-                    rnn_in = tf.nn.dropout(data_freq_rnn, pd['input_dropout'])
+                    cnn_input = tf.nn.dropout(data_freq_rnn, pd['input_dropout'])
                 else:
-                    rnn_in = data_freq_rnn
-                for layer_no, units in enumerate(pd['num_units']):
-                    with tf.variable_scope('layer_' + str(layer_no)):
-                        gru_cell = rnn_cell.GRUCell(units)
-                        outputs, _ = tf.nn.bidirectional_dynamic_rnn(
-                            gru_cell, gru_cell, rnn_in, dtype=tf.float32)
+                    cnn_input = data_freq_rnn
 
-                        outputs_concat = tf.concat(outputs, -1)
+                for layer_no, cnn_params in enumerate(pd['cnn_layers']):
+                    hidden = tf.layers.conv2d(
+                        cnn_input, cnn_params['f'],
+                        cnn_params['k'], cnn_params['s'],
+                        padding='valid', data_format='channels_last',
+                        activation=tf.nn.relu, name='cnn_' + str(layer_no))
+                    print('cnn_layer', layer_no, hidden.shape)
+                    if train and pd['dropout']:
+                        print('dropout', pd['dropout'])
+                        hidden = tf.nn.dropout(hidden, pd['dropout'])
+                    cnn_input = hidden
 
-                        if train and pd['dropout']:
-                            print('dropout', pd['dropout'])
-                            outputs_concat = tf.nn.dropout(outputs_concat,
-                                                           pd['dropout'])
+                debug_here()
+                dense_in = tf.reshape(
+                    hidden, [-1, hidden.shape[1]*hidden.shape[2]*hidden.shape[3]])
+                for layer_no, dense_unit in enumerate(pd['dense_units']):
+                    with tf.variable_scope('dense_layer_' + str(layer_no)):
+                        print('dense_in', layer_no, dense_in.shape)
+                        hidden = tf.layers.dense(dense_in, dense_unit,
+                                                 tf.nn.relu, name='hidden_dense')
+                    if train and pd['dropout']:
+                        hidden = tf.nn.dropout(hidden,
+                                               pd['dropout'])
+                    dense_in = hidden
 
-                        if pd['p_layer'][layer_no]:
-                            outputs_concat = concatenate_brnn_out(outputs_concat,
-                                                                  'p'+str(layer_no))
-                        rnn_in = outputs_concat
-
-                hidden = tf.layers.dense(outputs_concat, pd['dense_units'],
-                                         tf.nn.relu, name='hidden_dense')
                 out = tf.layers.dense(hidden, pd['label_total'], None,
                                       name='linear_out')
                 return out
 
-            with tf.variable_scope('mutlilayer_rnn') as vs:
-                out = run_rnn(data_freq_rnn, True)
+            with tf.variable_scope('mutlilayer_cnn') as vs:
+                self.out = run_cnn(data_freq_rnn, True)
                 vs.reuse_variables()
-                out_val = run_rnn(data_freq_rnn, False)
+                self.out_val = run_cnn(data_freq_rnn, False)
 
-            time_steps_out = out.shape.as_list()[1]
             # select the center value
-            self.out_center = out[:, int(np.ceil(time_steps_out/2)), :]
-            self.out_center_val = out_val[:, int(np.ceil(time_steps_out/2)), :]
-            self.sig_out_center = tf.nn.sigmoid(self.out_center)
-            self.sig_out_center_val = tf.nn.sigmoid(self.out_center_val)
+            self.sig_out = tf.nn.sigmoid(self.out)
+            self.sig_out_val = tf.nn.sigmoid(self.out_val)
             # self.sig_out_center_val = self.sig_out_center
             self.loss = tf.losses.sigmoid_cross_entropy(
-                logits=self.out_center, multi_class_labels=self.labels_one_hot)
+                logits=self.out, multi_class_labels=self.labels_one_hot)
 
             if pd['learning_rate_decay']:
                 learning_rate = tf.train.exponential_decay(
