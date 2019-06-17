@@ -5,7 +5,7 @@ debug_here = Tracer()
 
 def generate_mackey(batch_size=100, tmax=200, delta_t=1, rnd=True):
     """
-    Generate synthetic training data using the Lorenz system
+    Generate synthetic training data using the Mackey system
     of equations (http://www.scholarpedia.org/article/Mackey-Glass_equation):
     dx/dt = beta*(x'/(1+x'))
     The system is simulated using a forward euler scheme

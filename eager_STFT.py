@@ -201,7 +201,7 @@ if __name__ == "__main__":
     # plt.plot(spikes.numpy()[0, :, :])
     # plt.savefig('spikes.pdf')
     # plt.show()
-    if 0:
+    if 1:
         tmp_last_spikes = tf.transpose(spikes, [0, 2, 1])
         result_tf, result_np = stft(tmp_last_spikes, window, window_size, overlap,
                                     debug=True)
@@ -313,7 +313,7 @@ if __name__ == "__main__":
         plt.imshow(np.log(np.abs(result_tf[0, 0, :, :].numpy())))
         plt.show()
 
-    if 1:
+    if 0:
         import matplotlib.pyplot as plt
         from mpl_toolkits.mplot3d import Axes3D
         # test multi-dimensional Lorenz.

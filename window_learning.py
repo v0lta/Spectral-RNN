@@ -6,15 +6,7 @@ import tensorflow as tf
 import matplotlib.pyplot as plt
 
 
-graph = tf.Graph()
-learning_rate = 0.001
-batch_size = 64
-window_size = 128
-iterations = 10
-overlap = int(window_size*0.75)
-
-
-def gaussian_window(window_size):
+def gaussian_window(window_size, sigma=None):
     '''
     Implementation of a gaussian window function with
     parameter sigma.
@@ -24,10 +16,11 @@ def gaussian_window(window_size):
     '''
     with tf.variable_scope("gaussian_window"):
         init = tf.constant(0.7)
-        sigma = tf.get_variable('sigma', initializer=init,
-                                trainable=True)
-        # sigma must be > 0!
-        sigma = sigma*sigma
+        if sigma is None:
+            sigma = tf.get_variable('sigma', initializer=init,
+                                    trainable=True)
+            # sigma must be > 0!
+            sigma = sigma*sigma
         tf.summary.scalar('window_sigma', sigma)
         # positive in [0.01, 0.501] this prevents degneration
         # into rectangular window.
@@ -144,13 +137,23 @@ def gauss_plank_window(window_size):
 
 
 if __name__ == "__main__":
+    import mackey_glass_generator
+    graph = tf.Graph()
+    learning_rate = 0.001
+    batch_size = 2
+    window_size = 128
+    overlap = int(window_size*0.75)
+
     with graph.as_default():
-        spikes, states = eagerSTFT.generate_data(batch_size=batch_size, delta_t=0.01,
-                                                 tmax=10.24, rnd=True)
+        mackey = mackey_glass_generator.generate_mackey(
+            batch_size=batch_size, delta_t=0.1, tmax=102.4, rnd=False)
+        mackey = tf.expand_dims(mackey, -1)
         # epsilon = tf.get_variable('epsilon', shape=[1], dtype=tf.float32)
         # epsilon = tf.nn.sigmoid(epsilon)
         epsilon = tf.constant(0.001)
-        window = gaussian_window(window_size)
+        sigma = tf.placeholder(shape=[], dtype=tf.float32)
+        spikes = tf.placeholder(shape=[batch_size, 1024, 1], dtype=tf.float32)
+        window = gaussian_window(window_size, sigma=sigma)
         last_spikes = tf.transpose(spikes, [0, 2, 1])
         result_tf = eagerSTFT.stft(last_spikes, window, window_size, overlap)
         rec_tf = eagerSTFT.istft(result_tf,
@@ -158,18 +161,50 @@ if __name__ == "__main__":
                                  nperseg=window_size,
                                  noverlap=overlap,
                                  epsilon=epsilon)
-
-        loss = tf.losses.mean_squared_error(last_spikes, rec_tf[:, :, :1025])
-        optimizer = tf.train.GradientDescentOptimizer(learning_rate=learning_rate)
-        opt_op = optimizer.minimize(loss)
         init_op = tf.global_variables_initializer()
 
     with tf.Session(graph=graph) as sess:
-        for i in range(0, iterations):
-            init_op.run()
-            out_loss, out_window, out_epsilon, _ = sess.run([loss, window, epsilon,
-                                                             opt_op])
-            print(i, out_loss, out_epsilon)
+        init_op.run()
+        spikes_np = sess.run([mackey])[0]
 
+        sigma_np = 0.5
+        feed_dict = {sigma: sigma_np,
+                     spikes: spikes_np}
+        time, freq, window_np = sess.run([rec_tf, result_tf, window],
+                                         feed_dict=feed_dict)
+        plt.plot(time[0, 0, :])
+        plt.plot(spikes_np[0, :, 0])
+        plt.show()
+        plt.plot(window_np)
+        plt.show()
+        plt.title('sigma_' + str(sigma_np))
+        plt.imshow(np.abs(freq[0, 0, :]))
+        plt.show()
 
-    
+        sigma_np = 0.32
+        feed_dict = {sigma: sigma_np,
+                     spikes: spikes_np}
+        time, freq, window_np = sess.run([rec_tf, result_tf, window],
+                                         feed_dict=feed_dict)
+        plt.plot(time[0, 0, :])
+        plt.plot(spikes_np[0, :, 0])
+        plt.show()
+        plt.plot(window_np)
+        plt.show()
+        plt.imshow(np.abs(freq[0, 0, :]))
+        plt.title('sigma_' + str(sigma_np))
+        plt.show()
+
+        sigma_np = 1.2
+        feed_dict = {sigma: sigma_np,
+                     spikes: spikes_np}
+        time, freq, window_np = sess.run([rec_tf, result_tf, window],
+                                         feed_dict=feed_dict)
+        plt.plot(time[0, 0, :])
+        plt.plot(spikes_np[0, :, 0])
+        plt.show()
+        plt.plot(window_np)
+        plt.show()
+        plt.imshow(np.abs(freq[0, 0, :]))
+        plt.title('sigma_' + str(sigma_np))
+        plt.show()

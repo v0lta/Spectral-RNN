@@ -10,7 +10,7 @@ from IPython.core.debugger import Pdb
 debug_here = Pdb().set_trace
 
 pd = {}
-pd['base_dir'] = 'logs/mackey1k2c8d_v2_CvR_v2/'
+pd['base_dir'] = 'logs/mackey1k2c8d_window_size_v2/'
 pd['cell_type'] = 'cgRNN'
 pd['num_units'] = 64
 pd['sample_prob'] = 1.0
@@ -76,24 +76,28 @@ if fft_loop:
     assert pd['fft'] is True
     assert pd['linear_reshape'] is False
     # cell_type loop:
-    for cell_type in ['cgRNN', 'gru']:
+    for cell_type in ['gru']:
         # window_loop
         for window in ['learned_gaussian']:
             # cell size_loop.
             for num_units in [64]:  # 32 ,45, 64
-                # compression loop:
-                for compression in [None, 32]:
-                    cpd = pd.copy()
-                    cpd['window_function'] = window
-                    cpd['fft_compression_rate'] = compression
-                    cpd['num_units'] = num_units
-                    cpd['cell_type'] = cell_type
-                    if cpd['fft_compression_rate']:
-                        cpd['num_proj'] = int((cpd['window_size']//2 + 1)
-                                              / cpd['fft_compression_rate'])
-                    else:
-                        cpd['num_proj'] = int((cpd['window_size']//2 + 1))
-                    lpd_lst.append(cpd)
+                # window_size loop
+                for window_size in [128]:
+                    # compression loop:
+                    for compression in [32]:
+                        cpd = pd.copy()
+                        cpd['window_size'] = window_size
+                        cpd['overlap'] = int(cpd['window_size']*0.5)
+                        cpd['window_function'] = window
+                        cpd['fft_compression_rate'] = compression
+                        cpd['num_units'] = num_units
+                        cpd['cell_type'] = cell_type
+                        if cpd['fft_compression_rate']:
+                            cpd['num_proj'] = int((cpd['window_size']//2 + 1)
+                                                  / cpd['fft_compression_rate'])
+                        else:
+                            cpd['num_proj'] = int((cpd['window_size']//2 + 1))
+                        lpd_lst.append(cpd)
 
 reshape_loop = pd['linear_reshape']
 if reshape_loop:
@@ -101,7 +105,7 @@ if reshape_loop:
     assert pd['linear_reshape'] is True
     # cell_type loop:
     for cell_type in ['gru']:
-        for num_units in [32, 64]:
+        for num_units in [64]:
             cpd = pd.copy()
             cpd['num_units'] = num_units
             cpd['cell_type'] = cell_type
@@ -155,7 +159,7 @@ for exp_no, lpd in enumerate(lpd_lst):
     print('---------- Experiment', exp_no, 'of', len(lpd_lst), '----------')
     print(param_str)
     # print(lpd)
-    summary_writer = tf.summary.FileWriter(lpd['base_dir'] + lpd['time_str'] + param_str,
+    summary_writer = tf.summary.FileWriter(lpd['base_dir'] + param_str,
                                            graph=pgraph.graph)
     # dump the parameters
     with open(lpd['base_dir'] + lpd['time_str'] + param_str + '/param.pkl', 'wb') as file:
