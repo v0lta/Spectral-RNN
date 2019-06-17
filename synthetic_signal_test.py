@@ -10,7 +10,7 @@ from IPython.core.debugger import Pdb
 debug_here = Pdb().set_trace
 
 pd = {}
-pd['base_dir'] = 'logs/mackey1k2c8d_window_size_v2/'
+pd['base_dir'] = 'logs/mackey1k2c8d_window_size_v3/'
 pd['cell_type'] = 'cgRNN'
 pd['num_units'] = 64
 pd['sample_prob'] = 1.0
@@ -22,11 +22,7 @@ pd['iterations'] = 20000
 # pd['iterations'] = 2
 pd['GPUs'] = [0]
 pd['batch_size'] = 12
-# pd['window_function'] = 'hann'
-# pd['window_function'] = 'learned_tukey'
-# pd['window_function'] = 'learned_plank'
 pd['window_function'] = 'learned_gaussian'
-# pd['window_function'] = 'learned_gauss_plank'
 pd['freq_loss'] = None
 pd['use_residuals'] = True
 pd['fft'] = True
@@ -50,7 +46,7 @@ pd['fft_pred_samples'] = pd['pred_samples'] // pd['step_size'] + 1
 pd['fft_compression_rate'] = None
 # dont touch!
 pd['conv_fft_bins'] = None
-pd['fully_fft_comp'] = None  # TODO: fixme
+pd['fully_fft_comp'] = None
 
 if pd['fft']:
     pd['num_proj'] = int(pd['window_size']//2 + 1)
@@ -162,7 +158,7 @@ for exp_no, lpd in enumerate(lpd_lst):
     summary_writer = tf.summary.FileWriter(lpd['base_dir'] + param_str,
                                            graph=pgraph.graph)
     # dump the parameters
-    with open(lpd['base_dir'] + lpd['time_str'] + param_str + '/param.pkl', 'wb') as file:
+    with open(lpd['base_dir'] + param_str + '/param.pkl', 'wb') as file:
         pickle.dump(lpd, file)
 
     gpu_options = tf.GPUOptions(visible_device_list=str(lpd['GPUs'])[1:-1])

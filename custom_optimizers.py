@@ -4,8 +4,8 @@
 """
 import tensorflow as tf
 from IPython.core.debugger import Tracer
-debug_here = Tracer()
 from tensorflow.python.training import training_ops
+debug_here = Tracer()
 
 
 class RMSpropNatGrad(tf.train.Optimizer):
@@ -123,7 +123,8 @@ class RMSpropNatGrad(tf.train.Optimizer):
                 # Reunitarize after n steps.
                 if self._qr_steps is not None:
                     W = tf.cond(tf.equal(tf.mod(self._global_step_tensor,
-                                         self._qr_steps), 0),
+                                                self._qr_steps),
+                                         0),
                                 lambda: self.re_unitarize(W), lambda: W)
                 # A = tf.matmul(tf.transpose(G), W) - tf.matmul(tf.transpose(W), G)
                 A = tf.matmul(G, tf.transpose(W)) - tf.matmul(W, tf.transpose(G))
@@ -158,7 +159,8 @@ class RMSpropNatGrad(tf.train.Optimizer):
                 # Reunitarize after n steps.
                 if self._qr_steps is not None:
                     W = tf.cond(tf.equal(tf.mod(self._global_step_tensor,
-                                         self._qr_steps), 0),
+                                                self._qr_steps),
+                                         0),
                                 lambda: self.re_unitarize(W), lambda: W)
 
                 A = tf.matmul(G, tf.conj(tf.transpose(W))) \

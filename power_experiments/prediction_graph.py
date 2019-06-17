@@ -130,20 +130,6 @@ class FFTpredictionGraph(object):
                         data_encoder_freq = fft_bin_conv(data_encoder_freq)
                         data_encoder_freq = tf.squeeze(data_encoder_freq, -1)
 
-                # if pd['fully_fft_comp']:
-                #         defreq_shape = data_encoder_freq.shape.as_list()
-                #         new_freqs = int(defreq_shape[-1])/pd['fully_fft_comp']
-                #         new_freqs = int(new_freqs)
-                #         print('fft_comp')
-                #         data_encoder_freq = tf.reshape(data_encoder_freq,
-                #                                        [-1, defreq_shape[-1]])
-                #         data_encoder_freq = ccell.complex_matmul(data_encoder_freq,
-                #                                                  new_freqs,
-                #                                                  scope='lin_proj_down',
-                #                                                  reuse=None)
-                #         data_encoder_freq = tf.reshape(
-                #             data_encoder_freq, defreq_shape[:-1] + [new_freqs])
-
             elif pd['linear_reshape']:
                 encoder_time_steps = data_encoder_time.shape[1].value//pd['step_size']
                 data_encoder_time = tf.reshape(data_encoder_time, [pd['batch_size'],
@@ -251,16 +237,6 @@ class FFTpredictionGraph(object):
                 decoder_out = tf.squeeze(decoder_out, -1)
                 decoder_out = decoder_out[:, :, :dec_freqs]
 
-            # if pd['fft'] and pd['fully_fft_comp']:
-            #     decoder_out = tf.reshape(decoder_out,
-            #                              [-1, decoder_out.shape[-1]])
-            #     decoder_out = ccell.complex_matmul(decoder_out,
-            #                                        dec_freqs,
-            #                                        scope='lin_proj_up',
-            #                                        reuse=None)
-            #     decoder_out = tf.reshape(
-            #         decoder_out, decoder_out.shape[:-1] + [int(dec_freqs)])
-
             if pd['fft']:
                 if (pd['freq_loss'] == 'complex_abs') \
                    or (pd['freq_loss'] == 'complex_abs_time'):
@@ -350,8 +326,6 @@ class FFTpredictionGraph(object):
             self.saver = tf.train.Saver()
             self.loss = loss
             self.global_step = global_step
-            # self.data_encoder_gt = data_encoder_gt
-            # self.data_decoder_gt = data_decoder_gt
             self.decoder_out = decoder_out
             self.data_nd = data_nd
             self.data_encoder_time = data_encoder_time

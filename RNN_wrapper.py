@@ -148,32 +148,3 @@ class ResidualWrapper(tf.nn.rnn_cell.RNNCell):
         output = tf.add(output, inputs)
         # debug_here()
         return output, new_state
-
-
-# class ComplexMultiRNNCell(tf.nn.rnn_cell.RNNCell):
-#     def __init__(self, cell_lst):
-#         self._cells = cell_lst
-
-#     @property
-#     def state_size(self):
-#         return tuple(cell.state_size for cell in self._cells)
-
-#     @property
-#     def output_size(self):
-#         return self._cells[-1].output_size
-
-#     def zero_state(self, batch_size, dtype):
-#         return tuple(cell.zero_state(batch_size, dtype) for cell in self._cells)
-
-#     def __call__(self, inputs, state, scope=None):
-#         """Run this multi-layer cell on inputs, starting from state."""
-#         cur_inp = inputs
-#         new_states = []
-#         for i, cell in enumerate(self._cells):
-#             with tf.variable_scope("cell_%d" % i):
-#                 cur_state = state[i]
-#             cur_inp, new_state = cell(cur_inp, cur_state)
-#             new_states.append(new_state)
-#         new_states = tuple(new_states)
-
-#     return cur_inp, new_states

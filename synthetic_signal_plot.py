@@ -30,7 +30,7 @@ def plot(path, restore_step, label, gt=False):
             datenc_np, datdec_np, decout_np, \
             datand_np = \
             sess.run([pgraph.loss, pgraph.summary_sum, pgraph.global_step,
-                      pgraph.data_encoder_time, pgraph.data_decoder_time, 
+                      pgraph.data_encoder_time, pgraph.data_decoder_time,
                       pgraph.decoder_out, pgraph.data_nd])
       else:
         np_loss, summary_to_file, np_global_step, \
@@ -45,7 +45,7 @@ def plot(path, restore_step, label, gt=False):
     if gt:
         plt.plot(datdec_np[0, :, 0], label='ground-truth')
 
-   
+
 restore_step = 20000
 path3 = '/home/moritz/infcuda/fft_pred_networks/logs/mackey1k2c8d_v2/\
 2019-05-03 18:57:292019-05-03 18:57:29_gru_size_64_fft_False_bs_12_ps\

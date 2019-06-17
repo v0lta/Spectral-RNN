@@ -34,19 +34,6 @@ def gaussian_window(window_size, sigma=None):
         w = tf.math.exp(w)
         return w
 
-# def kaiser_window(alpha, window_size):
-#     # numerical issues nans in half of the window....
-#     # do not use for now.
-#     # TODO: debug.
-#     with tf.variable_scope('kaiser_window'):
-#         N = window_size
-#         n = tf.linspace(float(0), float(window_size), window_size)
-#         top = 2.0*n / (N-1.0) - 1.0
-#         top = math.pi * alpha * tf.sqrt(1.0 - top*top)
-#         top = tf.math.bessel_i0(top)
-#         bottom = tf.math.bessel_i0(math.pi * alpha)
-#         return top/bottom
-
 
 def plank_taper(window_size):
     '''
