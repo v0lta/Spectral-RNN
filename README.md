@@ -15,4 +15,3 @@ with the desired parameters.
 The code has been tested using Tensorflow 1.10.0 but should also run in 1.13.
 
 To recreate the synthetic experiments run `synthetic_signal_test.py` after adjusting the hyperparameters as described in the paper.
-For the power experiments run `power_experiments/power_train_exp.py`.
