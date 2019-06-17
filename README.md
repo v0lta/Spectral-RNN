@@ -1,4 +1,5 @@
-# FOURIER RNNS FOR SEQUENCE PREDICTION
+FOURIER RNNS FOR SEQUENCE PREDICTION
+------------------------------------
 Source code for the paper: 
 https://arxiv.org/pdf/1812.05645.pdf
 
