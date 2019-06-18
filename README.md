@@ -1,7 +1,7 @@
 FOURIER RNNS FOR SEQUENCE PREDICTION
 ------------------------------------
 Source code for the paper: 
-https://arxiv.org/pdf/1812.05645.pdf
+https://arxiv.org/pdf/1812.05645.pdf if you find this work useful please consider citing the paper.
 
 To reproduce the synthetic experiments adjust the parameters in `synthetic_signal_test.py` and run it. The results may be plotted by using `synthetic_signal_plot.py` after adjusting the logfile path in that file.
 
