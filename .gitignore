@@ -25,6 +25,7 @@ q.log
 brain_decode/data/
 brain_decode/log/
 eeg/
+mocap_experiments/data/
 
 # matlab .mat files.
 *.mat
