@@ -320,7 +320,8 @@ class FFTpredictionGraph(object):
                and (pd['stiefel'] is True):
                 optimizer = co.RMSpropNatGrad(learning_rate, global_step=global_step)
             else:
-                optimizer = tf.train.RMSPropOptimizer(learning_rate)
+                # optimizer = tf.train.RMSPropOptimizer(learning_rate)
+                optimizer = tf.train.AdamOptimizer(learning_rate)
             gvs = optimizer.compute_gradients(loss)
 
             with tf.variable_scope("clip_grads"):
