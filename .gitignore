@@ -26,6 +26,7 @@ brain_decode/data/
 brain_decode/log/
 eeg/
 mocap_experiments/data/
+mocap_experiments/log/
 
 # matlab .mat files.
 *.mat
