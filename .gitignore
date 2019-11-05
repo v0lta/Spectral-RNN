@@ -1,5 +1,7 @@
+.idea/
 ./logs_*
 logs/
+log/
 logs_np_fft/
 logs_tf_fft/
 logs_tf_fft_3/
