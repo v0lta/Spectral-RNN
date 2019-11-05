@@ -39,7 +39,7 @@ pd['init_learning_rate'] = 0.001
 pd['decay_rate'] = 0.98
 
 
-pd['epochs'] = 1 #2000
+pd['epochs'] = 2000
 pd['GPUs'] = [0]
 pd['batch_size'] = 100
 # window_function = 'hann'
