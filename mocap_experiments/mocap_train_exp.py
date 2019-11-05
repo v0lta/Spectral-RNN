@@ -33,13 +33,13 @@ pd = {}
 
 pd['base_dir'] = 'log/mocap/test/'
 pd['cell_type'] = 'gru'
-pd['num_units'] = 250
+pd['num_units'] = 256
 pd['sample_prob'] = 1.0
 pd['init_learning_rate'] = 0.001
 pd['decay_rate'] = 0.98
 
 
-pd['epochs'] = 800
+pd['epochs'] = 1 #2000
 pd['GPUs'] = [0]
 pd['batch_size'] = 100
 # window_function = 'hann'
@@ -98,8 +98,19 @@ if pd['fft']:
 else:
     pd['epsilon'] = None
 
-# define a list of experiments.
 lpd_lst = [pd]
+# define a list of experiments.
+for learning_rate_decay_rate in [0.98, 0.965, 0.95]:
+    for num_units in [512, 1024, 2048]:
+        for consistency_loss_weight in [0.1, 0.01, 0.001]:
+            cpd = pd.copy()
+            cpd['consistency_loss_weight'] = consistency_loss_weight
+            cpd['num_units'] = num_units
+            cpd['decay_rate'] = learning_rate_decay_rate
+            lpd_lst.append(cpd)
+
+print('number of experiments:', len(lpd_lst))
+
 
 for exp_no, lpd in enumerate(lpd_lst):
     print('---------- Experiment', exp_no, 'of', len(lpd_lst), '----------')
@@ -224,12 +235,13 @@ for exp_no, lpd in enumerate(lpd_lst):
                     buf.close()
 
             # epoch done. Save.
-            print('Saving a copy.')
-            pgraph.saver.save(sess, lpd['base_dir'] + time_str +
-                              param_str + '/weights/cpk',
-                              global_step=np_global_step)
+            if e % 10 == 0:
+                print('Saving a copy.')
+                pgraph.saver.save(sess, lpd['base_dir'] + time_str +
+                                  param_str + '/weights/cpk',
+                                  global_step=np_global_step)
             # do a test run.
-            print('test run ', end='')
+            # print('test run ', end='')
             mse_lst_net = []
             net_lst_out = []
             gt_lst_out = []
@@ -293,18 +305,19 @@ for exp_no, lpd in enumerate(lpd_lst):
                 buf.close()
 
             # do the evaluation
-            print('evaluate')
-            net_out = np.concatenate(net_lst_out, axis=0)
-            gt_out = np.concatenate(gt_lst_out, axis=0)
-            net_out = np.reshape(net_out, [net_out.shape[0], net_out.shape[1], 17, 3])
-            gt_out = np.reshape(gt_out, [gt_out.shape[0], gt_out.shape[1], 17, 3])
-            ent, kl1, kl2 = compute_ent_metrics(gt_seqs=np.moveaxis(gt_out, [0, 1, 2, 3], [0, 2, 1, 3]),
-                                                seqs=np.moveaxis(net_out, [0, 1, 2, 3], [0, 2, 1, 3]),
-                                                seq_len=lpd['pred_samples'])
-            print('e', e, 'entropy', ent, 'kl1', kl1, 'kl2', kl2)
-            np_scalar_to_summary('test/entropy', ent, np_global_step, summary_writer)
-            np_scalar_to_summary('test/kl1', kl1, np_global_step, summary_writer)
-            np_scalar_to_summary('test/kl2', kl2, np_global_step, summary_writer)
+            if e % 5 == 0:
+                # print('evaluate')
+                net_out = np.concatenate(net_lst_out, axis=0)
+                gt_out = np.concatenate(gt_lst_out, axis=0)
+                net_out = np.reshape(net_out, [net_out.shape[0], net_out.shape[1], 17, 3])
+                gt_out = np.reshape(gt_out, [gt_out.shape[0], gt_out.shape[1], 17, 3])
+                ent, kl1, kl2 = compute_ent_metrics(gt_seqs=np.moveaxis(gt_out, [0, 1, 2, 3], [0, 2, 1, 3]),
+                                                    seqs=np.moveaxis(net_out, [0, 1, 2, 3], [0, 2, 1, 3]),
+                                                    seq_len=lpd['pred_samples'])
+                print('eval at epoch', e, 'entropy', ent, 'kl1', kl1, 'kl2', kl2)
+                np_scalar_to_summary('test/entropy', ent, np_global_step, summary_writer)
+                np_scalar_to_summary('test/kl1', kl1, np_global_step, summary_writer)
+                np_scalar_to_summary('test/kl2', kl2, np_global_step, summary_writer)
 
         datenc_np = np.reshape(datenc_np, [datenc_np.shape[0], datenc_np.shape[1], 17, 3])
         datdec_np = np.reshape(datdec_np, [datdec_np.shape[0], datdec_np.shape[1], 17, 3])
