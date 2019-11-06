@@ -14,7 +14,7 @@ class H36MDataSet(object):
         print('train set', train)
         self.train = train
         if train:
-            #train_file = '/home/moritz/uni/freq_loss_H3.6M/data/un_zipped/by_actor/train_' + dataset_name + '.pkl'
+            # train_file = '/home/moritz/uni/freq_loss_H3.6M/data/un_zipped/by_actor/train_' + dataset_name + '.pkl'
             train_file = '/home/wolter/fourier-pred-tmp/mocap_experiments/data/un_zipped/by_actor/train_' + dataset_name + '.pkl'
             print('opening', train_file)
             self.data = pickle.load(open(train_file, 'rb'))

@@ -98,11 +98,11 @@ if pd['fft']:
 else:
     pd['epsilon'] = None
 
-lpd_lst = [pd]
+lpd_lst = []
 # define a list of experiments.
-for learning_rate_decay_rate in [0.98, 0.965, 0.95]:
-    for num_units in [512, 1024, 2048]:
-        for consistency_loss_weight in [0.1, 0.01, 0.001]:
+for num_units in [256, 512, 1024, 2048]:
+    for learning_rate_decay_rate in [0.98, 0.965, 0.95]:
+        for consistency_loss_weight in [0.01, 0.001, 0.0005]:
             cpd = pd.copy()
             cpd['consistency_loss_weight'] = consistency_loss_weight
             cpd['num_units'] = num_units
