@@ -97,14 +97,14 @@ for consistency_loss_weight in [0.1, 0.01, 0.001]:
     for learning_rate_decay_rate in [0.98, 0.96]:
         for num_units in [1024, 1024*2, 1024*3]:
             for fft_compression_rate in [4, 8, 16, 24, 32]:
-            cpd = pd.copy()
-            cpd['consistency_loss_weight'] = consistency_loss_weight
-            cpd['num_units'] = num_units
-            cpd['decay_rate'] = learning_rate_decay_rate
-            if cpd['fft']:
-                cpd['fft_compression_rate'] = fft_compression_rate
-                cpd['num_proj'] = 17*3*int((cpd['window_size']//2 + 1) / cpd['fft_compression_rate'])
-            lpd_lst.append(cpd)
+                cpd = pd.copy()
+                cpd['consistency_loss_weight'] = consistency_loss_weight
+                cpd['num_units'] = num_units
+                cpd['decay_rate'] = learning_rate_decay_rate
+                if cpd['fft']:
+                    cpd['fft_compression_rate'] = fft_compression_rate
+                    cpd['num_proj'] = 17*3*int((cpd['window_size']//2 + 1) / cpd['fft_compression_rate'])
+                lpd_lst.append(cpd)
 
 print('number of experiments:', len(lpd_lst))
 
