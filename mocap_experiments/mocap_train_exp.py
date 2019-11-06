@@ -33,38 +33,34 @@ pd = {}
 
 pd['base_dir'] = 'log/mocap/test/'
 pd['cell_type'] = 'gru'
-pd['num_units'] = 256
+pd['num_units'] = 1024
 pd['sample_prob'] = 1.0
 pd['init_learning_rate'] = 0.001
 pd['decay_rate'] = 0.98
 
 
-pd['epochs'] = 2000
+pd['epochs'] = 1600
 pd['GPUs'] = [0]
 pd['batch_size'] = 100
-# window_function = 'hann'
 # pd['window_function'] = 'learned_tukey'
 # pd['window_function'] = 'learned_plank'
 pd['window_function'] = 'hann'  # 'learned_gaussian'
-pd['fft_compression_rate'] = None
-pd['conv_fft_bins'] = None
-pd['fully_fft_comp'] = None  # TODO: fixme
 pd['freq_loss'] = None
-pd['use_residuals'] = True
-pd['fft'] = False
+pd['use_residuals'] = False
+pd['fft'] = True
 pd['linear_reshape'] = False
 pd['stiefel'] = False
 
 pd['decay_steps'] = 1000
-pd['chunk_size'] = 100
+pd['chunk_size'] = 128
 
 mocap_handler = H36MDataSet(train=True, chunk_size=pd['chunk_size'], dataset_name='h36m')
 mocap_handler_test = H36MDataSet(train=False, chunk_size=pd['chunk_size'], dataset_name='h36m')
 pd['mocap_handler'] = mocap_handler
 
 pd['consistency_loss'] = True
-pd['mse_samples'] = 50
-pd['pred_samples'] = 50
+pd['mse_samples'] = 64
+pd['pred_samples'] = 64
 assert pd['mse_samples'] <= pd['pred_samples']
 if pd['consistency_loss']:
     pd['consistency_samples'] = 50
@@ -73,21 +69,18 @@ if pd['consistency_loss']:
 pd['window_size'] = 1
 pd['discarded_samples'] = 0
 
-pd['overlap'] = pd['window_size']*0.5
-pd['step_size'] = pd['window_size'] - pd['overlap']
-pd['fft_pred_samples'] = pd['pred_samples'] // pd['step_size'] + 1
-pd['input_samples'] = pd['chunk_size']
 
 if pd['fft']:
-    # debug_here()
+    pd['window_size'] = 64
+    pd['fft_compression_rate'] = 16
+    pd['overlap'] = int(pd['window_size']*0.5)
+    pd['step_size'] = pd['window_size'] - pd['overlap']
+    pd['fft_pred_samples'] = pd['pred_samples'] // pd['step_size'] + 1
+    pd['input_samples'] = pd['chunk_size']
     if pd['fft_compression_rate']:
-        pd['num_proj'] = int((pd['window_size']//2 + 1) / pd['fft_compression_rate'])
-    elif pd['conv_fft_bins']:
-        pd['num_proj'] = int((pd['window_size']//2 + 1) / pd['conv_fft_bins'])
-    elif pd['fully_fft_comp']:
-        pd['num_proj'] = int((pd['window_size']//2 + 1) / pd['fully_fft_comp'])
+        pd['num_proj'] = 17*3*int((pd['window_size']//2 + 1) / pd['fft_compression_rate'])
     else:
-        pd['num_proj'] = int((pd['window_size']//2 + 1))
+        pd['num_proj'] = 17*3*int((pd['window_size']//2 + 1))
 elif pd['linear_reshape']:
     pd['num_proj'] = pd['step_size']
 else:
@@ -98,16 +91,16 @@ if pd['fft']:
 else:
     pd['epsilon'] = None
 
-lpd_lst = []
+lpd_lst = [pd]
 # define a list of experiments.
-for num_units in [256, 512, 1024, 2048]:
-    for learning_rate_decay_rate in [0.98, 0.965, 0.95]:
-        for consistency_loss_weight in [0.01, 0.001, 0.0005]:
-            cpd = pd.copy()
-            cpd['consistency_loss_weight'] = consistency_loss_weight
-            cpd['num_units'] = num_units
-            cpd['decay_rate'] = learning_rate_decay_rate
-            lpd_lst.append(cpd)
+# for num_units in [256, 512, 1024, 2048]:
+#     for learning_rate_decay_rate in [0.98, 0.965, 0.95]:
+#         for consistency_loss_weight in [0.01, 0.001, 0.0005]:
+#             cpd = pd.copy()
+#             cpd['consistency_loss_weight'] = consistency_loss_weight
+#             cpd['num_units'] = num_units
+#             cpd['decay_rate'] = learning_rate_decay_rate
+#             lpd_lst.append(cpd)
 
 print('number of experiments:', len(lpd_lst))
 
@@ -150,11 +143,6 @@ for exp_no, lpd in enumerate(lpd_lst):
 
     if lpd['linear_reshape']:
         param_str += '_linre'
-        assert lpd['conv_fft_bins'] is None
-
-    if lpd['conv_fft_bins']:
-        param_str += '_conv_fft_bins_' + str(lpd['conv_fft_bins'])
-        assert lpd['linear_reshape'] is False
 
     # do each of the experiments in the parameter dictionary list.
     print(param_str)
@@ -252,7 +240,7 @@ for exp_no, lpd in enumerate(lpd_lst):
                 feed_dict = {pgraph.data_nd: gt}
                 if lpd['fft']:
                     np_loss, np_global_step, \
-                        datenc_np, datdec_np, decout_np, \
+                        test_datenc_np, test_datdec_np, test_decout_np, \
                         datand_np, window_np = \
                         sess.run([pgraph.loss, pgraph.global_step,
                                   pgraph.data_encoder_time,
@@ -261,21 +249,21 @@ for exp_no, lpd in enumerate(lpd_lst):
                                  feed_dict=feed_dict)
                 else:
                     np_loss, np_global_step, \
-                        datenc_np, datdec_np, decout_np, \
+                        test_datenc_np, test_datdec_np, test_decout_np, \
                         datand_np = \
                         sess.run([pgraph.loss, pgraph.global_step,
                                   pgraph.data_encoder_time,
                                   pgraph.data_decoder_time,
                                   pgraph.decoder_out, pgraph.data_nd],
                                  feed_dict=feed_dict)
-                net_pred = decout_np[:, :, 0]*mocap_handler.std + mocap_handler.mean
+                net_pred = test_decout_np[:, :, 0]*mocap_handler.std + mocap_handler.mean
                 gt = gt[:, -lpd['pred_samples']:, 0]
                 mse_lst_net.append(
                     np.mean((gt[:, lpd['discarded_samples']:]
                              - net_pred[:, lpd['discarded_samples']:lpd['pred_samples']])
                             ** 2))
-                net_lst_out.append(decout_np)
-                gt_lst_out.append(datdec_np)
+                net_lst_out.append(test_decout_np)
+                gt_lst_out.append(test_datdec_np)
 
                 print('.', end='')
             mse_net = np.mean(np.array(mse_lst_net))
@@ -319,10 +307,10 @@ for exp_no, lpd in enumerate(lpd_lst):
                 np_scalar_to_summary('test/kl1', kl1, np_global_step, summary_writer)
                 np_scalar_to_summary('test/kl2', kl2, np_global_step, summary_writer)
 
-        datenc_np = np.reshape(datenc_np, [datenc_np.shape[0], datenc_np.shape[1], 17, 3])
-        datdec_np = np.reshape(datdec_np, [datdec_np.shape[0], datdec_np.shape[1], 17, 3])
-        decout_np = np.reshape(decout_np, [decout_np.shape[0], decout_np.shape[1], 17, 3])
-        write_movie(np.transpose(datenc_np[4], [1, 2, 0]), r_base=1, name='in.mp4')
-        write_movie(np.transpose(decout_np[4], [1, 2, 0]), net=True, r_base=1, name='out.mp4')
-        write_movie(np.transpose(datdec_np[4], [1, 2, 0]), net=True, r_base=1, name='out_gt.mp4')
+        test_datenc_np = np.reshape(test_datenc_np, [test_datenc_np.shape[0], test_datenc_np.shape[1], 17, 3])
+        test_datdec_np = np.reshape(test_datdec_np, [test_datdec_np.shape[0], test_datdec_np.shape[1], 17, 3])
+        test_decout_np = np.reshape(test_decout_np, [test_decout_np.shape[0], test_decout_np.shape[1], 17, 3])
+        write_movie(np.transpose(test_datenc_np[50], [1, 2, 0]), r_base=1, name='in.mp4')
+        write_movie(np.transpose(test_decout_np[50], [1, 2, 0]), net=True, r_base=1, name='out.mp4')
+        write_movie(np.transpose(test_datdec_np[50], [1, 2, 0]), net=True, r_base=1, name='out_gt.mp4')
         print('done')

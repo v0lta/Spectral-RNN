@@ -14,13 +14,13 @@ class H36MDataSet(object):
         print('train set', train)
         self.train = train
         if train:
-            # train_file = '/home/moritz/uni/freq_loss_H3.6M/data/un_zipped/by_actor/train_' + dataset_name + '.pkl'
-            train_file = '/home/wolter/fourier-pred-tmp/mocap_experiments/data/un_zipped/by_actor/train_' + dataset_name + '.pkl'
+            train_file = '/home/moritz/uni/freq_loss_H3.6M/data/un_zipped/by_actor/train_' + dataset_name + '.pkl'
+            # train_file = '/home/wolter/fourier-pred-tmp/mocap_experiments/data/un_zipped/by_actor/train_' + dataset_name + '.pkl'
             print('opening', train_file)
             self.data = pickle.load(open(train_file, 'rb'))
         else:
-            # val_file = '/home/moritz/uni/freq_loss_H3.6M/data/un_zipped/by_actor/val_' + dataset_name + '.pkl'
-            val_file = '/home/wolter/fourier-pred-tmp/mocap_experiments/data/un_zipped/by_actor/val_' + dataset_name + '.pkl'
+            val_file = '/home/moritz/uni/freq_loss_H3.6M/data/un_zipped/by_actor/val_' + dataset_name + '.pkl'
+            # val_file = '/home/wolter/fourier-pred-tmp/mocap_experiments/data/un_zipped/by_actor/val_' + dataset_name + '.pkl'
             print('opening', val_file)
             self.data = pickle.load(open(val_file, 'rb'))
 
@@ -70,13 +70,43 @@ class H36MDataSet(object):
 
 
 if __name__ == "__main__":
+    import tensorflow as tf
     import matplotlib.pyplot as plt
+    import scipy.signal as scisig
     from mocap_experiments.write_movie import write_movie
-    data = H36MDataSet()
+    from eager_STFT import stft, istft
+    time = False
+
+    try:
+        tf.enable_eager_execution()
+    except ValueError:
+        print("tensorflow is already in eager mode.")
+
+    data = H36MDataSet(chunk_size=128)
     batches = data.get_batches()
     batches = data.get_batches()
-    write_movie(np.transpose(batches[0], [1, 2, 0]), 'sample_batch.mp4')
-    batches = batches - data.mean
-    batches = batches/data.std
-    write_movie(np.transpose(batches[0], [1, 2, 0]), 'sample_batch_norm.mp4', r_base=1000/data.std)
-    print('written')
+    if time:
+        write_movie(np.transpose(batches[0], [1, 2, 0]), 'sample_batch.mp4')
+        batches = batches - data.mean
+        batches = batches/data.std
+        write_movie(np.transpose(batches[0], [1, 2, 0]), 'sample_batch_norm.mp4', r_base=1000/data.std)
+        print('written')
+    else:
+        batches = batches - data.mean
+        batches = batches/data.std
+        window_size = 8
+        overlap = int(window_size*0.5)
+        window = tf.constant(scisig.get_window('hann', window_size),
+                             dtype=tf.float32)
+        # test fft.
+        shape = batches.shape
+        rs_batches = np.reshape(batches, [shape[0], shape[1], shape[2]*shape[3]])
+        time_last_batches = np.moveaxis(rs_batches, [0, 1, 2], [0, 2, 1])
+        time_last_batches = tf.constant(time_last_batches)
+        freq_batches = stft(time_last_batches, window, window_size, overlap, padded=True)
+        time_data = istft(freq_batches, window, nperseg=window_size, noverlap=overlap, epsilon=0.01)
+        dimensions_last = np.moveaxis(time_data.numpy(), [0, 1, 2], [0, 2, 1])
+        np_time_data = np.reshape(dimensions_last, shape)
+        write_movie(np.transpose(np_time_data[0], [1, 2, 0]), 'fft_sample_batch_norm.mp4', r_base=1000/data.std)
+        error = np.linalg.norm((batches[0] - np_time_data[0]).flatten())
+        print('done, error:', error)

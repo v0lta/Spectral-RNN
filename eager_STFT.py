@@ -6,8 +6,6 @@ import matplotlib.pyplot as plt
 from lorenz_data_generator import LorenzGenerator
 from mackey_glass_generator import MackeyGenerator
 # from mpl_toolkits.mplot3d import Axes3D
-from IPython.core.debugger import Tracer
-debug_here = Tracer()
 
 
 def zero_ext(x, n, axis=-1):
@@ -92,7 +90,6 @@ def stft(data, window, nperseg, noverlap, nfft=None, sides=None, padded=True,
             raise ValueError('Unknown scaling: %r' % scaling)
         scale = tf.sqrt(scale)
         result *= tf.complex(scale, tf.zeros_like(scale))
-        # debug_here()
     if debug:
         zeros_shape = list(data.shape[:-1]) + [nadd]
         data_np = np.concatenate((data.numpy(), np.zeros(zeros_shape)), axis=-1)
@@ -201,7 +198,7 @@ if __name__ == "__main__":
     # plt.plot(spikes.numpy()[0, :, :])
     # plt.savefig('spikes.pdf')
     # plt.show()
-    if 1:
+    if 0:
         tmp_last_spikes = tf.transpose(spikes, [0, 2, 1])
         result_tf, result_np = stft(tmp_last_spikes, window, window_size, overlap,
                                     debug=True)
@@ -313,7 +310,7 @@ if __name__ == "__main__":
         plt.imshow(np.log(np.abs(result_tf[0, 0, :, :].numpy())))
         plt.show()
 
-    if 0:
+    if 1:
         import matplotlib.pyplot as plt
         from mpl_toolkits.mplot3d import Axes3D
         # test multi-dimensional Lorenz.

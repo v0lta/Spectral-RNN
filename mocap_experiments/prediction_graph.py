@@ -92,7 +92,8 @@ class FFTpredictionGraph(object):
                     '''
                     tmp_in_data = tf.transpose(in_data, [0, 2, 1])
                     in_data_fft = eagerSTFT.stft(tmp_in_data, window,
-                                                 pd['window_size'], pd['overlap'])
+                                                 pd['window_size'], pd['overlap'],
+                                                 padded=True)
                     freqs = int(in_data_fft.shape[-1])
                     idft_shape = in_data_fft.shape.as_list()
                     if idft_shape[1] == 1:
@@ -110,8 +111,17 @@ class FFTpredictionGraph(object):
                     else:
                         # arrange as batch time freq dim
                         in_data_fft = tf.transpose(in_data_fft, [0, 2, 3, 1])
-                        # TODO: Implement the multidimensional case.
-                        raise NotImplementedError
+                        if pd['fft_compression_rate']:
+                            compressed_freqs = int(freqs/pd['fft_compression_rate'])
+                            print('fft_compression_rate', pd['fft_compression_rate'],
+                                  'freqs', freqs,
+                                  'compressed_freqs', compressed_freqs)
+                            in_data_fft = in_data_fft[:, :, :compressed_freqs, :]
+                        # reshape as batch fft-time freq*dims
+                        print('idft_shape', idft_shape)
+                        in_data_fft = tf.reshape(in_data_fft, [pd['batch_size'], idft_shape[-2], -1])
+                        return in_data_fft, idft_shape, freqs
+
 
                 data_encoder_freq, _, enc_freqs = \
                     transpose_stft_squeeze(data_encoder_time, window, pd)
@@ -119,17 +129,6 @@ class FFTpredictionGraph(object):
                     transpose_stft_squeeze(data_decoder_time, window, pd)
                 assert enc_freqs == dec_freqs, 'encoder-decoder frequencies must agree'
                 fft_pred_samples = data_decoder_freq.shape[1].value
-
-                if pd['conv_fft_bins']:
-                    with tf.variable_scope('downsampling'):
-                        data_encoder_freq = tf.expand_dims(data_encoder_freq, -1)
-                        fft_bin_conv = cconv.ComplexConv2D(
-                            depth=1,
-                            filters=(1, pd['conv_fft_bins']),
-                            strides=(1, pd['conv_fft_bins']),
-                            padding='SAME', activation=None, scope='_down')
-                        data_encoder_freq = fft_bin_conv(data_encoder_freq)
-                        data_encoder_freq = tf.squeeze(data_encoder_freq, -1)
 
             elif pd['linear_reshape']:
                 encoder_time_steps = data_encoder_time.shape[1].value//pd['step_size']
@@ -157,7 +156,6 @@ class FFTpredictionGraph(object):
                 if pd['use_residuals']:
                     cell = ResidualWrapper(cell=cell)
             elif pd['cell_type'] == 'gru':
-                # todo: Add extra dimension, approach.
                 gru = rnn_cell.GRUCell(pd['num_units'])
                 if pd['fft'] is True:
                     dtype = tf.float32
@@ -221,22 +219,6 @@ class FFTpredictionGraph(object):
                         encoder_in[:, :, :int(decoder_freqs_t2/2)],
                         encoder_in[:, :, int(decoder_freqs_t2/2):])
 
-            if pd['fft'] and pd['conv_fft_bins']:
-                decoder_out = tf.expand_dims(decoder_out, -1)
-                with tf.variable_scope('upsampling'):
-                    cup2d = cconv.ComplexUpSampling2D(size=(1, pd['conv_fft_bins']),
-                                                      interpolation='bilinear')
-                    fft_bin_conv = cconv.ComplexConv2D(depth=1,
-                                                       filters=(1, pd['conv_fft_bins']+1),
-                                                       strides=(1, 1),
-                                                       padding='SAME',
-                                                       activation=None,
-                                                       scope='_up')
-                    decoder_out = cup2d(decoder_out)
-                    decoder_out = fft_bin_conv(decoder_out)
-                decoder_out = tf.squeeze(decoder_out, -1)
-                decoder_out = decoder_out[:, :, :dec_freqs]
-
             if pd['fft']:
                 if (pd['freq_loss'] == 'complex_abs') \
                    or (pd['freq_loss'] == 'complex_abs_time'):
@@ -254,15 +236,30 @@ class FFTpredictionGraph(object):
                     prd_loss = tf.reduce_mean(prd_loss)
                     tf.summary.scalar('f_complex_square', prd_loss)
 
-                def expand_dims_and_transpose(input_tensor, pd, freqs):
-                    output = tf.expand_dims(input_tensor, 1)
-                    if pd['fft_compression_rate']:
-                        zero_coeffs = freqs - int(input_tensor.shape[-1])
-                        zero_stack = tf.zeros(output.shape[:-1].as_list()
-                                              + [zero_coeffs], tf.complex64)
-                        output = tf.concat([output, zero_stack], -1)
+                def expand_dims_and_transpose(input_tensor, pd, freqs, shape):
+                    if shape[1] == 1:
+                        output = tf.expand_dims(input_tensor, 1)
+                        if pd['fft_compression_rate']:
+                            zero_coeffs = freqs - int(input_tensor.shape[-1])
+                            zero_stack = tf.zeros(output.shape[:-1].as_list()
+                                                  + [zero_coeffs], tf.complex64)
+                            output = tf.concat([output, zero_stack], -1)
+                    else:
+                        if pd['fft_compression_rate']:
+                            compressed_freqs = int(freqs/pd['fft_compression_rate'])
+                            # restore freqs
+                            output = tf.reshape(input_tensor, [shape[0], shape[-2], shape[1], compressed_freqs])
+                            print('test')
+                            zero_coeffs = freqs - compressed_freqs
+                            zero_stack = tf.zeros(output.shape[:-1].as_list()
+                                                  + [zero_coeffs], tf.complex64)
+                            output = tf.concat([output, zero_stack], -1)
+                        else:
+                            # restore freqs
+                            output = tf.reshape(input_tensor, [shape[0], shape[-2], shape[1], freqs])
+                        output = tf.transpose(output, [0, 2, 1, 3])
                     return output
-                decoder_out = expand_dims_and_transpose(decoder_out, pd, dec_freqs)
+                decoder_out = expand_dims_and_transpose(decoder_out, pd, dec_freqs, dec_shape)
                 decoder_out = eagerSTFT.istft(decoder_out, window,
                                               nperseg=pd['window_size'],
                                               noverlap=pd['overlap'],
