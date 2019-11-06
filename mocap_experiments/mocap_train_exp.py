@@ -59,8 +59,8 @@ mocap_handler_test = H36MDataSet(train=False, chunk_size=pd['chunk_size'], datas
 pd['mocap_handler'] = mocap_handler
 
 pd['consistency_loss'] = True
-pd['mse_samples'] = 64
-pd['pred_samples'] = 64
+pd['mse_samples'] = 128
+pd['pred_samples'] = 128
 assert pd['mse_samples'] <= pd['pred_samples']
 if pd['consistency_loss']:
     pd['consistency_samples'] = 50
