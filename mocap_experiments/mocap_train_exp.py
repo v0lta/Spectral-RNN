@@ -59,8 +59,8 @@ mocap_handler_test = H36MDataSet(train=False, chunk_size=pd['chunk_size'], datas
 pd['mocap_handler'] = mocap_handler
 
 pd['consistency_loss'] = True
-pd['mse_samples'] = 128
-pd['pred_samples'] = 256
+pd['mse_samples'] = 64
+pd['pred_samples'] = 64
 assert pd['mse_samples'] <= pd['pred_samples']
 if pd['consistency_loss']:
     pd['consistency_samples'] = 50
@@ -93,10 +93,10 @@ else:
 
 lpd_lst = []
 # define a list of experiments.
-for consistency_loss_weight in [0.1, 0.01, 0.001]:
+for consistency_loss_weight in [0.01, 0.001, 0.1]:
     for learning_rate_decay_rate in [0.98, 0.96]:
-        for num_units in [1024, 1024*2, 1024*3]:
-            for fft_compression_rate in [4, 8, 16, 24, 32]:
+        for num_units in [1024, 1024*3]:
+            for fft_compression_rate in [4, 16, 32]:
                 cpd = pd.copy()
                 cpd['consistency_loss_weight'] = consistency_loss_weight
                 cpd['num_units'] = num_units
