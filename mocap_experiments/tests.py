@@ -18,6 +18,12 @@ experiment_directory = '2019-11-07 17:26:12_gru_size_2048_fft_True_bs_100_ps_64_
                        '_0.96_ds_1000_sp_1.0_rc_False_pt_15096114_clw_0.001_csp_64_wf_hann_ws_64_ol_' \
                        '32_ffts_32_fftp_3_fl_None_eps_0.01_fftcr_10/'
 path = experiments_folder + experiment_directory
+project_folder = '/home/moritz/infcuda/fourier-pred-tmp/'
+folder = 'log/mocap/test/2019-11-07 21:18:38_gru_size_4096_fft_True_bs_50_ps_64_dis_0_lr_' \
+         '0.001_dr_0.98_ds_1000_sp_1.0_rc_False_pt_52015206_clw_0_csp_64_wf_hann_ws_32_ol_24_' \
+         'ffts_8_fftp_9_fl_None_eps_0.01_fftcr_16/'
+path = project_folder + folder
+
 
 pd = pickle.load(open(path + 'param.pkl', 'rb'))
 mocap_handler_test = H36MDataSet(train=False, chunk_size=pd['chunk_size'], dataset_name='h36m')
@@ -82,9 +88,10 @@ with tf.Session(graph=graph.graph, config=config) as sess:
     test_datenc_np = np.reshape(test_datenc_np, [test_datenc_np.shape[0], test_datenc_np.shape[1], 17, 3])
     test_datdec_np = np.reshape(test_datdec_np, [test_datdec_np.shape[0], test_datdec_np.shape[1], 17, 3])
     test_decout_np = np.reshape(test_decout_np, [test_decout_np.shape[0], test_decout_np.shape[1], 17, 3])
-    write_movie(np.transpose(test_datenc_np[50], [1, 2, 0]), r_base=1,
+    sel = 5
+    write_movie(np.transpose(test_datenc_np[sel], [1, 2, 0]), r_base=1,
                 name='test_in.mp4')
-    write_movie(np.transpose(test_decout_np[50], [1, 2, 0]), net=True, r_base=1,
+    write_movie(np.transpose(test_decout_np[sel], [1, 2, 0]), net=True, r_base=1,
                 name='test_out.mp4')
-    write_movie(np.transpose(test_datdec_np[50], [1, 2, 0]), net=True, r_base=1,
+    write_movie(np.transpose(test_datdec_np[sel], [1, 2, 0]), net=True, r_base=1,
                 name='test_out_gt.mp4')

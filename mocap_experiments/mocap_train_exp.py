@@ -39,7 +39,7 @@ pd['init_learning_rate'] = 0.001
 pd['decay_rate'] = 0.98
 
 
-pd['epochs'] = 400
+pd['epochs'] = 500
 pd['GPUs'] = [0]
 pd['batch_size'] = 50
 # pd['window_function'] = 'learned_tukey'
@@ -302,7 +302,7 @@ for exp_no, lpd in enumerate(lpd_lst):
                 np_scalar_to_summary('test/entropy', ent, np_global_step, summary_writer)
                 np_scalar_to_summary('test/kl1', kl1, np_global_step, summary_writer)
                 np_scalar_to_summary('test/kl2', kl2, np_global_step, summary_writer)
-                if kl1 < 0.011 and kl2 < 0.012:
+                if kl1 < 0.012 and kl2 < 0.012:
                     print('Saving a copy.')
                     ret = pgraph.saver.save(sess, lpd['base_dir'] + time_str +
                                 param_str + '/soa/cpk')
@@ -316,10 +316,10 @@ for exp_no, lpd in enumerate(lpd_lst):
         test_datenc_np = np.reshape(test_datenc_np, [test_datenc_np.shape[0], test_datenc_np.shape[1], 17, 3])
         test_datdec_np = np.reshape(test_datdec_np, [test_datdec_np.shape[0], test_datdec_np.shape[1], 17, 3])
         test_decout_np = np.reshape(test_decout_np, [test_decout_np.shape[0], test_decout_np.shape[1], 17, 3])
-        write_movie(np.transpose(test_datenc_np[50], [1, 2, 0]), r_base=1,
-                    name=summary_writer.get_logdir() + '/in.mp4')
-        write_movie(np.transpose(test_decout_np[50], [1, 2, 0]), net=True, r_base=1,
-                    name=summary_writer.get_logdir() + '/out.mp4')
-        write_movie(np.transpose(test_datdec_np[50], [1, 2, 0]), net=True, r_base=1,
-                    name=summary_writer.get_logdir() + '/out_gt.mp4')
-        print('done')
+        sel = 5
+        write_movie(np.transpose(test_datenc_np[sel], [1, 2, 0]), r_base=1,
+                    name='test_in.mp4')
+        write_movie(np.transpose(test_decout_np[sel], [1, 2, 0]), net=True, r_base=1,
+                    name='test_out.mp4')
+        write_movie(np.transpose(test_datdec_np[sel], [1, 2, 0]), net=True, r_base=1,
+                    name='test_out_gt.mp4')
