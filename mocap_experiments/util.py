@@ -7,6 +7,15 @@ from collections import OrderedDict
 from mocap_experiments.viz import H36_BODY_MEMBERS
 
 
+def organize_into_batches(batches, pd):
+    batch_total = len(batches)
+    split_into = int(batch_total/pd['batch_size'])
+    stop_at = pd['batch_size']*split_into
+    batch_lst = np.array_split(np.stack(batches[:stop_at]),
+                               split_into)
+    return batch_lst
+
+
 def pd_to_string(pd_var) -> str:
     '''
     Convert a parameter dict to string

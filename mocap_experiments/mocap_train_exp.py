@@ -8,7 +8,7 @@ import matplotlib.pyplot as plt
 from mocap_experiments.load_h36m import H36MDataSet
 from mocap_experiments.prediction_graph import FFTpredictionGraph
 from mocap_experiments.write_movie import write_movie
-from mocap_experiments.util import compute_ent_metrics
+from mocap_experiments.util import compute_ent_metrics, organize_into_batches
 
 PoseData = collections.namedtuple('PoseData', ['f', 'action', 'actor', 'array'])
 
@@ -33,13 +33,13 @@ pd = {}
 
 pd['base_dir'] = 'log/mocap/test/'
 pd['cell_type'] = 'gru'
-pd['num_units'] = 1024
+pd['num_units'] = 2048
 pd['sample_prob'] = 1.0
 pd['init_learning_rate'] = 0.001
 pd['decay_rate'] = 0.96
 
 
-pd['epochs'] = 600
+pd['epochs'] = 2000
 pd['GPUs'] = [0]
 pd['batch_size'] = 100
 # pd['window_function'] = 'learned_tukey'
@@ -52,7 +52,7 @@ pd['linear_reshape'] = False
 pd['stiefel'] = False
 
 pd['decay_steps'] = 1000
-pd['chunk_size'] = 128
+pd['chunk_size'] = 256
 pd['input_samples'] = pd['chunk_size']
 
 mocap_handler = H36MDataSet(train=True, chunk_size=pd['chunk_size'], dataset_name='h36m')
@@ -66,14 +66,14 @@ assert pd['mse_samples'] <= pd['pred_samples']
 if pd['consistency_loss']:
     pd['consistency_samples'] = 64
     assert pd['consistency_samples'] <= pd['pred_samples']
-    pd['consistency_loss_weight'] = 0.01
+    pd['consistency_loss_weight'] = 0.05
 pd['window_size'] = 1
 pd['discarded_samples'] = 0
 
 
 if pd['fft']:
     pd['window_size'] = 64
-    pd['fft_compression_rate'] = 2
+    pd['fft_compression_rate'] = 10
     pd['overlap'] = int(pd['window_size']*0.5)
     pd['step_size'] = pd['window_size'] - pd['overlap']
     pd['fft_pred_samples'] = pd['pred_samples'] // pd['step_size'] + 1
@@ -91,12 +91,12 @@ if pd['fft']:
 else:
     pd['epsilon'] = None
 
-lpd_lst = [pd]
+lpd_lst = []
 # define a list of experiments.
-for consistency_loss_weight in [0.01, 0.001, 0.1]:
+for consistency_loss_weight in [0.025, 0.001, 0.1]:
     for learning_rate_decay_rate in [0.98, 0.96]:
-        for num_units in [1024, 1024*3]:
-            for fft_compression_rate in [4, 16, 32]:
+        for num_units in [1024*2, 1024*3, 512]:
+            for fft_compression_rate in [10, 12, 6, 24]:
                 cpd = pd.copy()
                 cpd['consistency_loss_weight'] = consistency_loss_weight
                 cpd['num_units'] = num_units
@@ -170,15 +170,7 @@ for exp_no, lpd in enumerate(lpd_lst):
         for e in range(0, lpd['epochs']):
             training_batches = mocap_handler.get_batches()
 
-            def organize_into_batches(batches):
-                batch_total = len(batches)
-                split_into = int(batch_total/lpd['batch_size'])
-                stop_at = lpd['batch_size']*split_into
-                batch_lst = np.array_split(np.stack(batches[:stop_at]),
-                                           split_into)
-                return batch_lst
-
-            batch_lst = organize_into_batches(training_batches)
+            batch_lst = organize_into_batches(training_batches, lpd)
 
             for it, batch in enumerate(batch_lst):
                 start = time.time()
@@ -234,10 +226,10 @@ for exp_no, lpd in enumerate(lpd_lst):
                                   global_step=np_global_step)
             # do a test run.
             # print('test run ', end='')
-            mse_lst_net = []
-            net_lst_out = []
-            gt_lst_out = []
-            test_batch_lst = organize_into_batches(test_data)
+            test_mse_lst_net = []
+            test_net_lst_out = []
+            test_gt_lst_out = []
+            test_batch_lst = organize_into_batches(test_data, lpd)
             for test_batch in test_batch_lst:
                 gt = np.reshape(test_batch, [lpd['batch_size'], lpd['chunk_size'], 17*3])
 
@@ -262,15 +254,15 @@ for exp_no, lpd in enumerate(lpd_lst):
                                  feed_dict=feed_dict)
                 net_pred = test_decout_np[:, :, 0]*mocap_handler.std + mocap_handler.mean
                 gt = gt[:, -lpd['pred_samples']:, 0]
-                mse_lst_net.append(
+                test_mse_lst_net.append(
                     np.mean((gt[:, lpd['discarded_samples']:]
                              - net_pred[:, lpd['discarded_samples']:lpd['pred_samples']])
                             ** 2))
-                net_lst_out.append(test_decout_np)
-                gt_lst_out.append(test_datdec_np)
+                test_net_lst_out.append(test_decout_np)
+                test_gt_lst_out.append(test_datdec_np)
 
                 print('.', end='')
-            mse_net = np.mean(np.array(mse_lst_net))
+            mse_net = np.mean(np.array(test_mse_lst_net))
             print()
             print('epoch: %5d,  test mse_net: %5.2f' %
                   (e, mse_net))
@@ -299,8 +291,8 @@ for exp_no, lpd in enumerate(lpd_lst):
             # do the evaluation
             if e % 5 == 0:
                 # print('evaluate')
-                net_out = np.concatenate(net_lst_out, axis=0)
-                gt_out = np.concatenate(gt_lst_out, axis=0)
+                net_out = np.concatenate(test_net_lst_out, axis=0)
+                gt_out = np.concatenate(test_gt_lst_out, axis=0)
                 net_out = np.reshape(net_out, [net_out.shape[0], net_out.shape[1], 17, 3])
                 gt_out = np.reshape(gt_out, [gt_out.shape[0], gt_out.shape[1], 17, 3])
                 ent, kl1, kl2 = compute_ent_metrics(gt_seqs=np.moveaxis(gt_out, [0, 1, 2, 3], [0, 2, 1, 3]),
