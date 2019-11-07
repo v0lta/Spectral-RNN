@@ -264,65 +264,75 @@ def seq_to_angles_transformer(body_members):
     return _get_angles
 
 
-def compute_ent_metrics(gt_seqs, seqs, seq_len):
+def compute_ent_metrics(gt_seqs, seqs, print_debug=False):
     """
-    As found at  https://github.com/magnux/MotionGAN/blob/master/test.py line 634.
-
     :param numpy.array gt_seqs: The ground truth sequences, [batch_size, njoints, seq_len, 3]
     :param numpy.array seqs: The generated sequence  [batch_size, njoints, seq_len, 3]
     :param int seq_len: The length of both sequences [seq_len]
-    :return Spectral entropy and kl divergence of both compinations.
+    :return Spectral entropy and kl divergence of both combinations.
     """
     angle_trans = seq_to_angles_transformer(H36_BODY_MEMBERS)
+    gt_cent_seqs = gt_seqs - gt_seqs[:, 0, np.newaxis, :, :]
+    gt_angle_expmaps = angle_trans(gt_cent_seqs)
+    cent_seqs = seqs - seqs[:, 0, np.newaxis, :, :]
+    angle_expmaps = angle_trans(cent_seqs)
 
+    gt_angle_seqs = rotmat_to_euler(expmap_to_rotmat(gt_angle_expmaps))
+    angle_seqs = rotmat_to_euler(expmap_to_rotmat(angle_expmaps))
+
+    gt_seqs_fft = np.fft.fft(gt_angle_seqs, axis=2)
+    gt_seqs_ps = np.abs(gt_seqs_fft) ** 2
+
+    gt_seqs_ps_global = gt_seqs_ps.sum(axis=0) + 1e-8
+    gt_seqs_ps_global /= gt_seqs_ps_global.sum(axis=1, keepdims=True)
+
+    seqs_fft = np.fft.fft(angle_seqs, axis=2)
+    seqs_ps = np.abs(seqs_fft) ** 2
+
+    seqs_ps_global = seqs_ps.sum(axis=0) + 1e-8
+    seqs_ps_global /= seqs_ps_global.sum(axis=1, keepdims=True)
+
+    seqs_ent_global = -np.sum(seqs_ps_global * np.log(seqs_ps_global), axis=1)
+    if print_debug:
+        print("PS Entropy: ", seqs_ent_global.mean())
+
+    seqs_kl_gen_gt = np.sum(seqs_ps_global * np.log(seqs_ps_global / gt_seqs_ps_global), axis=1)
+    if print_debug:
+        print("PS KL(Gen|GT): ", seqs_kl_gen_gt.mean())
+    seqs_kl_gt_gen = np.sum(gt_seqs_ps_global * np.log(gt_seqs_ps_global / seqs_ps_global), axis=1)
+    if print_debug:
+            print("PS KL(GT|Gen): ", seqs_kl_gt_gen.mean())
+    return seqs_ent_global.mean(), seqs_kl_gen_gt.mean(), seqs_kl_gt_gen.mean()
+
+
+
+def compute_ent_metrics_splits(gt_seqs, seqs, seq_len, print_debug=True):
+    """
+    As found at  https://github.com/magnux/MotionGAN/blob/master/test.py line 634.
+    """
     seqs_ent_global_lst = []
     seqs_kl_gen_get_lst = []
     seqs_kl_gt_gen_lst = []
     for seq_start, seq_end in [(s * (seq_len // 4), (s + 1) * (seq_len // 4)) for s in range(4)] + [(0, seq_len)]:
-        # print(seq_start, seq_end)
         gt_seqs_tmp = gt_seqs[:, :, seq_start:seq_end, :]
         seqs_tmp = seqs[:, :, seq_start:seq_end, :]
-        gt_cent_seqs = gt_seqs_tmp - gt_seqs_tmp[:, 0, np.newaxis, :, :]
-        gt_angle_expmaps = angle_trans(gt_cent_seqs)
-        cent_seqs = seqs_tmp - seqs_tmp[:, 0, np.newaxis, :, :]
-        angle_expmaps = angle_trans(cent_seqs)
 
-        gt_angle_seqs = rotmat_to_euler(expmap_to_rotmat(gt_angle_expmaps))
-        angle_seqs = rotmat_to_euler(expmap_to_rotmat(angle_expmaps))
+        seqs_ent_global_mean, seqs_kl_gen_gt_mean, seqs_kl_gt_gen_mean = \
+            compute_ent_metrics(gt_seqs=gt_seqs_tmp, seqs=seqs_tmp, print_debug=print_debug)
 
-        gt_seqs_fft = np.fft.fft(gt_angle_seqs, axis=2)
-        gt_seqs_ps = np.abs(gt_seqs_fft) ** 2
-
-        gt_seqs_ps_global = gt_seqs_ps.sum(axis=0) + 1e-8
-        gt_seqs_ps_global /= gt_seqs_ps_global.sum(axis=1, keepdims=True)
-
-        seqs_fft = np.fft.fft(angle_seqs, axis=2)
-        seqs_ps = np.abs(seqs_fft) ** 2
-
-        seqs_ps_global = seqs_ps.sum(axis=0) + 1e-8
-        seqs_ps_global /= seqs_ps_global.sum(axis=1, keepdims=True)
-
-        seqs_ent_global = -np.sum(seqs_ps_global * np.log(seqs_ps_global), axis=1)
-        # print("PS Entropy: ", seqs_ent_global.mean())
-
-        seqs_kl_gen_gt = np.sum(seqs_ps_global * np.log(seqs_ps_global / gt_seqs_ps_global), axis=1)
-        # print("PS KL(Gen|GT): ", seqs_kl_gen_gt.mean())
-        seqs_kl_gt_gen = np.sum(gt_seqs_ps_global * np.log(gt_seqs_ps_global / seqs_ps_global), axis=1)
-        # print("PS KL(GT|Gen): ", seqs_kl_gt_gen.mean())
-
-        # print(  # "frames: ", (seq_start, seq_end),
-        #     "%.5f & %.5f & %.5f" % (seqs_ent_global.mean(), seqs_kl_gen_gt.mean(), seqs_kl_gt_gen.mean()))
-        seqs_ent_global_lst.append(seqs_ent_global.mean())
-        seqs_kl_gen_get_lst.append(seqs_kl_gen_gt.mean())
-        seqs_kl_gt_gen_lst.append(seqs_kl_gt_gen.mean())
-    return np.mean(seqs_ent_global_lst), np.mean(seqs_kl_gen_get_lst), np.mean(seqs_kl_gt_gen_lst)
+        print("frames: ", (seq_start, seq_end),
+              "%.5f & %.5f & %.5f" % (seqs_ent_global_mean, seqs_kl_gen_gt_mean, seqs_kl_gt_gen_mean))
+        seqs_ent_global_lst.append(seqs_ent_global_mean)
+        seqs_kl_gen_get_lst.append(seqs_kl_gen_gt_mean)
+        seqs_kl_gt_gen_lst.append(seqs_kl_gt_gen_mean)
+    return seqs_ent_global_lst, seqs_kl_gen_get_lst, seqs_kl_gt_gen_lst
 
 
 if __name__ == '__main__':
     import collections
     from mocap_experiments.load_h36m import H36MDataSet
 
-    for seq_len in [50, 100, 150, 200]:
+    for seq_len in [100]:
         PoseData = collections.namedtuple('PoseData', ['f', 'action', 'actor', 'array'])
         data_set = H36MDataSet(chunk_size=seq_len, dataset_name='h36m')
         data_set_val = H36MDataSet(chunk_size=seq_len, dataset_name='h36m', train=False)
@@ -330,10 +340,9 @@ if __name__ == '__main__':
         val_batches = data_set_val.data_array
         # compute metric on two.
         # self.batch_size, self.njoints, self.seq_len, 3
-        ent, kl1, kl2 = compute_ent_metrics(gt_seqs=np.moveaxis(val_batches, [0, 1, 2, 3], [0, 2, 1, 3]),
-                                            seqs=np.moveaxis(train_batches, [0, 1, 2, 3], [0, 2, 1, 3]),
-                                            seq_len=seq_len)
-        print(seq_len, ent, kl1, kl2)
+        _ = compute_ent_metrics_splits(gt_seqs=np.moveaxis(train_batches, [0, 1, 2, 3], [0, 2, 1, 3]),
+                                       seqs=np.moveaxis(val_batches, [0, 1, 2, 3], [0, 2, 1, 3]),
+                                       seq_len=seq_len, print_debug=True)
 
     # 50  0.6601937642721489 0.0054249518712179545 0.004659657744025847
     # 100 1.008094971949801 0.006738225054610497 0.006051738150345249

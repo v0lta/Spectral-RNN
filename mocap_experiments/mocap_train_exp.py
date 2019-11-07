@@ -36,10 +36,10 @@ pd['cell_type'] = 'gru'
 pd['num_units'] = 1024
 pd['sample_prob'] = 1.0
 pd['init_learning_rate'] = 0.001
-pd['decay_rate'] = 0.98
+pd['decay_rate'] = 0.96
 
 
-pd['epochs'] = 1600
+pd['epochs'] = 600
 pd['GPUs'] = [0]
 pd['batch_size'] = 100
 # pd['window_function'] = 'learned_tukey'
@@ -53,6 +53,7 @@ pd['stiefel'] = False
 
 pd['decay_steps'] = 1000
 pd['chunk_size'] = 128
+pd['input_samples'] = pd['chunk_size']
 
 mocap_handler = H36MDataSet(train=True, chunk_size=pd['chunk_size'], dataset_name='h36m')
 mocap_handler_test = H36MDataSet(train=False, chunk_size=pd['chunk_size'], dataset_name='h36m')
@@ -63,7 +64,7 @@ pd['mse_samples'] = 64
 pd['pred_samples'] = 64
 assert pd['mse_samples'] <= pd['pred_samples']
 if pd['consistency_loss']:
-    pd['consistency_samples'] = 50
+    pd['consistency_samples'] = 64
     assert pd['consistency_samples'] <= pd['pred_samples']
     pd['consistency_loss_weight'] = 0.01
 pd['window_size'] = 1
@@ -71,12 +72,11 @@ pd['discarded_samples'] = 0
 
 
 if pd['fft']:
-    pd['window_size'] = 64
-    pd['fft_compression_rate'] = 16
+    pd['window_size'] = 32
+    pd['fft_compression_rate'] = 2
     pd['overlap'] = int(pd['window_size']*0.5)
     pd['step_size'] = pd['window_size'] - pd['overlap']
     pd['fft_pred_samples'] = pd['pred_samples'] // pd['step_size'] + 1
-    pd['input_samples'] = pd['chunk_size']
     if pd['fft_compression_rate']:
         pd['num_proj'] = 17*3*int((pd['window_size']//2 + 1) / pd['fft_compression_rate'])
     else:
@@ -91,20 +91,20 @@ if pd['fft']:
 else:
     pd['epsilon'] = None
 
-lpd_lst = []
+lpd_lst = [pd]
 # define a list of experiments.
-for consistency_loss_weight in [0.01, 0.001, 0.1]:
-    for learning_rate_decay_rate in [0.98, 0.96]:
-        for num_units in [1024, 1024*3]:
-            for fft_compression_rate in [4, 16, 32]:
-                cpd = pd.copy()
-                cpd['consistency_loss_weight'] = consistency_loss_weight
-                cpd['num_units'] = num_units
-                cpd['decay_rate'] = learning_rate_decay_rate
-                if cpd['fft']:
-                    cpd['fft_compression_rate'] = fft_compression_rate
-                    cpd['num_proj'] = 17*3*int((cpd['window_size']//2 + 1) / cpd['fft_compression_rate'])
-                lpd_lst.append(cpd)
+# for consistency_loss_weight in [0.01, 0.001, 0.1]:
+#     for learning_rate_decay_rate in [0.98, 0.96]:
+#         for num_units in [1024, 1024*3]:
+#             for fft_compression_rate in [4, 16, 32]:
+#                 cpd = pd.copy()
+#                 cpd['consistency_loss_weight'] = consistency_loss_weight
+#                 cpd['num_units'] = num_units
+#                 cpd['decay_rate'] = learning_rate_decay_rate
+#                 if cpd['fft']:
+#                     cpd['fft_compression_rate'] = fft_compression_rate
+#                     cpd['num_proj'] = 17*3*int((cpd['window_size']//2 + 1) / cpd['fft_compression_rate'])
+#                 lpd_lst.append(cpd)
 
 print('number of experiments:', len(lpd_lst))
 
@@ -304,8 +304,7 @@ for exp_no, lpd in enumerate(lpd_lst):
                 net_out = np.reshape(net_out, [net_out.shape[0], net_out.shape[1], 17, 3])
                 gt_out = np.reshape(gt_out, [gt_out.shape[0], gt_out.shape[1], 17, 3])
                 ent, kl1, kl2 = compute_ent_metrics(gt_seqs=np.moveaxis(gt_out, [0, 1, 2, 3], [0, 2, 1, 3]),
-                                                    seqs=np.moveaxis(net_out, [0, 1, 2, 3], [0, 2, 1, 3]),
-                                                    seq_len=lpd['pred_samples'])
+                                                    seqs=np.moveaxis(net_out, [0, 1, 2, 3], [0, 2, 1, 3]))
                 print('eval at epoch', e, 'entropy', ent, 'kl1', kl1, 'kl2', kl2)
                 np_scalar_to_summary('test/entropy', ent, np_global_step, summary_writer)
                 np_scalar_to_summary('test/kl1', kl1, np_global_step, summary_writer)
