@@ -14,9 +14,9 @@ PoseData = collections.namedtuple('PoseData', ['f', 'action', 'actor', 'array'])
 
 
 experiments_folder = '/home/moritz/uni/fourier-prediction/mocap_experiments/log/mocap/test/'
-experiment_directory = '2019-11-07 13:05:33_gru_size_1024_fft_True_bs_100_ps_64_' \
-                       'dis_0_lr_0.001_dr_0.96_ds_1000_sp_1.0_rc_False_pt_3984588_clw_0.01_' \
-                       'csp_64_wf_hann_ws_64_ol_32_ffts_32_fftp_3_fl_None_eps_0.01_fftcr_12/'
+experiment_directory = '2019-11-07 17:26:12_gru_size_2048_fft_True_bs_100_ps_64_dis_0_lr_0.001_dr' \
+                       '_0.96_ds_1000_sp_1.0_rc_False_pt_15096114_clw_0.001_csp_64_wf_hann_ws_64_ol_' \
+                       '32_ffts_32_fftp_3_fl_None_eps_0.01_fftcr_10/'
 path = experiments_folder + experiment_directory
 
 pd = pickle.load(open(path + 'param.pkl', 'rb'))
@@ -31,6 +31,8 @@ config = tf.ConfigProto(allow_soft_placement=True,
                         gpu_options=gpu_options)
 with tf.Session(graph=graph.graph, config=config) as sess:
     test_data = mocap_handler_test.get_batches()
+    print('restore weights:.....')
+    graph.saver.restore(sess, save_path=path + 'weights/cpk')
     test_mse_lst_net = []
     test_net_lst_out = []
     test_gt_lst_out = []
@@ -68,3 +70,21 @@ with tf.Session(graph=graph.graph, config=config) as sess:
 
         print('.', end='')
     mse_net = np.mean(np.array(test_mse_lst_net))
+
+    net_out = np.concatenate(test_net_lst_out, axis=0)
+    gt_out = np.concatenate(test_gt_lst_out, axis=0)
+    net_out = np.reshape(net_out, [net_out.shape[0], net_out.shape[1], 17, 3])
+    gt_out = np.reshape(gt_out, [gt_out.shape[0], gt_out.shape[1], 17, 3])
+    ent, kl1, kl2 = compute_ent_metrics(gt_seqs=np.moveaxis(gt_out, [0, 1, 2, 3], [0, 2, 1, 3]),
+                                        seqs=np.moveaxis(net_out, [0, 1, 2, 3], [0, 2, 1, 3]))
+    print('entropy', ent, 'kl1', kl1, 'kl2', kl2)
+
+    test_datenc_np = np.reshape(test_datenc_np, [test_datenc_np.shape[0], test_datenc_np.shape[1], 17, 3])
+    test_datdec_np = np.reshape(test_datdec_np, [test_datdec_np.shape[0], test_datdec_np.shape[1], 17, 3])
+    test_decout_np = np.reshape(test_decout_np, [test_decout_np.shape[0], test_decout_np.shape[1], 17, 3])
+    write_movie(np.transpose(test_datenc_np[50], [1, 2, 0]), r_base=1,
+                name='test_in.mp4')
+    write_movie(np.transpose(test_decout_np[50], [1, 2, 0]), net=True, r_base=1,
+                name='test_out.mp4')
+    write_movie(np.transpose(test_datdec_np[50], [1, 2, 0]), net=True, r_base=1,
+                name='test_out_gt.mp4')

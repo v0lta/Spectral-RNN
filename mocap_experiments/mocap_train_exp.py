@@ -33,15 +33,15 @@ pd = {}
 
 pd['base_dir'] = 'log/mocap/test/'
 pd['cell_type'] = 'gru'
-pd['num_units'] = 2048
+pd['num_units'] = 1024*4
 pd['sample_prob'] = 1.0
 pd['init_learning_rate'] = 0.001
-pd['decay_rate'] = 0.96
+pd['decay_rate'] = 0.98
 
 
-pd['epochs'] = 2000
+pd['epochs'] = 400
 pd['GPUs'] = [0]
-pd['batch_size'] = 100
+pd['batch_size'] = 50
 # pd['window_function'] = 'learned_tukey'
 # pd['window_function'] = 'learned_plank'
 pd['window_function'] = 'hann'  # 'learned_gaussian'
@@ -50,9 +50,10 @@ pd['use_residuals'] = False
 pd['fft'] = True
 pd['linear_reshape'] = False
 pd['stiefel'] = False
+pd['input_noise'] = False
 
 pd['decay_steps'] = 1000
-pd['chunk_size'] = 256
+pd['chunk_size'] = 128
 pd['input_samples'] = pd['chunk_size']
 
 mocap_handler = H36MDataSet(train=True, chunk_size=pd['chunk_size'], dataset_name='h36m')
@@ -66,15 +67,15 @@ assert pd['mse_samples'] <= pd['pred_samples']
 if pd['consistency_loss']:
     pd['consistency_samples'] = 64
     assert pd['consistency_samples'] <= pd['pred_samples']
-    pd['consistency_loss_weight'] = 0.05
+    pd['consistency_loss_weight'] = 0
 pd['window_size'] = 1
 pd['discarded_samples'] = 0
 
 
 if pd['fft']:
-    pd['window_size'] = 64
-    pd['fft_compression_rate'] = 10
-    pd['overlap'] = int(pd['window_size']*0.5)
+    pd['window_size'] = 32
+    pd['fft_compression_rate'] = 16
+    pd['overlap'] = int(pd['window_size']*0.75)
     pd['step_size'] = pd['window_size'] - pd['overlap']
     pd['fft_pred_samples'] = pd['pred_samples'] // pd['step_size'] + 1
     if pd['fft_compression_rate']:
@@ -91,20 +92,20 @@ if pd['fft']:
 else:
     pd['epsilon'] = None
 
-lpd_lst = []
+lpd_lst = [pd]
 # define a list of experiments.
-for consistency_loss_weight in [0.025, 0.001, 0.1]:
-    for learning_rate_decay_rate in [0.98, 0.96]:
-        for num_units in [1024*2, 1024*3, 512]:
-            for fft_compression_rate in [10, 12, 6, 24]:
-                cpd = pd.copy()
-                cpd['consistency_loss_weight'] = consistency_loss_weight
-                cpd['num_units'] = num_units
-                cpd['decay_rate'] = learning_rate_decay_rate
-                if cpd['fft']:
-                    cpd['fft_compression_rate'] = fft_compression_rate
-                    cpd['num_proj'] = 17*3*int((cpd['window_size']//2 + 1) / cpd['fft_compression_rate'])
-                lpd_lst.append(cpd)
+# for consistency_loss_weight in [0.025, 0.001, 0.1]:
+#     for learning_rate_decay_rate in [0.98, 0.96]:
+#         for num_units in [1024*2, 1024*3, 512]:
+#             for fft_compression_rate in [10, 12, 6, 24]:
+#                 cpd = pd.copy()
+#                 cpd['consistency_loss_weight'] = consistency_loss_weight
+#                 cpd['num_units'] = num_units
+#                 cpd['decay_rate'] = learning_rate_decay_rate
+#                 if cpd['fft']:
+#                     cpd['fft_compression_rate'] = fft_compression_rate
+#                     cpd['num_proj'] = 17*3*int((cpd['window_size']//2 + 1) / cpd['fft_compression_rate'])
+#                 lpd_lst.append(cpd)
 
 print('number of experiments:', len(lpd_lst))
 
@@ -218,75 +219,75 @@ for exp_no, lpd in enumerate(lpd_lst):
                     plt.close()
                     buf.close()
 
-            # epoch done. Save.
-            if e % 10 == 0:
-                print('Saving a copy.')
-                pgraph.saver.save(sess, lpd['base_dir'] + time_str +
-                                  param_str + '/weights/cpk',
-                                  global_step=np_global_step)
             # do a test run.
             # print('test run ', end='')
-            test_mse_lst_net = []
-            test_net_lst_out = []
-            test_gt_lst_out = []
-            test_batch_lst = organize_into_batches(test_data, lpd)
-            for test_batch in test_batch_lst:
-                gt = np.reshape(test_batch, [lpd['batch_size'], lpd['chunk_size'], 17*3])
+            if e % 5 == 0:
+                test_mse_lst_net = []
+                test_csl_lst_net = []
+                test_net_lst_out = []
+                test_gt_lst_out = []
+                test_batch_lst = organize_into_batches(test_data, lpd)
+                for test_batch in test_batch_lst:
+                    gt = np.reshape(test_batch, [lpd['batch_size'], lpd['chunk_size'], 17*3])
 
-                feed_dict = {pgraph.data_nd: gt}
+                    feed_dict = {pgraph.data_nd: gt}
+                    if lpd['fft']:
+                        np_loss, np_global_step, \
+                            test_datenc_np, test_datdec_np, test_decout_np, \
+                            datand_np, window_np, cs_loss_np = \
+                            sess.run([pgraph.loss, pgraph.global_step,
+                                      pgraph.data_encoder_time,
+                                      pgraph.data_decoder_time,
+                                      pgraph.decoder_out, pgraph.data_nd, pgraph.window,
+                                      pgraph.consistency_loss],
+                                     feed_dict=feed_dict)
+                    else:
+                        np_loss, np_global_step, \
+                            test_datenc_np, test_datdec_np, test_decout_np, \
+                            datand_np = \
+                            sess.run([pgraph.loss, pgraph.global_step,
+                                      pgraph.data_encoder_time,
+                                      pgraph.data_decoder_time,
+                                      pgraph.decoder_out, pgraph.data_nd],
+                                     feed_dict=feed_dict)
+                    net_pred = test_decout_np[:, :, 0]*mocap_handler.std + mocap_handler.mean
+                    gt = gt[:, -lpd['pred_samples']:, 0]
+                    test_mse_lst_net.append(
+                        np.mean((gt[:, lpd['discarded_samples']:]
+                                 - net_pred[:, lpd['discarded_samples']:lpd['pred_samples']])
+                                ** 2))
+                    test_net_lst_out.append(test_decout_np)
+                    test_gt_lst_out.append(test_datdec_np)
+                    test_csl_lst_net.append(cs_loss_np)
+
+                    print('.', end='')
+                mse_net = np.mean(np.array(test_mse_lst_net))
+                cs_loss_np_mean = np.mean(test_csl_lst_net)
+                print()
+                print('epoch: %5d,  test mse_net: %5.2f, test_cs_loss: %5.2f' %
+                      (e, mse_net, cs_loss_np_mean))
+
+                # add to tensorboard
+                np_scalar_to_summary('test/mse_net_test', mse_net, np_global_step, summary_writer)
+
                 if lpd['fft']:
-                    np_loss, np_global_step, \
-                        test_datenc_np, test_datdec_np, test_decout_np, \
-                        datand_np, window_np = \
-                        sess.run([pgraph.loss, pgraph.global_step,
-                                  pgraph.data_encoder_time,
-                                  pgraph.data_decoder_time,
-                                  pgraph.decoder_out, pgraph.data_nd, pgraph.window],
-                                 feed_dict=feed_dict)
-                else:
-                    np_loss, np_global_step, \
-                        test_datenc_np, test_datdec_np, test_decout_np, \
-                        datand_np = \
-                        sess.run([pgraph.loss, pgraph.global_step,
-                                  pgraph.data_encoder_time,
-                                  pgraph.data_decoder_time,
-                                  pgraph.decoder_out, pgraph.data_nd],
-                                 feed_dict=feed_dict)
-                net_pred = test_decout_np[:, :, 0]*mocap_handler.std + mocap_handler.mean
-                gt = gt[:, -lpd['pred_samples']:, 0]
-                test_mse_lst_net.append(
-                    np.mean((gt[:, lpd['discarded_samples']:]
-                             - net_pred[:, lpd['discarded_samples']:lpd['pred_samples']])
-                            ** 2))
-                test_net_lst_out.append(test_decout_np)
-                test_gt_lst_out.append(test_datdec_np)
-
-                print('.', end='')
-            mse_net = np.mean(np.array(test_mse_lst_net))
-            print()
-            print('epoch: %5d,  test mse_net: %5.2f' %
-                  (e, mse_net))
-
-            # add to tensorboard
-            np_scalar_to_summary('test/mse_net_test', mse_net, np_global_step, summary_writer)
-            if lpd['fft']:
-                # window plot in tensorboard.
-                plt.figure()
-                plt.plot(window_np)
-                plt.title(lpd['window_function'])
-                buf2 = io.BytesIO()
-                plt.savefig(buf2, format='png')
-                buf2.seek(0)
-                summary_image2 = tf.Summary.Image(
-                    encoded_image_string=buf2.getvalue(),
-                    height=int(plt.rcParams["figure.figsize"][0]*100),
-                    width=int(plt.rcParams["figure.figsize"][1]*100))
-                summary_image2 = tf.Summary.Value(tag=lpd['window_function'],
-                                                  image=summary_image2)
-                summary_image2 = tf.Summary(value=[summary_image2])
-                summary_writer.add_summary(summary_image2, global_step=np_global_step)
-                plt.close()
-                buf.close()
+                    # window plot in tensorboard.
+                    plt.figure()
+                    plt.plot(window_np)
+                    plt.title(lpd['window_function'])
+                    buf2 = io.BytesIO()
+                    plt.savefig(buf2, format='png')
+                    buf2.seek(0)
+                    summary_image2 = tf.Summary.Image(
+                        encoded_image_string=buf2.getvalue(),
+                        height=int(plt.rcParams["figure.figsize"][0]*100),
+                        width=int(plt.rcParams["figure.figsize"][1]*100))
+                    summary_image2 = tf.Summary.Value(tag=lpd['window_function'],
+                                                      image=summary_image2)
+                    summary_image2 = tf.Summary(value=[summary_image2])
+                    summary_writer.add_summary(summary_image2, global_step=np_global_step)
+                    plt.close()
+                    buf.close()
 
             # do the evaluation
             if e % 5 == 0:
@@ -301,6 +302,11 @@ for exp_no, lpd in enumerate(lpd_lst):
                 np_scalar_to_summary('test/entropy', ent, np_global_step, summary_writer)
                 np_scalar_to_summary('test/kl1', kl1, np_global_step, summary_writer)
                 np_scalar_to_summary('test/kl2', kl2, np_global_step, summary_writer)
+
+        print('Saving a copy.')
+        ret = pgraph.saver.save(sess, lpd['base_dir'] + time_str +
+                                param_str + '/weights/cpk')
+        print('saved at:', ret)
 
         test_datenc_np = np.reshape(test_datenc_np, [test_datenc_np.shape[0], test_datenc_np.shape[1], 17, 3])
         test_datdec_np = np.reshape(test_datdec_np, [test_datdec_np.shape[0], test_datdec_np.shape[1], 17, 3])
