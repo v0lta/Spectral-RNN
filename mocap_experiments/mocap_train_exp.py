@@ -302,6 +302,11 @@ for exp_no, lpd in enumerate(lpd_lst):
                 np_scalar_to_summary('test/entropy', ent, np_global_step, summary_writer)
                 np_scalar_to_summary('test/kl1', kl1, np_global_step, summary_writer)
                 np_scalar_to_summary('test/kl2', kl2, np_global_step, summary_writer)
+                if kl1 < 0.011 and kl2 < 0.012:
+                    print('Saving a copy.')
+                    ret = pgraph.saver.save(sess, lpd['base_dir'] + time_str +
+                                param_str + '/soa/cpk')
+                    print('saved at:', ret)
 
         print('Saving a copy.')
         ret = pgraph.saver.save(sess, lpd['base_dir'] + time_str +
