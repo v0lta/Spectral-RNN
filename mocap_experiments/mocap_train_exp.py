@@ -37,11 +37,12 @@ pd['num_units'] = 1024*4
 pd['sample_prob'] = 1.0
 pd['init_learning_rate'] = 0.001
 pd['decay_rate'] = 0.98
+# pd['input_noise_std'] = 0
 
 kl1_target = 0.012
 kl2_target = 0.012
 
-pd['epochs'] = 2000
+pd['epochs'] = 1
 pd['GPUs'] = [0]
 pd['batch_size'] = 50
 # pd['window_function'] = 'learned_tukey'
@@ -94,22 +95,22 @@ if pd['fft']:
 else:
     pd['epsilon'] = None
 
-lpd_lst = [pd]
+lpd_lst = []
 # define a list of experiments.
-# for consistency_loss_weight in [0.001, 0.025, 0.0]:
-#     for learning_rate_decay_rate in [0.98, 0.96]:
-#         for num_units in [1024*4, 512]:
-#             for fft_compression_rate in [10, 12, 6, 24]:
-#                 for overlap in [0.75, 0.8, 0.9]:
-#                     cpd = pd.copy()
-#                     pd['overlap'] = int(pd['window_size']*overlap)
-#                     cpd['consistency_loss_weight'] = consistency_loss_weight
-#                     cpd['num_units'] = num_units
-#                     cpd['decay_rate'] = learning_rate_decay_rate
-#                     if cpd['fft']:
-#                         cpd['fft_compression_rate'] = fft_compression_rate
-#                         cpd['num_proj'] = 17*3*int((cpd['window_size']//2 + 1) / cpd['fft_compression_rate'])
-#                     lpd_lst.append(cpd)
+for consistency_loss_weight in [0.001, 0.025, 0.0]:
+    for learning_rate_decay_rate in [0.98, 0.96]:
+        for num_units in [1024*4, 1024*2, 512]:
+            for fft_compression_rate in [10, 12, 6, 24]:
+                for overlap in [0.75, 0.8, 0.9]:
+                    cpd = pd.copy()
+                    pd['overlap'] = int(pd['window_size']*overlap)
+                    cpd['consistency_loss_weight'] = consistency_loss_weight
+                    cpd['num_units'] = num_units
+                    cpd['decay_rate'] = learning_rate_decay_rate
+                    if cpd['fft']:
+                        cpd['fft_compression_rate'] = fft_compression_rate
+                        cpd['num_proj'] = 17*3*int((cpd['window_size']//2 + 1) / cpd['fft_compression_rate'])
+                    lpd_lst.append(cpd)
 
 print('number of experiments:', len(lpd_lst))
 
@@ -321,8 +322,19 @@ for exp_no, lpd in enumerate(lpd_lst):
 
                 gt_out_4s = gt_out[:, :200:10, :, :]
                 net_out_4s = net_out[:, :200:10, :, :]
-                _ = compute_ent_metrics_splits(np.moveaxis(gt_out_4s, [0, 1, 2, 3], [0, 2, 1, 3]),
+                seqs_ent_global_mean, seqs_kl_gen_gt_mean, seqs_kl_gt_gen_mean = \
+                    compute_ent_metrics_splits(np.moveaxis(gt_out_4s, [0, 1, 2, 3], [0, 2, 1, 3]),
                                                np.moveaxis(net_out_4s, [0, 1, 2, 3], [0, 2, 1, 3]), seq_len=20)
+                for i in range(5):
+                    np_scalar_to_summary('test_fiveHz/ent'+str(i),
+                                         seqs_ent_global_mean[i],
+                                         np_global_step, summary_writer)
+                    np_scalar_to_summary('test_fiveHz/kl_gen_gt'+str(i),
+                                         seqs_kl_gen_gt_mean[i], np_global_step, summary_writer)
+                    np_scalar_to_summary('test_fiveHz/kl_gt_gen'+str(i),
+                                         seqs_kl_gen_gt_mean[i], np_global_step, summary_writer)
+
+                print('stop')
 
         print('Saving a copy.')
         ret = pgraph.saver.save(sess, lpd['base_dir'] + time_str +

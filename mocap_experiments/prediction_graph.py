@@ -62,6 +62,9 @@ class FFTpredictionGraph(object):
                 self.data_nd = data_nd
                 data_nd_norm = (data_nd - data_mean)/data_std
 
+            # if pd['input_noise_std'] > 0:
+            #     data_nd = tf.random.truncated_normal(data_nd.shape, stddev=pd['input_noise_std'], name='input_noise')
+
             print('data_nd_shape', data_nd_norm.shape)
             dtype = tf.float32
             data_encoder_time, data_decoder_time = tf.split(data_nd_norm,
