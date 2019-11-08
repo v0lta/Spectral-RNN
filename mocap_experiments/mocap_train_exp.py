@@ -42,7 +42,7 @@ pd['decay_rate'] = 0.98
 kl1_target = 0.012
 kl2_target = 0.012
 
-pd['epochs'] = 5000
+pd['epochs'] = 1
 pd['GPUs'] = [0]
 pd['batch_size'] = 50
 # pd['window_function'] = 'learned_tukey'
@@ -76,9 +76,9 @@ pd['discarded_samples'] = 0
 
 
 if pd['fft']:
-    pd['window_size'] = 64
+    pd['window_size'] = 32
     pd['fft_compression_rate'] = 32
-    pd['overlap'] = int(pd['window_size']*0.9)
+    pd['overlap'] = int(pd['window_size']*0.75)
     pd['step_size'] = pd['window_size'] - pd['overlap']
     pd['fft_pred_samples'] = pd['pred_samples'] // pd['step_size'] + 1
     if pd['fft_compression_rate']:
