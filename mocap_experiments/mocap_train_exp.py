@@ -63,13 +63,13 @@ mocap_handler_test = H36MDataSet(train=False, chunk_size=pd['chunk_size'], datas
 pd['mocap_handler'] = mocap_handler
 
 pd['consistency_loss'] = True
-pd['mse_samples'] = 128
+pd['mse_samples'] = 64
 pd['pred_samples'] = 128
 assert pd['mse_samples'] <= pd['pred_samples']
 if pd['consistency_loss']:
     pd['consistency_samples'] = 128
     assert pd['consistency_samples'] <= pd['pred_samples']
-    pd['consistency_loss_weight'] = 0
+    pd['consistency_loss_weight'] = 0.001
 pd['window_size'] = 1
 pd['discarded_samples'] = 0
 
@@ -129,6 +129,7 @@ for exp_no, lpd in enumerate(lpd_lst):
         '_dr_' + str(lpd['decay_rate']) + \
         '_ds_' + str(lpd['decay_steps']) + \
         '_sp_' + str(lpd['sample_prob']) + \
+        '_mses_' + str(lpd['mse_samples']) + \
         '_rc_' + str(lpd['use_residuals']) + \
         '_pt_' + str(pgraph.total_parameters)
 
