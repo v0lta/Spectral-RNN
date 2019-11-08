@@ -37,8 +37,10 @@ def power_spectrum_kl_divergence(x, y):
     """
     psx = compute_power_spectrum(x) + 1e-8
     psy = compute_power_spectrum(y) + 1e-8
-    psx_dist = tf.nn.softmax(psx) + 1e-8
-    psy_dist = tf.nn.softmax(psy) + 1e-8
+    # psx_dist = tf.nn.softmax(psx) + 1e-8
+    # psy_dist = tf.nn.softmax(psy) + 1e-8
+    psx_dist = psx/tf.expand_dims(tf.reduce_sum(psx, axis=-1), -1)
+    psy_dist = psy/tf.expand_dims(tf.reduce_sum(psy, axis=-1), -1)
     ps_kl_xy = tf.reduce_sum(psx_dist*tf.log(psx_dist/psy_dist), axis=-1)
     ps_kl_yx = tf.reduce_sum(psy_dist*tf.log(psy_dist/psx_dist), axis=-1)
     return ps_kl_xy, ps_kl_yx
@@ -88,7 +90,8 @@ if __name__ == '__main__':
     batch_chunk2_rs = np.reshape(batch_chunk2, [batch_size, data.chunk_size, 17*3])
     batch_chunk_tf1 = tf.constant(batch_chunk_rs.astype(np.float32))
     batch_chunk_tf2 = tf.constant(batch_chunk2_rs.astype(np.float32))
-    ps1 = tf.reduce_mean(power_spectrum_entropy(batch_chunk_tf1))
+    ps1 = power_spectrum_entropy(batch_chunk_tf1)
+    pse1 = tf.reduce_mean(power_spectrum_entropy(batch_chunk_tf1))
     kl1, kl2 = power_spectrum_kl_divergence(batch_chunk_tf1, batch_chunk_tf2)
     kl1 = tf.reduce_mean(kl1)
     kl2 = tf.reduce_mean(kl2)
@@ -96,12 +99,11 @@ if __name__ == '__main__':
 
     with tf.Session() as sess:
         ps1_np = sess.run(ps1)
+        pse1_np = sess.run(pse1)
         kl1_np = sess.run(kl1)
         kl2_np = sess.run(kl2)
         loss_np = sess.run(loss)
 
-    print(ps1_np, kl1_np, kl2_np, loss_np)
+    print(pse1_np, kl1_np, kl2_np, loss_np)
     print(compute_ent_metrics(np.moveaxis(batch_chunk, [0, 1, 2, 3], [0, 2, 1, 3]),
-                              np.moveaxis(batch_chunk2, [0, 1, 2, 3], [0, 2, 1, 3]),
-                              seq_len=100))
-
+                              np.moveaxis(batch_chunk2, [0, 1, 2, 3], [0, 2, 1, 3])))

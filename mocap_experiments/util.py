@@ -314,7 +314,6 @@ def compute_ent_metrics(gt_seqs, seqs, print_debug=False):
     return seqs_ent_global.mean(), seqs_kl_gen_gt.mean(), seqs_kl_gt_gen.mean()
 
 
-
 def compute_ent_metrics_splits(gt_seqs, seqs, seq_len, print_debug=True):
     """
     As found at  https://github.com/magnux/MotionGAN/blob/master/test.py line 634.

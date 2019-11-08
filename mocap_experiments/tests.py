@@ -90,10 +90,10 @@ with tf.Session(graph=graph.graph, config=config) as sess:
                                         seqs=np.moveaxis(net_out, [0, 1, 2, 3], [0, 2, 1, 3]))
     print('entropy', ent, 'kl1', kl1, 'kl2', kl2)
 
-    gt_out_4s = gt_out[:, :200, :, :]
-    net_out_4s = net_out[:, :200, :, :]
+    gt_out_4s = gt_out[:, :200:10, :, :]
+    net_out_4s = net_out[:, :200:10, :, :]
     _ = compute_ent_metrics_splits(np.moveaxis(gt_out_4s, [0, 1, 2, 3], [0, 2, 1, 3]),
-                                   np.moveaxis(net_out_4s, [0, 1, 2, 3], [0, 2, 1, 3]), seq_len=200)
+                                   np.moveaxis(net_out_4s, [0, 1, 2, 3], [0, 2, 1, 3]), seq_len=20)
 
     test_datenc_np = np.reshape(test_datenc_np, [test_datenc_np.shape[0], test_datenc_np.shape[1], 17, 3])
     test_datdec_np = np.reshape(test_datdec_np, [test_datdec_np.shape[0], test_datdec_np.shape[1], 17, 3])
