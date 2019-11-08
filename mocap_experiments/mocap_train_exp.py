@@ -41,7 +41,7 @@ pd['decay_rate'] = 0.98
 kl1_target = 0.012
 kl2_target = 0.012
 
-pd['epochs'] = 1600
+pd['epochs'] = 2000
 pd['GPUs'] = [0]
 pd['batch_size'] = 50
 # pd['window_function'] = 'learned_tukey'
@@ -69,7 +69,7 @@ assert pd['mse_samples'] <= pd['pred_samples']
 if pd['consistency_loss']:
     pd['consistency_samples'] = 224
     assert pd['consistency_samples'] <= pd['pred_samples']
-    pd['consistency_loss_weight'] = 1.0
+    pd['consistency_loss_weight'] = 0.01
 pd['window_size'] = 1
 pd['discarded_samples'] = 0
 
