@@ -38,8 +38,10 @@ pd['sample_prob'] = 1.0
 pd['init_learning_rate'] = 0.001
 pd['decay_rate'] = 0.98
 
+kl1_target = 0.012
+kl2_target = 0.012
 
-pd['epochs'] = 500
+pd['epochs'] = 800
 pd['GPUs'] = [0]
 pd['batch_size'] = 50
 # pd['window_function'] = 'learned_tukey'
@@ -53,7 +55,7 @@ pd['stiefel'] = False
 pd['input_noise'] = False
 
 pd['decay_steps'] = 1000
-pd['chunk_size'] = 128
+pd['chunk_size'] = 256
 pd['input_samples'] = pd['chunk_size']
 
 mocap_handler = H36MDataSet(train=True, chunk_size=pd['chunk_size'], dataset_name='h36m')
@@ -61,11 +63,11 @@ mocap_handler_test = H36MDataSet(train=False, chunk_size=pd['chunk_size'], datas
 pd['mocap_handler'] = mocap_handler
 
 pd['consistency_loss'] = True
-pd['mse_samples'] = 64
-pd['pred_samples'] = 64
+pd['mse_samples'] = 128
+pd['pred_samples'] = 128
 assert pd['mse_samples'] <= pd['pred_samples']
 if pd['consistency_loss']:
-    pd['consistency_samples'] = 64
+    pd['consistency_samples'] = 128
     assert pd['consistency_samples'] <= pd['pred_samples']
     pd['consistency_loss_weight'] = 0
 pd['window_size'] = 1
@@ -75,7 +77,7 @@ pd['discarded_samples'] = 0
 if pd['fft']:
     pd['window_size'] = 32
     pd['fft_compression_rate'] = 16
-    pd['overlap'] = int(pd['window_size']*0.75)
+    pd['overlap'] = int(pd['window_size']*0.9)
     pd['step_size'] = pd['window_size'] - pd['overlap']
     pd['fft_pred_samples'] = pd['pred_samples'] // pd['step_size'] + 1
     if pd['fft_compression_rate']:
@@ -94,18 +96,20 @@ else:
 
 lpd_lst = [pd]
 # define a list of experiments.
-# for consistency_loss_weight in [0.025, 0.001, 0.1]:
+# for consistency_loss_weight in [0.001, 0.025, 0.0]:
 #     for learning_rate_decay_rate in [0.98, 0.96]:
-#         for num_units in [1024*2, 1024*3, 512]:
+#         for num_units in [1024*4, 512]:
 #             for fft_compression_rate in [10, 12, 6, 24]:
-#                 cpd = pd.copy()
-#                 cpd['consistency_loss_weight'] = consistency_loss_weight
-#                 cpd['num_units'] = num_units
-#                 cpd['decay_rate'] = learning_rate_decay_rate
-#                 if cpd['fft']:
-#                     cpd['fft_compression_rate'] = fft_compression_rate
-#                     cpd['num_proj'] = 17*3*int((cpd['window_size']//2 + 1) / cpd['fft_compression_rate'])
-#                 lpd_lst.append(cpd)
+#                 for overlap in [0.75, 0.8, 0.9]:
+#                     cpd = pd.copy()
+#                     pd['overlap'] = int(pd['window_size']*overlap)
+#                     cpd['consistency_loss_weight'] = consistency_loss_weight
+#                     cpd['num_units'] = num_units
+#                     cpd['decay_rate'] = learning_rate_decay_rate
+#                     if cpd['fft']:
+#                         cpd['fft_compression_rate'] = fft_compression_rate
+#                         cpd['num_proj'] = 17*3*int((cpd['window_size']//2 + 1) / cpd['fft_compression_rate'])
+#                     lpd_lst.append(cpd)
 
 print('number of experiments:', len(lpd_lst))
 
@@ -269,6 +273,7 @@ for exp_no, lpd in enumerate(lpd_lst):
 
                 # add to tensorboard
                 np_scalar_to_summary('test/mse_net_test', mse_net, np_global_step, summary_writer)
+                np_scalar_to_summary('test/cl_net_test', cs_loss_np_mean, np_global_step, summary_writer)
 
                 if lpd['fft']:
                     # window plot in tensorboard.
@@ -296,16 +301,20 @@ for exp_no, lpd in enumerate(lpd_lst):
                 gt_out = np.concatenate(test_gt_lst_out, axis=0)
                 net_out = np.reshape(net_out, [net_out.shape[0], net_out.shape[1], 17, 3])
                 gt_out = np.reshape(gt_out, [gt_out.shape[0], gt_out.shape[1], 17, 3])
-                ent, kl1, kl2 = compute_ent_metrics(gt_seqs=np.moveaxis(gt_out, [0, 1, 2, 3], [0, 2, 1, 3]),
-                                                    seqs=np.moveaxis(net_out, [0, 1, 2, 3], [0, 2, 1, 3]))
+                ent, kl1, kl2 = compute_ent_metrics(gt_seqs=np.moveaxis(gt_out[:, :50, :, :],
+                                                                        [0, 1, 2, 3], [0, 2, 1, 3]),
+                                                    seqs=np.moveaxis(net_out[:, :50, :, :],
+                                                                     [0, 1, 2, 3], [0, 2, 1, 3]))
                 print('eval at epoch', e, 'entropy', ent, 'kl1', kl1, 'kl2', kl2)
                 np_scalar_to_summary('test/entropy', ent, np_global_step, summary_writer)
                 np_scalar_to_summary('test/kl1', kl1, np_global_step, summary_writer)
                 np_scalar_to_summary('test/kl2', kl2, np_global_step, summary_writer)
-                if kl1 < 0.012 and kl2 < 0.012:
+                if kl1 < kl1_target and kl2 < kl2_target:
+                    kl1_target = kl1
+                    kl2_target = kl2
                     print('Saving a copy.')
                     ret = pgraph.saver.save(sess, lpd['base_dir'] + time_str +
-                                param_str + '/soa/cpk')
+                                            param_str + '/soa_kl1_kl2_'+str(kl1)+'_'+str(kl2)+'/cpk')
                     print('saved at:', ret)
 
         print('Saving a copy.')
@@ -318,8 +327,8 @@ for exp_no, lpd in enumerate(lpd_lst):
         test_decout_np = np.reshape(test_decout_np, [test_decout_np.shape[0], test_decout_np.shape[1], 17, 3])
         sel = 5
         write_movie(np.transpose(test_datenc_np[sel], [1, 2, 0]), r_base=1,
-                    name='test_in.mp4')
+                    name=lpd['base_dir'] + time_str + param_str +'/test_in.mp4')
         write_movie(np.transpose(test_decout_np[sel], [1, 2, 0]), net=True, r_base=1,
-                    name='test_out.mp4')
+                    name=lpd['base_dir'] + time_str + param_str +'/test_out.mp4')
         write_movie(np.transpose(test_datdec_np[sel], [1, 2, 0]), net=True, r_base=1,
-                    name='test_out_gt.mp4')
+                    name=lpd['base_dir'] + time_str + param_str +'/test_out_gt.mp4')
