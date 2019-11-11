@@ -7,13 +7,12 @@ def compute_power_spectrum(x):
     """
     Compute the power spectrum |F(x)| of x.
     :param x: Mocap-data tensor [batch_size, time, 17*3]
-    :return: The radii of the fourier coefficients as in r of r e^(i phi) [batch_size, 17*3, radii]
+    :return: The squared radii of the fourier coefficients as in r of r e^(i phi) [batch_size, 17*3, radii]
     """
     x = tf.transpose(x, [0, 2, 1])
     x = tf.complex(x, tf.zeros_like(x))
     freq_x = tf.signal.fft(x)
     ps_x = tf.real(freq_x) * tf.real(freq_x) + tf.imag(freq_x) * tf.imag(freq_x)
-    ps_x = tf.sqrt(ps_x + 1e-8)
     return ps_x
 
 

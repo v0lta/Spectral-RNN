@@ -20,7 +20,7 @@ def read_pose(x):
     return np.stack([pose_x, pose_y, pose_z], axis=1)
 
 
-def write_movie(pose_array, name='writer_test.mp4', fps=15, r_base=1000, net=False):
+def write_movie(pose_array, name='writer_test.mp4', fps=15, r_base=1000, color_shift_at=0):
     """
     :param pose_array: np.array [joints, 3dpoints, time]
     :param name: the name for the movie.
@@ -33,15 +33,30 @@ def write_movie(pose_array, name='writer_test.mp4', fps=15, r_base=1000, net=Fal
     fig = plt.figure()
     with writer.saving(fig, name, 100):
         ax = fig.add_subplot(111, projection='3d')
-        if net is False:
-            plotter = viz.Ax3DPose(ax, 'Human36')
-        else:
-            plotter = viz.Ax3DPose(ax, 'Human36', lcolor='#e88d1e', rcolor='#3ce7ae')
+        gt_plotter = viz.Ax3DPose(ax, 'Human36')
+        net_plotter = viz.Ax3DPose(ax, 'Human36', lcolor='#e88d1e', rcolor='#3ce7ae')
+        net_plotter.axes_set = True
         for i in range(time):
-            plotter.update(pose_array[:, :, i].flatten(), r_base=r_base)
+            if i > color_shift_at:
+                net_plotter.update(pose_array[:, :, i].flatten(), r_base=r_base)
+            else:
+                gt_plotter.update(pose_array[:, :, i].flatten(), r_base=r_base)
             writer.grab_frame()
     plt.close()
 
+
+def write_figure(pose_array, name='writer_test.pdf', fps=15, r_base=1000, color_shift_at=0):
+    fig = plt.figure()
+    ax = fig.add_subplot(111, projection='3d')
+    for i in range(total_time):
+        if i > color_shift_at:
+            plotter = viz.Ax3DPose(ax, 'Human36', lcolor='#e88d1e', rcolor='#3ce7ae')
+            plotter.update(pose_array[:, :, i].flatten(), r_base=r_base)
+        else:
+            plotter = viz.Ax3DPose(ax, 'Human36')
+            plotter.update(pose_array[:, :, i].flatten(), r_base=r_base)
+    plt.savefig(name)
+    plt.close()
 
 if __name__ == "__main__":
     os.environ["CDF_LIB"] = '/home/moritz/CDF/cdf37_0-dist/lib'
@@ -58,4 +73,7 @@ if __name__ == "__main__":
         pose = pose[viz.H36M_USED_JOINTS, :, :]
         print(pose.shape)
 
-    write_movie(pose[:, :, :400])
+    total_time = 400
+    color_shift_at = 200
+    write_movie(pose[:, :, :400], color_shift_at=200)
+    write_figure(pose[:, :, :400:10], color_shift_at=200)

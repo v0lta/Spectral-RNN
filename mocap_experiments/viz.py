@@ -51,13 +51,9 @@ OPENPOSE_NJOINTS = 16
 def select_dataset(data_set):
 
     if data_set == "NTURGBD":
-        actions_l = NTU_ACTIONS
-        njoints = NTU_NJOINTS
-        body_members = NTU_BODY_MEMBERS
+        raise NotImplementedError()
     elif data_set == "MSRC12":
-        actions_l = MSRC_ACTIONS
-        njoints = MSRC_NJOINTS
-        body_members = MSRC_BODY_MEMBERS
+        raise NotImplementedError()
     elif data_set == "Human36":
         actions_l = H36_ACTIONS
         njoints = len(H36M_USED_JOINTS)
@@ -105,17 +101,16 @@ class Ax3DPose(object):
         self.ax.set_xlabel("x")
         self.ax.set_ylabel("y")
         self.ax.set_zlabel("z")
-
         self.axes_set = False
 
-    def update(self, channels, mask=None, r_base=1000):
+    def update(self, channels, r_base=1000):
         """
         Update the plotted 3d pose.
-        Args
+        Args:
           channels: njoints * 3-dim long np array. The pose to plot.
           lcolor: String. Colour for the left part of the body.
           rcolor: String. Colour for the right part of the body.
-        Returns
+        Returns:
           Nothing. Simply updates the axis with the new pose.
         """
 
@@ -134,16 +129,6 @@ class Ax3DPose(object):
                 self.plots[(j_idx_start, j_idx_end)][0].set_ydata(y)
                 self.plots[(j_idx_start, j_idx_end)][0].set_3d_properties(z)
 
-        if mask is not None:
-            for j in range(self.njoints):
-                if mask[j] == 0:
-                    self.plots_mask[j][0].set_visible(True)
-                else:
-                    self.plots_mask[j][0].set_visible(False)
-                self.plots_mask[j][0].set_xdata(vals[j, 0])
-                self.plots_mask[j][0].set_ydata(vals[j, 1])
-                self.plots_mask[j][0].set_3d_properties(vals[j, 2])
-
         if not self.axes_set:
             r = r_base
             xroot, yroot, zroot = vals[0, 0], vals[0, 1], vals[0, 2]
@@ -154,4 +139,5 @@ class Ax3DPose(object):
 
             self.ax.set_aspect('equal')
             self.axes_set = True
+
 
