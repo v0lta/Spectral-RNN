@@ -338,14 +338,15 @@ for exp_no, lpd in enumerate(lpd_lst):
         ret = pgraph.saver.save(sess, lpd['base_dir'] + time_str +
                                 param_str + '/weights/cpk')
         print('saved at:', ret)
-
         test_datenc_np = np.reshape(test_datenc_np, [test_datenc_np.shape[0], test_datenc_np.shape[1], 17, 3])
         test_datdec_np = np.reshape(test_datdec_np, [test_datdec_np.shape[0], test_datdec_np.shape[1], 17, 3])
         test_decout_np = np.reshape(test_decout_np, [test_decout_np.shape[0], test_decout_np.shape[1], 17, 3])
         sel = 5
-        write_movie(np.transpose(test_datenc_np[sel], [1, 2, 0]), r_base=1,
-                    name=lpd['base_dir'] + time_str + param_str +'/test_in.mp4')
-        write_movie(np.transpose(test_decout_np[sel], [1, 2, 0]), net=True, r_base=1,
-                    name=lpd['base_dir'] + time_str + param_str +'/test_out.mp4')
-        write_movie(np.transpose(test_datdec_np[sel], [1, 2, 0]), net=True, r_base=1,
-                    name=lpd['base_dir'] + time_str + param_str +'/test_out_gt.mp4')
+        gt_movie = np.concatenate([test_datenc_np, test_datdec_np], axis=1)
+        net_movie = np.concatenate([test_datenc_np, test_decout_np], axis=1)
+        write_movie(np.transpose(gt_movie[sel], [1, 2, 0]), r_base=1,
+                    name=lpd['base_dir'] + time_str + param_str + 'test_in.mp4',
+                    color_shift_at=lpd['chunk_size'] - lpd['pred_samples'])
+        write_movie(np.transpose(net_movie[sel], [1, 2, 0]), r_base=1,
+                    name='test_out.mp4',
+                    color_shift_at=lpd['chunk_size'] - lpd['pred_samples'])
