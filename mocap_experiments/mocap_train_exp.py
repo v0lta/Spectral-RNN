@@ -31,7 +31,7 @@ def np_scalar_to_summary(tag: str, scalar: np.array, np_step: np.array,
 # set up a parameter dictionary.
 pd = {}
 
-pd['base_dir'] = 'log/mocap/test/'
+pd['base_dir'] = 'log/mocap/paper/'
 pd['cell_type'] = 'gru'
 pd['num_units'] = 1024*4
 pd['sample_prob'] = 1.0
@@ -42,7 +42,7 @@ pd['decay_rate'] = 0.98
 kl1_target = 0.012
 kl2_target = 0.012
 
-pd['epochs'] = 1000
+pd['epochs'] = 5000
 pd['GPUs'] = [0]
 pd['batch_size'] = 50
 # pd['window_function'] = 'learned_tukey'
@@ -50,7 +50,7 @@ pd['batch_size'] = 50
 pd['window_function'] = 'hann'  # 'learned_gaussian'
 pd['freq_loss'] = None
 pd['use_residuals'] = False
-pd['fft'] = True
+pd['fft'] = False
 pd['linear_reshape'] = False
 pd['stiefel'] = False
 pd['input_noise'] = False
@@ -77,7 +77,7 @@ pd['discarded_samples'] = 0
 
 if pd['fft']:
     pd['window_size'] = 64
-    pd['fft_compression_rate'] = 32
+    pd['fft_compression_rate'] = 8
     pd['overlap'] = int(pd['window_size']*0.9)
     pd['step_size'] = pd['window_size'] - pd['overlap']
     pd['fft_pred_samples'] = pd['pred_samples'] // pd['step_size'] + 1
@@ -248,17 +248,17 @@ for exp_no, lpd in enumerate(lpd_lst):
                     else:
                         np_loss, np_global_step, \
                             test_datenc_np, test_datdec_np, test_decout_np, \
-                            datand_np = \
+                            datand_np, cs_loss_np = \
                             sess.run([pgraph.loss, pgraph.global_step,
                                       pgraph.data_encoder_time,
                                       pgraph.data_decoder_time,
-                                      pgraph.decoder_out, pgraph.data_nd],
+                                      pgraph.decoder_out, pgraph.data_nd, pgraph.consistency_loss],
                                      feed_dict=feed_dict)
                     net_pred = test_decout_np[:, :, 0]*mocap_handler.std + mocap_handler.mean
                     gt = gt[:, -lpd['pred_samples']:, 0]
                     test_mse_lst_net.append(
-                        np.mean((gt[:, lpd['discarded_samples']:]
-                                 - net_pred[:, lpd['discarded_samples']:lpd['pred_samples']])
+                        np.mean((gt[:, lpd['discarded_samples']:lpd['mse_samples']]
+                                 - net_pred[:, lpd['discarded_samples']:lpd['mse_samples']])
                                 ** 2))
                     test_net_lst_out.append(test_decout_np)
                     test_gt_lst_out.append(test_datdec_np)
@@ -317,22 +317,21 @@ for exp_no, lpd in enumerate(lpd_lst):
                                             param_str + '/soa_kl1_kl2_'+str(kl1)+'_'+str(kl2)+'/cpk')
                     print('saved at:', ret)
 
+                if lpd['pred_samples'] < 200:
+                    gt_out_4s = gt_out[:, :200:10, :, :]
+                    net_out_4s = net_out[:, :200:10, :, :]
+                    seqs_ent_global_mean, seqs_kl_gen_gt_mean, seqs_kl_gt_gen_mean = \
+                        compute_ent_metrics_splits(np.moveaxis(gt_out_4s, [0, 1, 2, 3], [0, 2, 1, 3]),
+                                                   np.moveaxis(net_out_4s, [0, 1, 2, 3], [0, 2, 1, 3]), seq_len=20)
+                    for i in range(5):
+                        np_scalar_to_summary('test_fiveHz/ent'+str(i),
+                                             seqs_ent_global_mean[i],
+                                             np_global_step, summary_writer)
+                        np_scalar_to_summary('test_fiveHz/kl_gen_gt'+str(i),
+                                             seqs_kl_gen_gt_mean[i], np_global_step, summary_writer)
+                        np_scalar_to_summary('test_fiveHz/kl_gt_gen'+str(i),
+                                             seqs_kl_gen_gt_mean[i], np_global_step, summary_writer)
 
-                gt_out_4s = gt_out[:, :200:10, :, :]
-                net_out_4s = net_out[:, :200:10, :, :]
-                seqs_ent_global_mean, seqs_kl_gen_gt_mean, seqs_kl_gt_gen_mean = \
-                    compute_ent_metrics_splits(np.moveaxis(gt_out_4s, [0, 1, 2, 3], [0, 2, 1, 3]),
-                                               np.moveaxis(net_out_4s, [0, 1, 2, 3], [0, 2, 1, 3]), seq_len=20)
-                for i in range(5):
-                    np_scalar_to_summary('test_fiveHz/ent'+str(i),
-                                         seqs_ent_global_mean[i],
-                                         np_global_step, summary_writer)
-                    np_scalar_to_summary('test_fiveHz/kl_gen_gt'+str(i),
-                                         seqs_kl_gen_gt_mean[i], np_global_step, summary_writer)
-                    np_scalar_to_summary('test_fiveHz/kl_gt_gen'+str(i),
-                                         seqs_kl_gen_gt_mean[i], np_global_step, summary_writer)
-
-                print('stop')
 
         print('Saving a copy.')
         ret = pgraph.saver.save(sess, lpd['base_dir'] + time_str +
@@ -345,8 +344,8 @@ for exp_no, lpd in enumerate(lpd_lst):
         gt_movie = np.concatenate([test_datenc_np, test_datdec_np], axis=1)
         net_movie = np.concatenate([test_datenc_np, test_decout_np], axis=1)
         write_movie(np.transpose(gt_movie[sel], [1, 2, 0]), r_base=1,
-                    name=lpd['base_dir'] + time_str + param_str + 'test_in.mp4',
-                    color_shift_at=lpd['chunk_size'] - lpd['pred_samples'])
+                    name=lpd['base_dir'] + time_str + param_str + '/in.mp4',
+                    color_shift_at=lpd['chunk_size'] - lpd['pred_samples'] - 1)
         write_movie(np.transpose(net_movie[sel], [1, 2, 0]), r_base=1,
-                    name='test_out.mp4',
-                    color_shift_at=lpd['chunk_size'] - lpd['pred_samples'])
+                    name=lpd['base_dir'] + time_str + param_str + '/out.mp4',
+                    color_shift_at=lpd['chunk_size'] - lpd['pred_samples'] - 1)
