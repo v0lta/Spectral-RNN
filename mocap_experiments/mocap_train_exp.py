@@ -70,13 +70,13 @@ assert pd['mse_samples'] <= pd['pred_samples']
 if pd['consistency_loss']:
     pd['consistency_samples'] = 224
     assert pd['consistency_samples'] <= pd['pred_samples']
-    pd['consistency_loss_weight'] = 0.001
+    pd['consistency_loss_weight'] = 0.0
 pd['window_size'] = 1
 pd['discarded_samples'] = 0
 
 
 if pd['fft']:
-    pd['window_size'] = 64
+    pd['window_size'] = 32
     pd['fft_compression_rate'] = 8
     pd['overlap'] = int(pd['window_size']*0.9)
     pd['step_size'] = pd['window_size'] - pd['overlap']
@@ -95,20 +95,16 @@ if pd['fft']:
 else:
     pd['epsilon'] = None
 
-lpd_lst = [pd]
+lpd_lst = []
 # define a list of experiments.
-# for consistency_loss_weight in [0.001, 0.01, 0.0]:
-#     for learning_rate_decay_rate in [0.98, 0.96]:
-#         for num_units in [1024*4, 1024*2, 512]:
-#             for fft_compression_rate in [16, 8, 32]:
-#                 cpd = pd.copy()
-#                 cpd['consistency_loss_weight'] = consistency_loss_weight
-#                 cpd['num_units'] = num_units
-#                 cpd['decay_rate'] = learning_rate_decay_rate
-#                 if cpd['fft']:
-#                     cpd['fft_compression_rate'] = fft_compression_rate
-#                     cpd['num_proj'] = 17*3*int((cpd['window_size']//2 + 1) / cpd['fft_compression_rate'])
-#                 lpd_lst.append(cpd)
+for consistency_loss_weight in [0.001, 0.01, 0.0]:
+    for fft_compression_rate in [4, 8, 16]:
+        cpd = pd.copy()
+        cpd['consistency_loss_weight'] = consistency_loss_weight
+        if cpd['fft']:
+            cpd['fft_compression_rate'] = fft_compression_rate
+            cpd['num_proj'] = 17*3*int((cpd['window_size']//2 + 1) / cpd['fft_compression_rate'])
+        lpd_lst.append(cpd)
 
 print('number of experiments:', len(lpd_lst))
 
