@@ -55,7 +55,7 @@ pd['linear_reshape'] = False
 pd['stiefel'] = False
 pd['input_noise'] = False
 
-pd['decay_steps'] = 1000
+pd['decay_steps'] = 5000
 pd['chunk_size'] = 224*2
 pd['input_samples'] = pd['chunk_size']
 
