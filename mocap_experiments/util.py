@@ -314,7 +314,7 @@ def compute_ent_metrics(gt_seqs, seqs, print_debug=False):
     return seqs_ent_global.mean(), seqs_kl_gen_gt.mean(), seqs_kl_gt_gen.mean()
 
 
-def compute_ent_metrics_splits(gt_seqs, seqs, seq_len, print_debug=True):
+def compute_ent_metrics_splits(gt_seqs, seqs, seq_len, print_debug=False, print_numbers=False):
     """
     As found at  https://github.com/magnux/MotionGAN/blob/master/test.py line 634.
     """
@@ -327,9 +327,9 @@ def compute_ent_metrics_splits(gt_seqs, seqs, seq_len, print_debug=True):
 
         seqs_ent_global_mean, seqs_kl_gen_gt_mean, seqs_kl_gt_gen_mean = \
             compute_ent_metrics(gt_seqs=gt_seqs_tmp, seqs=seqs_tmp, print_debug=print_debug)
-
-        print("frames: ", (seq_start, seq_end),
-              "%.5f & %.5f & %.5f" % (seqs_ent_global_mean, seqs_kl_gen_gt_mean, seqs_kl_gt_gen_mean))
+        if print_numbers:
+            print("frames: ", (seq_start, seq_end),
+                  "%.5f & %.5f & %.5f" % (seqs_ent_global_mean, seqs_kl_gen_gt_mean, seqs_kl_gt_gen_mean))
         seqs_ent_global_lst.append(seqs_ent_global_mean)
         seqs_kl_gen_get_lst.append(seqs_kl_gen_gt_mean)
         seqs_kl_gt_gen_lst.append(seqs_kl_gt_gen_mean)

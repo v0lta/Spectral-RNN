@@ -31,7 +31,7 @@ def np_scalar_to_summary(tag: str, scalar: np.array, np_step: np.array,
 # set up a parameter dictionary.
 pd = {}
 
-pd['base_dir'] = 'log/mocap/paper/'
+pd['base_dir'] = 'log/paper2/'
 pd['cell_type'] = 'gru'
 pd['num_units'] = 1024*3
 pd['sample_prob'] = 1.0
@@ -42,7 +42,7 @@ pd['decay_rate'] = 0.98
 kl1_target = 0.012
 kl2_target = 0.012
 
-pd['epochs'] = 500 # 2000
+pd['epochs'] = 400
 pd['GPUs'] = [0]
 pd['batch_size'] = 50
 # pd['window_function'] = 'learned_tukey'
@@ -50,7 +50,7 @@ pd['batch_size'] = 50
 pd['window_function'] = 'hann'  # 'learned_gaussian'
 pd['freq_loss'] = None
 pd['use_residuals'] = False
-pd['fft'] = False
+pd['fft'] = True
 pd['linear_reshape'] = False
 pd['stiefel'] = False
 pd['input_noise'] = False
@@ -70,7 +70,7 @@ assert pd['mse_samples'] <= pd['pred_samples']
 if pd['consistency_loss']:
     pd['consistency_samples'] = 224
     assert pd['consistency_samples'] <= pd['pred_samples']
-    pd['consistency_loss_weight'] = 0.0
+    pd['consistency_loss_weight'] = 0.001
 pd['window_size'] = 1
 pd['discarded_samples'] = 0
 
@@ -95,15 +95,25 @@ if pd['fft']:
 else:
     pd['epsilon'] = None
 
-lpd_lst = []
+lpd_lst = [pd]
 # define a list of experiments.
-for consistency_loss_weight in [0.001, 0.01, 0.0]:
-    for fft_compression_rate in [4, 8, 16]:
+for consistency_loss_weight in [0.001, 0.0]:
+    for fft in [True, False]:
         cpd = pd.copy()
         cpd['consistency_loss_weight'] = consistency_loss_weight
+        cpd['fft'] = fft
         if cpd['fft']:
-            cpd['fft_compression_rate'] = fft_compression_rate
-            cpd['num_proj'] = 17*3*int((cpd['window_size']//2 + 1) / cpd['fft_compression_rate'])
+            cpd['window_size'] = 32
+            cpd['fft_compression_rate'] = 8
+            cpd['overlap'] = int(cpd['window_size']*0.9)
+            cpd['step_size'] = cpd['window_size'] - cpd['overlap']
+            cpd['fft_pred_samples'] = cpd['pred_samples'] // cpd['step_size'] + 1
+            if cpd['fft_compression_rate']:
+                cpd['num_proj'] = 17*3*int((cpd['window_size']//2 + 1) / cpd['fft_compression_rate'])
+            else:
+                cpd['num_proj'] = 17*3*int((cpd['window_size']//2 + 1))
+        else:
+            cpd['num_proj'] = 17*3
         lpd_lst.append(cpd)
 
 print('number of experiments:', len(lpd_lst))
@@ -226,6 +236,10 @@ for exp_no, lpd in enumerate(lpd_lst):
                 test_csl_lst_net = []
                 test_net_lst_out = []
                 test_gt_lst_out = []
+                psx_lst = []
+                psy_lst = []
+                ps_kl_xy_lst = []
+                ps_kl_yx_lst = []
                 test_batch_lst = organize_into_batches(test_data, lpd)
                 for test_batch in test_batch_lst:
                     gt = np.reshape(test_batch, [lpd['batch_size'], lpd['chunk_size'], 17*3])
@@ -234,21 +248,26 @@ for exp_no, lpd in enumerate(lpd_lst):
                     if lpd['fft']:
                         np_loss, np_global_step, \
                             test_datenc_np, test_datdec_np, test_decout_np, \
-                            datand_np, window_np, cs_loss_np = \
+                            datand_np, window_np, cs_loss_np, mean_psx_np, \
+                            mean_psy_np, mean_ps_kl_xy_np, mean_ps_kl_yx_np = \
                             sess.run([pgraph.loss, pgraph.global_step,
                                       pgraph.data_encoder_time,
                                       pgraph.data_decoder_time,
                                       pgraph.decoder_out, pgraph.data_nd, pgraph.window,
-                                      pgraph.consistency_loss],
+                                      pgraph.consistency_loss, pgraph.mean_psx, pgraph.mean_psy,
+                                      pgraph.mean_ps_kl_xy, pgraph.mean_ps_kl_yx],
                                      feed_dict=feed_dict)
                     else:
                         np_loss, np_global_step, \
                             test_datenc_np, test_datdec_np, test_decout_np, \
-                            datand_np, cs_loss_np = \
+                            datand_np, cs_loss_np, mean_psx_np, mean_psy_np, \
+                            mean_ps_kl_xy_np, mean_ps_kl_yx_np = \
                             sess.run([pgraph.loss, pgraph.global_step,
                                       pgraph.data_encoder_time,
                                       pgraph.data_decoder_time,
-                                      pgraph.decoder_out, pgraph.data_nd, pgraph.consistency_loss],
+                                      pgraph.decoder_out, pgraph.data_nd, pgraph.consistency_loss,
+                                      pgraph.mean_psx, pgraph.mean_psy,
+                                      pgraph.mean_ps_kl_xy, pgraph.mean_ps_kl_yx],
                                      feed_dict=feed_dict)
                     net_pred = test_decout_np[:, :, 0]*mocap_handler.std + mocap_handler.mean
                     gt = gt[:, -lpd['pred_samples']:, 0]
@@ -259,10 +278,18 @@ for exp_no, lpd in enumerate(lpd_lst):
                     test_net_lst_out.append(test_decout_np)
                     test_gt_lst_out.append(test_datdec_np)
                     test_csl_lst_net.append(cs_loss_np)
+                    psx_lst.append(mean_psx_np)
+                    psy_lst.append(mean_psy_np)
+                    ps_kl_xy_lst.append(mean_ps_kl_xy_np)
+                    ps_kl_yx_lst.append(mean_ps_kl_yx_np)
 
                     print('.', end='')
                 mse_net = np.mean(np.array(test_mse_lst_net))
                 cs_loss_np_mean = np.mean(test_csl_lst_net)
+                mean_psx = np.mean(psx_lst)
+                mean_psy = np.mean(psy_lst)
+                mean_ps_kl_xy = np.mean(ps_kl_xy_lst)
+                mean_ps_kl_yx = np.mean(ps_kl_yx_lst)
                 print()
                 print('epoch: %5d,  test mse_net: %5.2f, test_cs_loss: %5.2f' %
                       (e, mse_net, cs_loss_np_mean))
@@ -270,6 +297,10 @@ for exp_no, lpd in enumerate(lpd_lst):
                 # add to tensorboard
                 np_scalar_to_summary('test/mse_net_test', mse_net, np_global_step, summary_writer)
                 np_scalar_to_summary('test/cl_net_test', cs_loss_np_mean, np_global_step, summary_writer)
+                np_scalar_to_summary('test_cartesian_50hz/psx', mean_psx, np_global_step, summary_writer)
+                np_scalar_to_summary('test_cartesian_50hz/psy', mean_psy, np_global_step, summary_writer)
+                np_scalar_to_summary('test_cartesian_50hz/ps_kl_xy', mean_ps_kl_xy, np_global_step, summary_writer)
+                np_scalar_to_summary('test_cartesian_50hz/ps_kl_yx', mean_ps_kl_yx, np_global_step, summary_writer)
 
                 if lpd['fft']:
                     # window plot in tensorboard.
@@ -301,10 +332,8 @@ for exp_no, lpd in enumerate(lpd_lst):
                                                                         [0, 1, 2, 3], [0, 2, 1, 3]),
                                                     seqs=np.moveaxis(net_out[:, :50, :, :],
                                                                      [0, 1, 2, 3], [0, 2, 1, 3]))
-                print('eval at epoch', e, 'entropy', ent, 'kl1', kl1, 'kl2', kl2)
-                np_scalar_to_summary('test/entropy', ent, np_global_step, summary_writer)
-                np_scalar_to_summary('test/kl1', kl1, np_global_step, summary_writer)
-                np_scalar_to_summary('test/kl2', kl2, np_global_step, summary_writer)
+                print('eval at epoch', e, 'Euler entropy', ent, 'Euler kl1', kl1, 'Euler kl2', kl2)
+
                 if kl1 < kl1_target and kl2 < kl2_target:
                     kl1_target = kl1
                     kl2_target = kl2
@@ -320,12 +349,12 @@ for exp_no, lpd in enumerate(lpd_lst):
                         compute_ent_metrics_splits(np.moveaxis(gt_out_4s_5hz, [0, 1, 2, 3], [0, 2, 1, 3]),
                                                    np.moveaxis(net_out_4s_5hz, [0, 1, 2, 3], [0, 2, 1, 3]), seq_len=20)
                     for i in range(5):
-                        np_scalar_to_summary('test_fiveHz/ent'+str(i),
+                        np_scalar_to_summary('test_euler_5Hz/ent'+str(i),
                                              seqs_ent_global_mean[i],
                                              np_global_step, summary_writer)
-                        np_scalar_to_summary('test_fiveHz/kl_gen_gt'+str(i),
+                        np_scalar_to_summary('test_euler_5Hz/kl_gen_gt'+str(i),
                                              seqs_kl_gen_gt_mean[i], np_global_step, summary_writer)
-                        np_scalar_to_summary('test_fiveHz/kl_gt_gen'+str(i),
+                        np_scalar_to_summary('test_euler_5Hz/kl_gt_gen'+str(i),
                                              seqs_kl_gen_gt_mean[i], np_global_step, summary_writer)
 
                     gt_out_4s_50hz = gt_out[:, :200, :, :]
@@ -335,12 +364,12 @@ for exp_no, lpd in enumerate(lpd_lst):
                                                    np.moveaxis(net_out_4s_50hz, [0, 1, 2, 3], [0, 2, 1, 3]),
                                                    seq_len=200)
                     for i in range(5):
-                        np_scalar_to_summary('test_50Hz/ent'+str(i),
+                        np_scalar_to_summary('test_euler_50Hz/ent'+str(i),
                                              seqs_ent_global_mean[i],
                                              np_global_step, summary_writer)
-                        np_scalar_to_summary('test_50Hz/kl_gen_gt'+str(i),
+                        np_scalar_to_summary('test_euler_50Hz/kl_gen_gt'+str(i),
                                              seqs_kl_gen_gt_mean[i], np_global_step, summary_writer)
-                        np_scalar_to_summary('test_50Hz/kl_gt_gen'+str(i),
+                        np_scalar_to_summary('test_euler_50Hz/kl_gt_gen'+str(i),
                                              seqs_kl_gen_gt_mean[i], np_global_step, summary_writer)
 
 
@@ -351,7 +380,7 @@ for exp_no, lpd in enumerate(lpd_lst):
         test_datenc_np = np.reshape(test_datenc_np, [test_datenc_np.shape[0], test_datenc_np.shape[1], 17, 3])
         test_datdec_np = np.reshape(test_datdec_np, [test_datdec_np.shape[0], test_datdec_np.shape[1], 17, 3])
         test_decout_np = np.reshape(test_decout_np, [test_decout_np.shape[0], test_decout_np.shape[1], 17, 3])
-        sel = 5
+        sel = 15
         gt_movie = np.concatenate([test_datenc_np, test_datdec_np], axis=1)
         net_movie = np.concatenate([test_datenc_np, test_decout_np], axis=1)
         write_movie(np.transpose(gt_movie[sel], [1, 2, 0]), r_base=1,

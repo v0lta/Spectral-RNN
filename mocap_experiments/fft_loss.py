@@ -36,8 +36,6 @@ def power_spectrum_kl_divergence(x, y):
     """
     psx = compute_power_spectrum(x) + 1e-8
     psy = compute_power_spectrum(y) + 1e-8
-    # psx_dist = tf.nn.softmax(psx) + 1e-8
-    # psy_dist = tf.nn.softmax(psy) + 1e-8
     psx_dist = psx/tf.expand_dims(tf.reduce_sum(psx, axis=-1), -1)
     psy_dist = psy/tf.expand_dims(tf.reduce_sum(psy, axis=-1), -1)
     ps_kl_xy = tf.reduce_sum(psx_dist*tf.log(psx_dist/psy_dist), axis=-1)
@@ -52,25 +50,29 @@ def consistency_loss_fun(x, y, lambda_a=0, lambda_b=1,  summary_nodes=False):
     :param y: Mocap-data tensor y [batch_size, time, 17*3]
     :return: The power spectrum entropy and kl-divergence based frequency domain loss.
     """
-    ps_x = power_spectrum_entropy(x)
-    ps_y = power_spectrum_entropy(y)
-    ps_loss = ps_x - ps_y
+    psx = power_spectrum_entropy(x)
+    psy = power_spectrum_entropy(y)
+    ps_loss = psx - psy
     ps_loss = tf.reduce_mean(ps_loss*ps_loss)
     ps_kl_xy, ps_kl_yx = power_spectrum_kl_divergence(x, y)
     # pskl_loss_diff = ps_kl_xy - ps_kl_yx
     # pskl_loss = tf.reduce_mean(pskl_loss_diff*pskl_loss_diff)
     pskl_loss = tf.reduce_mean(ps_kl_yx + ps_kl_yx)
     total = ps_loss*lambda_a + pskl_loss*lambda_b
+    mean_psx = tf.reduce_mean(psx)
+    mean_psy = tf.reduce_mean(psy)
+    mean_ps_kl_xy = tf.reduce_mean(ps_kl_xy)
+    mean_ps_kl_yx = tf.reduce_mean(ps_kl_yx)
     if summary_nodes:
-        tf.summary.scalar('consistencyLoss/psX', tf.reduce_mean(ps_x))
-        tf.summary.scalar('consistencyLoss/psY', tf.reduce_mean(ps_y))
-        tf.summary.scalar('consistencyLoss/psKlXy', tf.reduce_mean(ps_kl_xy))
-        tf.summary.scalar('consistencyLoss/psKlYx', tf.reduce_mean(ps_kl_yx))
+        tf.summary.scalar('consistencyLoss/psX', mean_psx)
+        tf.summary.scalar('consistencyLoss/psY', mean_psy)
+        tf.summary.scalar('consistencyLoss/psKlXy', mean_ps_kl_xy)
+        tf.summary.scalar('consistencyLoss/psKlYx', mean_ps_kl_yx)
         tf.summary.scalar('consistencyLoss/psLoss', tf.reduce_mean(ps_loss))
         # tf.summary.scalar('consistencyLoss/psklLossDiff', tf.reduce_mean(pskl_loss_diff))
         tf.summary.scalar('consistencyLoss/psklLoss', tf.reduce_mean(pskl_loss))
         tf.summary.scalar('consistencyLoss/total', tf.reduce_mean(total))
-    return total
+    return total, mean_psx, mean_psy, mean_ps_kl_xy, mean_ps_kl_yx
 
 
 if __name__ == '__main__':
@@ -94,7 +96,7 @@ if __name__ == '__main__':
     kl1, kl2 = power_spectrum_kl_divergence(batch_chunk_tf1, batch_chunk_tf2)
     kl1 = tf.reduce_mean(kl1)
     kl2 = tf.reduce_mean(kl2)
-    loss = consistency_loss_fun(batch_chunk_tf1, batch_chunk_tf2)
+    loss, _, _, _, _ = consistency_loss_fun(batch_chunk_tf1, batch_chunk_tf2)
 
     with tf.Session() as sess:
         ps1_np = sess.run(ps1)

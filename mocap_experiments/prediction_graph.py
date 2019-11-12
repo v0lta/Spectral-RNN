@@ -279,13 +279,16 @@ class FFTpredictionGraph(object):
                 tf.real(decoder_out[:, :pd['mse_samples'], :]))
 
             if pd['consistency_loss']:
-                consistency_loss = consistency_loss_fun(
-                    tf.real(data_decoder_time[:, :pd['consistency_samples'], :]),
-                    tf.real(decoder_out[:, :pd['consistency_samples'], :]),
-                    summary_nodes=True)
-                self.consistency_loss = consistency_loss
+                self.consistency_loss, self.mean_psx, self.mean_psy, self.mean_ps_kl_xy, self.mean_ps_kl_yx \
+                    = consistency_loss_fun(tf.real(data_decoder_time[:, :pd['consistency_samples'], :]),
+                                           tf.real(decoder_out[:, :pd['consistency_samples'], :]),
+                                           summary_nodes=False)
             else:
                 self.consistency_loss = tf.constant(0.0)
+                self.mean_psx = tf.constant(0.0)
+                self.mean_psy = tf.constant(0)
+                self.mean_ps_kl_xy = tf.constant(0)
+                self.mean_ps_kl_yx = tf.constant(0)
 
             if not pd['fft']:
                 loss = time_loss
@@ -307,7 +310,7 @@ class FFTpredictionGraph(object):
                     loss = prd_loss
 
             if pd['consistency_loss']:
-                loss = time_loss + consistency_loss*pd['consistency_loss_weight']
+                loss = time_loss + self.consistency_loss*pd['consistency_loss_weight']
 
             learning_rate = tf.train.exponential_decay(pd['init_learning_rate'],
                                                        global_step,
@@ -333,7 +336,7 @@ class FFTpredictionGraph(object):
                                                          global_step=global_step)
             tf.summary.scalar('time_loss', time_loss)
             tf.summary.scalar('training_loss', loss)
-            tf.summary.scalar('consistency_loss', consistency_loss)
+            tf.summary.scalar('consistency_loss', self.consistency_loss)
 
             self.init_op = tf.global_variables_initializer()
             self.summary_sum = tf.summary.merge_all()
