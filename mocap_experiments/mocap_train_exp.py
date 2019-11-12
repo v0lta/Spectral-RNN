@@ -36,13 +36,13 @@ pd['cell_type'] = 'gru'
 pd['num_units'] = 1024*4
 pd['sample_prob'] = 1.0
 pd['init_learning_rate'] = 0.001
-pd['decay_rate'] = 0.97
+pd['decay_rate'] = 0.98
 # pd['input_noise_std'] = 0
 
 kl1_target = 0.012
 kl2_target = 0.012
 
-pd['epochs'] = 800  # 400
+pd['epochs'] = 1600  # 400
 pd['GPUs'] = [0]
 pd['batch_size'] = 50
 # pd['window_function'] = 'learned_tukey'
@@ -76,7 +76,7 @@ pd['discarded_samples'] = 0
 
 
 if pd['fft']:
-    pd['window_size'] = 32
+    pd['window_size'] = 16
     pd['fft_compression_rate'] = 2
     pd['overlap'] = int(pd['window_size']*0.8)
     pd['step_size'] = pd['window_size'] - pd['overlap']
