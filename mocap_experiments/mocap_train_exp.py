@@ -95,7 +95,7 @@ if pd['fft']:
 else:
     pd['epsilon'] = None
 
-lpd_lst = [pd]
+lpd_lst = []
 # define a list of experiments.
 for consistency_loss_weight in [0.001, 0.0]:
     for fft in [True]:
