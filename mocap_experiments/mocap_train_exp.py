@@ -103,8 +103,8 @@ for consistency_loss_weight in [0.001, 0.0]:
         cpd['consistency_loss_weight'] = consistency_loss_weight
         cpd['fft'] = fft
         if cpd['fft']:
-            cpd['window_size'] = 32
-            cpd['fft_compression_rate'] = 4
+            cpd['window_size'] = 16
+            cpd['fft_compression_rate'] = 2
             cpd['overlap'] = int(cpd['window_size']*0.9)
             cpd['step_size'] = cpd['window_size'] - cpd['overlap']
             cpd['fft_pred_samples'] = cpd['pred_samples'] // cpd['step_size'] + 1
