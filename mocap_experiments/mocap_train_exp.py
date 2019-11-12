@@ -77,7 +77,7 @@ pd['discarded_samples'] = 0
 
 if pd['fft']:
     pd['window_size'] = 32
-    pd['fft_compression_rate'] = 8
+    pd['fft_compression_rate'] = 2
     pd['overlap'] = int(pd['window_size']*0.8)
     pd['step_size'] = pd['window_size'] - pd['overlap']
     pd['fft_pred_samples'] = pd['pred_samples'] // pd['step_size'] + 1
