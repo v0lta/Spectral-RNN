@@ -31,18 +31,18 @@ def np_scalar_to_summary(tag: str, scalar: np.array, np_step: np.array,
 # set up a parameter dictionary.
 pd = {}
 
-pd['base_dir'] = 'log/paper2/'
+pd['base_dir'] = 'log/paper3/'
 pd['cell_type'] = 'gru'
 pd['num_units'] = 1024*3
 pd['sample_prob'] = 1.0
 pd['init_learning_rate'] = 0.001
-pd['decay_rate'] = 0.98
+pd['decay_rate'] = 0.96
 # pd['input_noise_std'] = 0
 
 kl1_target = 0.012
 kl2_target = 0.012
 
-pd['epochs'] = 400
+pd['epochs'] = 800 # 400
 pd['GPUs'] = [0]
 pd['batch_size'] = 50
 # pd['window_function'] = 'learned_tukey'
@@ -55,7 +55,7 @@ pd['linear_reshape'] = False
 pd['stiefel'] = False
 pd['input_noise'] = False
 
-pd['decay_steps'] = 5000
+pd['decay_steps'] = 1000
 pd['chunk_size'] = 224*2
 pd['input_samples'] = pd['chunk_size']
 
@@ -78,7 +78,7 @@ pd['discarded_samples'] = 0
 if pd['fft']:
     pd['window_size'] = 32
     pd['fft_compression_rate'] = 8
-    pd['overlap'] = int(pd['window_size']*0.9)
+    pd['overlap'] = int(pd['window_size']*0.8)
     pd['step_size'] = pd['window_size'] - pd['overlap']
     pd['fft_pred_samples'] = pd['pred_samples'] // pd['step_size'] + 1
     if pd['fft_compression_rate']:
@@ -98,7 +98,7 @@ else:
 lpd_lst = []
 # define a list of experiments.
 for consistency_loss_weight in [0.001, 0.0]:
-    for fft in [True]:
+    for fft in [True, False]:
         cpd = pd.copy()
         cpd['consistency_loss_weight'] = consistency_loss_weight
         cpd['fft'] = fft

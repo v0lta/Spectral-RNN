@@ -327,6 +327,9 @@ class FFTpredictionGraph(object):
                 optimizer = tf.train.AdamOptimizer(learning_rate)
             gvs = optimizer.compute_gradients(loss)
 
+            for grad, var in gvs:
+                tf.summary.scalar('gradients/gradient_norm_' + var.name, tf.norm(grad))
+
             with tf.variable_scope("clip_grads"):
                 capped_gvs = [(tf.clip_by_value(grad, -1., 1.), var) for grad, var in gvs]
 
@@ -334,9 +337,11 @@ class FFTpredictionGraph(object):
             # training_op = optimizer.minimize(loss, global_step=global_step)
             self.training_op = optimizer.apply_gradients(capped_gvs,
                                                          global_step=global_step)
-            tf.summary.scalar('time_loss', time_loss)
-            tf.summary.scalar('training_loss', loss)
-            tf.summary.scalar('consistency_loss', self.consistency_loss)
+            tf.summary.scalar('loss/time_loss', time_loss)
+            tf.summary.scalar('loss/training_loss', loss)
+            tf.summary.scalar('loss/consistency_loss', self.consistency_loss)
+            tf.summary.scalar('loss/cs_over_time_loss', self.consistency_loss/time_loss)
+
 
             self.init_op = tf.global_variables_initializer()
             self.summary_sum = tf.summary.merge_all()
