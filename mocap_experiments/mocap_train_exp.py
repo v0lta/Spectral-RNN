@@ -42,7 +42,7 @@ pd['decay_rate'] = 0.98
 kl1_target = 0.012
 kl2_target = 0.012
 
-pd['epochs'] = 500
+pd['epochs'] = 500 # 2000
 pd['GPUs'] = [0]
 pd['batch_size'] = 50
 # pd['window_function'] = 'learned_tukey'
@@ -314,11 +314,11 @@ for exp_no, lpd in enumerate(lpd_lst):
                     print('saved at:', ret)
 
                 if lpd['pred_samples'] > 200:
-                    gt_out_4s = gt_out[:, :200:10, :, :]
-                    net_out_4s = net_out[:, :200:10, :, :]
+                    gt_out_4s_5hz = gt_out[:, :200:10, :, :]
+                    net_out_4s_5hz = net_out[:, :200:10, :, :]
                     seqs_ent_global_mean, seqs_kl_gen_gt_mean, seqs_kl_gt_gen_mean = \
-                        compute_ent_metrics_splits(np.moveaxis(gt_out_4s, [0, 1, 2, 3], [0, 2, 1, 3]),
-                                                   np.moveaxis(net_out_4s, [0, 1, 2, 3], [0, 2, 1, 3]), seq_len=20)
+                        compute_ent_metrics_splits(np.moveaxis(gt_out_4s_5hz, [0, 1, 2, 3], [0, 2, 1, 3]),
+                                                   np.moveaxis(net_out_4s_5hz, [0, 1, 2, 3], [0, 2, 1, 3]), seq_len=20)
                     for i in range(5):
                         np_scalar_to_summary('test_fiveHz/ent'+str(i),
                                              seqs_ent_global_mean[i],
@@ -326,6 +326,21 @@ for exp_no, lpd in enumerate(lpd_lst):
                         np_scalar_to_summary('test_fiveHz/kl_gen_gt'+str(i),
                                              seqs_kl_gen_gt_mean[i], np_global_step, summary_writer)
                         np_scalar_to_summary('test_fiveHz/kl_gt_gen'+str(i),
+                                             seqs_kl_gen_gt_mean[i], np_global_step, summary_writer)
+
+                    gt_out_4s_50hz = gt_out[:, :200, :, :]
+                    net_out_4s_50hz = net_out[:, :200, :, :]
+                    seqs_ent_global_mean, seqs_kl_gen_gt_mean, seqs_kl_gt_gen_mean = \
+                        compute_ent_metrics_splits(np.moveaxis(gt_out_4s_50hz, [0, 1, 2, 3], [0, 2, 1, 3]),
+                                                   np.moveaxis(net_out_4s_50hz, [0, 1, 2, 3], [0, 2, 1, 3]),
+                                                   seq_len=200)
+                    for i in range(5):
+                        np_scalar_to_summary('test_50Hz/ent'+str(i),
+                                             seqs_ent_global_mean[i],
+                                             np_global_step, summary_writer)
+                        np_scalar_to_summary('test_50Hz/kl_gen_gt'+str(i),
+                                             seqs_kl_gen_gt_mean[i], np_global_step, summary_writer)
+                        np_scalar_to_summary('test_50Hz/kl_gt_gen'+str(i),
                                              seqs_kl_gen_gt_mean[i], np_global_step, summary_writer)
 
 
