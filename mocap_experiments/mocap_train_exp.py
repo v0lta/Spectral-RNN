@@ -33,7 +33,7 @@ pd = {}
 
 pd['base_dir'] = 'log/mocap/paper/'
 pd['cell_type'] = 'gru'
-pd['num_units'] = 1024*4
+pd['num_units'] = 1024*3
 pd['sample_prob'] = 1.0
 pd['init_learning_rate'] = 0.001
 pd['decay_rate'] = 0.98
@@ -42,7 +42,7 @@ pd['decay_rate'] = 0.98
 kl1_target = 0.012
 kl2_target = 0.012
 
-pd['epochs'] = 5000
+pd['epochs'] = 500
 pd['GPUs'] = [0]
 pd['batch_size'] = 50
 # pd['window_function'] = 'learned_tukey'
@@ -313,7 +313,7 @@ for exp_no, lpd in enumerate(lpd_lst):
                                             param_str + '/soa_kl1_kl2_'+str(kl1)+'_'+str(kl2)+'/cpk')
                     print('saved at:', ret)
 
-                if lpd['pred_samples'] < 200:
+                if lpd['pred_samples'] > 200:
                     gt_out_4s = gt_out[:, :200:10, :, :]
                     net_out_4s = net_out[:, :200:10, :, :]
                     seqs_ent_global_mean, seqs_kl_gen_gt_mean, seqs_kl_gt_gen_mean = \
