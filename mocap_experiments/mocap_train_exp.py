@@ -33,16 +33,16 @@ pd = {}
 
 pd['base_dir'] = 'log/paper3/'
 pd['cell_type'] = 'gru'
-pd['num_units'] = 1024*3
+pd['num_units'] = 1024*4
 pd['sample_prob'] = 1.0
 pd['init_learning_rate'] = 0.001
-pd['decay_rate'] = 0.96
+pd['decay_rate'] = 0.97
 # pd['input_noise_std'] = 0
 
 kl1_target = 0.012
 kl2_target = 0.012
 
-pd['epochs'] = 800 # 400
+pd['epochs'] = 800  # 400
 pd['GPUs'] = [0]
 pd['batch_size'] = 50
 # pd['window_function'] = 'learned_tukey'
@@ -380,12 +380,25 @@ for exp_no, lpd in enumerate(lpd_lst):
         test_datenc_np = np.reshape(test_datenc_np, [test_datenc_np.shape[0], test_datenc_np.shape[1], 17, 3])
         test_datdec_np = np.reshape(test_datdec_np, [test_datdec_np.shape[0], test_datdec_np.shape[1], 17, 3])
         test_decout_np = np.reshape(test_decout_np, [test_decout_np.shape[0], test_decout_np.shape[1], 17, 3])
-        sel = 15
+        sel = 15  # 30
+        sel2 = 30
         gt_movie = np.concatenate([test_datenc_np, test_datdec_np], axis=1)
         net_movie = np.concatenate([test_datenc_np, test_decout_np], axis=1)
-        write_movie(np.transpose(gt_movie[sel], [1, 2, 0]), r_base=1,
+        write_movie(np.transpose(gt_movie[sel], [1, 2, 0]), r_base=1.5,
                     name=lpd['base_dir'] + time_str + param_str + '/in.mp4',
                     color_shift_at=lpd['chunk_size'] - lpd['pred_samples'] - 1)
-        write_movie(np.transpose(net_movie[sel], [1, 2, 0]), r_base=1,
+        write_movie(np.transpose(net_movie[sel], [1, 2, 0]), r_base=1.5,
                     name=lpd['base_dir'] + time_str + param_str + '/out.mp4',
+                    color_shift_at=lpd['chunk_size'] - lpd['pred_samples'] - 1)
+        write_movie(np.transpose(gt_movie[sel][:(224+60), :, :], [1, 2, 0]), r_base=1.5,
+                    name=lpd['base_dir'] + time_str + param_str + '/in_4s.mp4',
+                    color_shift_at=lpd['chunk_size'] - lpd['pred_samples'] - 1)
+        write_movie(np.transpose(net_movie[sel][:(224+60), :, :], [1, 2, 0]), r_base=1.5,
+                    name=lpd['base_dir'] + time_str + param_str + '/out_4s.mp4',
+                    color_shift_at=lpd['chunk_size'] - lpd['pred_samples'] - 1)
+        write_movie(np.transpose(gt_movie[sel2][:(224+60), :, :], [1, 2, 0]), r_base=1.5,
+                    name=lpd['base_dir'] + time_str + param_str + '/in2_4s.mp4',
+                    color_shift_at=lpd['chunk_size'] - lpd['pred_samples'] - 1)
+        write_movie(np.transpose(net_movie[sel2][:(224+60), :, :], [1, 2, 0]), r_base=1.5,
+                    name=lpd['base_dir'] + time_str + param_str + '/out2_4s.mp4',
                     color_shift_at=lpd['chunk_size'] - lpd['pred_samples'] - 1)
