@@ -98,13 +98,13 @@ else:
 lpd_lst = [pd]
 # define a list of experiments.
 for consistency_loss_weight in [0.001, 0.0]:
-    for fft in [True, False]:
+    for fft in [True]:
         cpd = pd.copy()
         cpd['consistency_loss_weight'] = consistency_loss_weight
         cpd['fft'] = fft
         if cpd['fft']:
             cpd['window_size'] = 32
-            cpd['fft_compression_rate'] = 8
+            cpd['fft_compression_rate'] = 16
             cpd['overlap'] = int(cpd['window_size']*0.9)
             cpd['step_size'] = cpd['window_size'] - cpd['overlap']
             cpd['fft_pred_samples'] = cpd['pred_samples'] // cpd['step_size'] + 1
