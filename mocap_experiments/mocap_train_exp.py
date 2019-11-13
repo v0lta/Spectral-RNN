@@ -31,7 +31,7 @@ def np_scalar_to_summary(tag: str, scalar: np.array, np_step: np.array,
 # set up a parameter dictionary.
 pd = {}
 
-pd['base_dir'] = 'log/paper3/'
+pd['base_dir'] = 'log/paper4/'
 pd['cell_type'] = 'gru'
 pd['num_units'] = 1024*5
 pd['sample_prob'] = 1.0
@@ -43,7 +43,7 @@ kl1_target = 0.012
 kl2_target = 0.012
 mse_target = 10000
 
-pd['epochs'] = 500  # 400
+pd['epochs'] = 250  # 400
 pd['GPUs'] = [0]
 pd['batch_size'] = 50
 # pd['window_function'] = 'learned_tukey'
@@ -51,13 +51,13 @@ pd['batch_size'] = 50
 pd['window_function'] = 'hann'  # 'learned_gaussian'
 pd['freq_loss'] = None
 pd['use_residuals'] = True
-pd['fft'] = True
+pd['fft'] = False
 pd['linear_reshape'] = False
 pd['stiefel'] = False
 pd['input_noise'] = False
 
 pd['decay_steps'] = 1000
-pd['chunk_size'] = 128
+pd['chunk_size'] = 100
 pd['input_samples'] = pd['chunk_size']
 
 mocap_handler = H36MDataSet(train=True, chunk_size=pd['chunk_size'], dataset_name='h36mv2')
@@ -65,11 +65,11 @@ mocap_handler_test = H36MDataSet(train=False, chunk_size=pd['chunk_size'], datas
 pd['mocap_handler'] = mocap_handler
 
 pd['consistency_loss'] = True
-pd['mse_samples'] = 64
-pd['pred_samples'] = 64
+pd['mse_samples'] = 50
+pd['pred_samples'] = 50
 assert pd['mse_samples'] <= pd['pred_samples']
 if pd['consistency_loss']:
-    pd['consistency_samples'] = 64
+    pd['consistency_samples'] = 50
     assert pd['consistency_samples'] <= pd['pred_samples']
     pd['consistency_loss_weight'] = 0.001
 pd['window_size'] = 1
@@ -77,7 +77,7 @@ pd['discarded_samples'] = 0
 
 
 if pd['fft']:
-    pd['window_size'] = 16
+    pd['window_size'] = 12
     pd['fft_compression_rate'] = 2
     pd['overlap'] = int(pd['window_size']*0.6)
     pd['step_size'] = pd['window_size'] - pd['overlap']
@@ -96,26 +96,26 @@ if pd['fft']:
 else:
     pd['epsilon'] = None
 
-lpd_lst = []
+lpd_lst = [pd]
 # define a list of experiments.
-for consistency_loss_weight in [0.001, 0.0]:
-    for fft in [True]:
-        cpd = pd.copy()
-        cpd['consistency_loss_weight'] = consistency_loss_weight
-        cpd['fft'] = fft
-        if cpd['fft']:
-            cpd['window_size'] = 16
-            cpd['fft_compression_rate'] = 2
-            cpd['overlap'] = int(cpd['window_size']*0.6)
-            cpd['step_size'] = cpd['window_size'] - cpd['overlap']
-            cpd['fft_pred_samples'] = cpd['pred_samples'] // cpd['step_size'] + 1
-            if cpd['fft_compression_rate']:
-                cpd['num_proj'] = 17*3*int((cpd['window_size']//2 + 1) / cpd['fft_compression_rate'])
-            else:
-                cpd['num_proj'] = 17*3*int((cpd['window_size']//2 + 1))
-        else:
-            cpd['num_proj'] = 17*3
-        lpd_lst.append(cpd)
+# for consistency_loss_weight in [0.001, 0.0]:
+#     for fft in [True]:
+#         cpd = pd.copy()
+#         cpd['consistency_loss_weight'] = consistency_loss_weight
+#         cpd['fft'] = fft
+#         if cpd['fft']:
+#             cpd['window_size'] = 16
+#             cpd['fft_compression_rate'] = 2
+#             cpd['overlap'] = int(cpd['window_size']*0.6)
+#             cpd['step_size'] = cpd['window_size'] - cpd['overlap']
+#             cpd['fft_pred_samples'] = cpd['pred_samples'] // cpd['step_size'] + 1
+#             if cpd['fft_compression_rate']:
+#                 cpd['num_proj'] = 17*3*int((cpd['window_size']//2 + 1) / cpd['fft_compression_rate'])
+#             else:
+#                 cpd['num_proj'] = 17*3*int((cpd['window_size']//2 + 1))
+#         else:
+#             cpd['num_proj'] = 17*3
+#         lpd_lst.append(cpd)
 
 print('number of experiments:', len(lpd_lst))
 
@@ -337,9 +337,9 @@ for exp_no, lpd in enumerate(lpd_lst):
                 gt_out = np.concatenate(test_gt_lst_out, axis=0)
                 net_out = np.reshape(net_out, [net_out.shape[0], net_out.shape[1], 17, 3])
                 gt_out = np.reshape(gt_out, [gt_out.shape[0], gt_out.shape[1], 17, 3])
-                ent, kl1, kl2 = compute_ent_metrics(gt_seqs=np.moveaxis(gt_out[:, :50, :, :],
+                ent, kl1, kl2 = compute_ent_metrics(gt_seqs=np.moveaxis(gt_out[:, :pd['pred_samples'], :, :],
                                                                         [0, 1, 2, 3], [0, 2, 1, 3]),
-                                                    seqs=np.moveaxis(net_out[:, :50, :, :],
+                                                    seqs=np.moveaxis(net_out[:, :pd['pred_samples'], :, :],
                                                                      [0, 1, 2, 3], [0, 2, 1, 3]))
                 print('eval at epoch', e, 'Euler entropy', ent, 'Euler kl1', kl1, 'Euler kl2', kl2)
 

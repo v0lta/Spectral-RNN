@@ -45,16 +45,20 @@ def write_movie(pose_array, name='writer_test.mp4', fps=15, r_base=1000, color_s
     plt.close()
 
 
-def write_figure(pose_array, name='writer_test.pdf', fps=15, r_base=1000, color_shift_at=0):
+def write_figure(pose_array, name='writer_test.pdf', r_base=1000, color_shift_at=0):
+    time = pose_array.shape[-1]
     fig = plt.figure()
     ax = fig.add_subplot(111, projection='3d')
-    for i in range(total_time):
+    for i in range(time):
         if i > color_shift_at:
             plotter = viz.Ax3DPose(ax, 'Human36', lcolor='#e88d1e', rcolor='#3ce7ae')
             plotter.update(pose_array[:, :, i].flatten(), r_base=r_base)
         else:
             plotter = viz.Ax3DPose(ax, 'Human36')
             plotter.update(pose_array[:, :, i].flatten(), r_base=r_base)
+    ax.set_yticklabels([])
+    ax.set_zticklabels([])
+    ax.set_xticklabels([])
     plt.savefig(name)
     plt.close()
 
@@ -76,4 +80,4 @@ if __name__ == "__main__":
     total_time = 400
     color_shift_at = 200
     write_movie(pose[:, :, :400], color_shift_at=200)
-    write_figure(pose[:, :, :400:10], color_shift_at=200)
+    write_figure(pose[:, :, :400:10], color_shift_at=int(200/10))

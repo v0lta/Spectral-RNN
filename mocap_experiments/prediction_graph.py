@@ -345,7 +345,6 @@ class FFTpredictionGraph(object):
             tf.summary.scalar('loss/consistency_loss', self.consistency_loss)
             tf.summary.scalar('loss/cs_over_time_loss', self.consistency_loss/time_loss)
 
-
             self.init_op = tf.global_variables_initializer()
             self.summary_sum = tf.summary.merge_all()
             self.total_parameters = compute_parameter_total(tf.trainable_variables())

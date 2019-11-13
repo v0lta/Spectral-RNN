@@ -7,7 +7,7 @@ import collections
 import matplotlib.pyplot as plt
 from mocap_experiments.load_h36m import H36MDataSet
 from mocap_experiments.prediction_graph import FFTpredictionGraph
-from mocap_experiments.write_movie import write_movie
+from mocap_experiments.write_movie import write_movie, write_figure
 from mocap_experiments.util import compute_ent_metrics, organize_into_batches, compute_ent_metrics_splits
 
 PoseData = collections.namedtuple('PoseData', ['f', 'action', 'actor', 'array'])
@@ -25,9 +25,10 @@ PoseData = collections.namedtuple('PoseData', ['f', 'action', 'actor', 'array'])
 # path = project_folder + folder
 # checkpoint_folder = 'soa_kl1_kl2_0.010279945518383045_0.010479976860678938'
 base_path = '/home/moritz/uni/fourier-prediction/mocap_experiments/log/paper3/'
-folder = '2019-11-13 10:28:57_gru_size_4096_fft_True_bs_50_ps_224_dis_0_lr_0.001_dr_0.95_ds_1000_sp_1.0_mses_64' \
-         '_rc_False_pt_57029016_clw_0.001_csp_224_wf_hann_ws_16_ol_14_ffts_2_fftp_113_fl_None_eps_0.01_fftcr_2/'
-checkpoint_folder = 'mse_7599.164'
+folder = '2019-11-13 16:31:17_gru_size_5120_fft_True_bs_50_ps_48_dis_0_lr_0.001_dr_0.98_ds_1000_sp_1.0_mses_48' \
+         '_rc_True_pt_87014808_clw_0.001_csp_48_wf_hann_ws_16_ol_9_ffts_7_fftp_7_fl_None_eps_0.01' \
+         '_fftcr_2/'
+checkpoint_folder = 'mse_3865.5574'
 path = base_path + folder
 
 pd = pickle.load(open(path + 'param.pkl', 'rb'))
@@ -107,6 +108,8 @@ with tf.Session(graph=graph.graph, config=config) as sess:
     gt_movie = np.concatenate([test_datenc_np, test_datdec_np], axis=1)
     net_movie = np.concatenate([test_datenc_np, test_decout_np], axis=1)
     write_movie(np.transpose(gt_movie[sel], [1, 2, 0]), r_base=1,
-                name='test_in.mp4', color_shift_at=224)
+                name='test_in.mp4', color_shift_at=pd['pred_samples'])
     write_movie(np.transpose(net_movie[sel], [1, 2, 0]), r_base=1,
-                name='test_out.mp4', color_shift_at=224)
+                name='test_out.mp4', color_shift_at=pd['pred_samples'])
+    write_figure(np.transpose(gt_movie[sel][::5, :, :], [1, 2, 0]), color_shift_at=int(pd['pred_samples']/5), r_base=1,
+                 name='test_figure.pdf')
