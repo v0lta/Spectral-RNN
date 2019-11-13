@@ -24,12 +24,21 @@ PoseData = collections.namedtuple('PoseData', ['f', 'action', 'actor', 'array'])
 #          'fl_None_eps_0.01_fftcr_16/'
 # path = project_folder + folder
 # checkpoint_folder = 'soa_kl1_kl2_0.010279945518383045_0.010479976860678938'
+
+# paper figure experiment...
 base_path = '/home/moritz/uni/fourier-prediction/mocap_experiments/log/paper3/'
 folder = '2019-11-13 16:31:17_gru_size_5120_fft_True_bs_50_ps_48_dis_0_lr_0.001_dr_0.98_ds_1000_sp_1.0_mses_48' \
-         '_rc_True_pt_87014808_clw_0.001_csp_48_wf_hann_ws_16_ol_9_ffts_7_fftp_7_fl_None_eps_0.01' \
-         '_fftcr_2/'
+        '_rc_True_pt_87014808_clw_0.001_csp_48_wf_hann_ws_16_ol_9_ffts_7_fftp_7_fl_None_eps_0.01' \
+        '_fftcr_2/'
 checkpoint_folder = 'mse_3865.5574'
 path = base_path + folder
+
+# fft 2.5 experiment.
+base_path = '/home/moritz/uni/fourier-prediction/mocap_experiments/log/paper5/'
+folder = '2019-11-13 21:12:06_gru_size_3072_fft_True_bs_50_ps_50_dis_0_lr_0.001_dr_0.98_ds_1000_sp_1.0_' \
+         'mses_50_rc_False_pt_30827724_clw_0.001_csp_50_wf_hann_ws_20_ol_16_ffts_4_fftp_13_fl_None_eps_0.01_fftcr_5/'
+path = base_path + folder
+checkpoint_folder = 'mse_4823.359'
 
 pd = pickle.load(open(path + 'param.pkl', 'rb'))
 
@@ -92,9 +101,14 @@ with tf.Session(graph=graph.graph, config=config) as sess:
     gt_out = np.concatenate(test_gt_lst_out, axis=0)
     net_out = np.reshape(net_out, [net_out.shape[0], net_out.shape[1], 17, 3])
     gt_out = np.reshape(gt_out, [gt_out.shape[0], gt_out.shape[1], 17, 3])
+    net_out = net_out[:, :pd['pred_samples'], :, :]
+    gt_out = gt_out[:, :pd['pred_samples'], :, :]
+    euler_ent, euler_kl1, euler_kl2 = compute_ent_metrics(gt_seqs=np.moveaxis(gt_out, [0, 1, 2, 3], [0, 2, 1, 3]),
+                                                          seqs=np.moveaxis(net_out, [0, 1, 2, 3], [0, 2, 1, 3]))
+    print('euler entropy', euler_ent, 'kl1', euler_kl1, 'kl2', euler_kl2)
     ent, kl1, kl2 = compute_ent_metrics(gt_seqs=np.moveaxis(gt_out, [0, 1, 2, 3], [0, 2, 1, 3]),
-                                        seqs=np.moveaxis(net_out, [0, 1, 2, 3], [0, 2, 1, 3]))
-    print('entropy', ent, 'kl1', kl1, 'kl2', kl2)
+                                        seqs=np.moveaxis(net_out, [0, 1, 2, 3], [0, 2, 1, 3]), euler=False)
+    print('carthesian entropy', ent, 'carthesian kl1', kl1, 'carthesian kl2', kl2)
 
     # gt_out_4s = gt_out[:, :200:10, :, :]
     # net_out_4s = net_out[:, :200:10, :, :]
@@ -104,12 +118,12 @@ with tf.Session(graph=graph.graph, config=config) as sess:
     test_datenc_np = np.reshape(test_datenc_np, [test_datenc_np.shape[0], test_datenc_np.shape[1], 17, 3])
     test_datdec_np = np.reshape(test_datdec_np, [test_datdec_np.shape[0], test_datdec_np.shape[1], 17, 3])
     test_decout_np = np.reshape(test_decout_np, [test_decout_np.shape[0], test_decout_np.shape[1], 17, 3])
-    sel = 30
+    sel = 5 # 30
     gt_movie = np.concatenate([test_datenc_np, test_datdec_np], axis=1)
     net_movie = np.concatenate([test_datenc_np, test_decout_np], axis=1)
     write_movie(np.transpose(gt_movie[sel], [1, 2, 0]), r_base=1,
                 name='test_in.mp4', color_shift_at=pd['pred_samples'])
     write_movie(np.transpose(net_movie[sel], [1, 2, 0]), r_base=1,
                 name='test_out.mp4', color_shift_at=pd['pred_samples'])
-    write_figure(np.transpose(gt_movie[sel][::5, :, :], [1, 2, 0]), color_shift_at=int(pd['pred_samples']/5), r_base=1,
-                 name='test_figure.pdf')
+    # write_figure(np.transpose(gt_movie[sel][::5, :, :], [1, 2, 0]), color_shift_at=int(pd['pred_samples']/5), r_base=1,
+    #              name='test_figure.pdf')

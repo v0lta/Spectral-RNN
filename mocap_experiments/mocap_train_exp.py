@@ -31,9 +31,9 @@ def np_scalar_to_summary(tag: str, scalar: np.array, np_step: np.array,
 # set up a parameter dictionary.
 pd = {}
 
-pd['base_dir'] = 'log/paper4/'
+pd['base_dir'] = 'log/paper5/'
 pd['cell_type'] = 'gru'
-pd['num_units'] = 1024*3
+pd['num_units'] = 1024*4
 pd['sample_prob'] = 1.0
 pd['init_learning_rate'] = 0.001
 pd['decay_rate'] = 0.98
@@ -41,7 +41,7 @@ pd['decay_rate'] = 0.98
 
 kl1_target = 0.012
 kl2_target = 0.012
-mse_target = 10000
+mse_target = 5000
 
 pd['epochs'] = 250  # 400
 pd['GPUs'] = [0]
@@ -50,8 +50,8 @@ pd['batch_size'] = 50
 # pd['window_function'] = 'learned_plank'
 pd['window_function'] = 'hann'  # 'learned_gaussian'
 pd['freq_loss'] = None
-pd['use_residuals'] = True
-pd['fft'] = False
+pd['use_residuals'] = False
+pd['fft'] = True
 pd['linear_reshape'] = False
 pd['stiefel'] = False
 pd['input_noise'] = False
@@ -77,9 +77,9 @@ pd['discarded_samples'] = 0
 
 
 if pd['fft']:
-    pd['window_size'] = 12
-    pd['fft_compression_rate'] = 2
-    pd['overlap'] = int(pd['window_size']*0.6)
+    pd['window_size'] = 20
+    pd['fft_compression_rate'] = 5
+    pd['overlap'] = int(pd['window_size']*0.8)
     pd['step_size'] = pd['window_size'] - pd['overlap']
     pd['fft_pred_samples'] = pd['pred_samples'] // pd['step_size'] + 1
     if pd['fft_compression_rate']:
@@ -98,24 +98,24 @@ else:
 
 lpd_lst = [pd]
 # define a list of experiments.
-# for consistency_loss_weight in [0.001, 0.0]:
-#     for fft in [True]:
-#         cpd = pd.copy()
-#         cpd['consistency_loss_weight'] = consistency_loss_weight
-#         cpd['fft'] = fft
-#         if cpd['fft']:
-#             cpd['window_size'] = 16
-#             cpd['fft_compression_rate'] = 2
-#             cpd['overlap'] = int(cpd['window_size']*0.6)
-#             cpd['step_size'] = cpd['window_size'] - cpd['overlap']
-#             cpd['fft_pred_samples'] = cpd['pred_samples'] // cpd['step_size'] + 1
-#             if cpd['fft_compression_rate']:
-#                 cpd['num_proj'] = 17*3*int((cpd['window_size']//2 + 1) / cpd['fft_compression_rate'])
-#             else:
-#                 cpd['num_proj'] = 17*3*int((cpd['window_size']//2 + 1))
-#         else:
-#             cpd['num_proj'] = 17*3
-#         lpd_lst.append(cpd)
+for consistency_loss_weight in [0.001, 0.0]:
+    for fft in [True, False]:
+        cpd = pd.copy()
+        cpd['consistency_loss_weight'] = consistency_loss_weight
+        cpd['fft'] = fft
+        if cpd['fft']:
+            cpd['window_size'] = 20
+            cpd['fft_compression_rate'] = 4
+            cpd['overlap'] = int(cpd['window_size']*0.8)
+            cpd['step_size'] = cpd['window_size'] - cpd['overlap']
+            cpd['fft_pred_samples'] = cpd['pred_samples'] // cpd['step_size'] + 1
+            if cpd['fft_compression_rate']:
+                cpd['num_proj'] = 17*3*int((cpd['window_size']//2 + 1) / cpd['fft_compression_rate'])
+            else:
+                cpd['num_proj'] = 17*3*int((cpd['window_size']//2 + 1))
+        else:
+            cpd['num_proj'] = 17*3
+        lpd_lst.append(cpd)
 
 print('number of experiments:', len(lpd_lst))
 
@@ -389,7 +389,7 @@ for exp_no, lpd in enumerate(lpd_lst):
         test_datenc_np = np.reshape(test_datenc_np, [test_datenc_np.shape[0], test_datenc_np.shape[1], 17, 3])
         test_datdec_np = np.reshape(test_datdec_np, [test_datdec_np.shape[0], test_datdec_np.shape[1], 17, 3])
         test_decout_np = np.reshape(test_decout_np, [test_decout_np.shape[0], test_decout_np.shape[1], 17, 3])
-        sel = 15  # 30
+        sel = 5
         sel2 = 30
         gt_movie = np.concatenate([test_datenc_np, test_datdec_np], axis=1)
         net_movie = np.concatenate([test_datenc_np, test_decout_np], axis=1)
@@ -399,12 +399,12 @@ for exp_no, lpd in enumerate(lpd_lst):
         write_movie(np.transpose(net_movie[sel], [1, 2, 0]), r_base=1.5,
                     name=lpd['base_dir'] + time_str + param_str + '/out.mp4',
                     color_shift_at=lpd['chunk_size'] - lpd['pred_samples'] - 1)
-        write_movie(np.transpose(gt_movie[sel][:(224+60), :, :], [1, 2, 0]), r_base=1.5,
-                    name=lpd['base_dir'] + time_str + param_str + '/in_4s.mp4',
-                    color_shift_at=lpd['chunk_size'] - lpd['pred_samples'] - 1)
-        write_movie(np.transpose(net_movie[sel][:(224+60), :, :], [1, 2, 0]), r_base=1.5,
-                    name=lpd['base_dir'] + time_str + param_str + '/out_4s.mp4',
-                    color_shift_at=lpd['chunk_size'] - lpd['pred_samples'] - 1)
+        # write_movie(np.transpose(gt_movie[sel][:(224+60), :, :], [1, 2, 0]), r_base=1.5,
+        #             name=lpd['base_dir'] + time_str + param_str + '/in_4s.mp4',
+        #             color_shift_at=lpd['chunk_size'] - lpd['pred_samples'] - 1)
+        # write_movie(np.transpose(net_movie[sel][:(224+60), :, :], [1, 2, 0]), r_base=1.5,
+        #             name=lpd['base_dir'] + time_str + param_str + '/out_4s.mp4',
+        #            color_shift_at=lpd['chunk_size'] - lpd['pred_samples'] - 1)
         write_movie(np.transpose(gt_movie[sel2][:(224+60), :, :], [1, 2, 0]), r_base=1.5,
                     name=lpd['base_dir'] + time_str + param_str + '/in2_4s.mp4',
                     color_shift_at=lpd['chunk_size'] - lpd['pred_samples'] - 1)

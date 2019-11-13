@@ -273,29 +273,29 @@ def seq_to_angles_transformer(body_members):
     return _get_angles
 
 
-def compute_ent_metrics(gt_seqs, seqs, print_debug=False):
+def compute_ent_metrics(gt_seqs, seqs, print_debug=False, euler=True):
     """
     :param numpy.array gt_seqs: The ground truth sequences, [batch_size, njoints, seq_len, 3]
     :param numpy.array seqs: The generated sequence  [batch_size, njoints, seq_len, 3]
     :param int seq_len: The length of both sequences [seq_len]
     :return Spectral entropy and kl divergence of both combinations.
     """
-    angle_trans = seq_to_angles_transformer(H36_BODY_MEMBERS)
-    gt_cent_seqs = gt_seqs - gt_seqs[:, 0, np.newaxis, :, :]
-    gt_angle_expmaps = angle_trans(gt_cent_seqs)
-    cent_seqs = seqs - seqs[:, 0, np.newaxis, :, :]
-    angle_expmaps = angle_trans(cent_seqs)
+    if euler:
+        angle_trans = seq_to_angles_transformer(H36_BODY_MEMBERS)
+        gt_cent_seqs = gt_seqs - gt_seqs[:, 0, np.newaxis, :, :]
+        gt_angle_expmaps = angle_trans(gt_cent_seqs)
+        cent_seqs = seqs - seqs[:, 0, np.newaxis, :, :]
+        angle_expmaps = angle_trans(cent_seqs)
+        gt_seqs = rotmat_to_euler(expmap_to_rotmat(gt_angle_expmaps))
+        seqs = rotmat_to_euler(expmap_to_rotmat(angle_expmaps))
 
-    gt_angle_seqs = rotmat_to_euler(expmap_to_rotmat(gt_angle_expmaps))
-    angle_seqs = rotmat_to_euler(expmap_to_rotmat(angle_expmaps))
-
-    gt_seqs_fft = np.fft.fft(gt_angle_seqs, axis=2)
+    gt_seqs_fft = np.fft.fft(gt_seqs, axis=2)
     gt_seqs_ps = np.abs(gt_seqs_fft) ** 2
 
     gt_seqs_ps_global = gt_seqs_ps.sum(axis=0) + 1e-8
     gt_seqs_ps_global /= gt_seqs_ps_global.sum(axis=1, keepdims=True)
 
-    seqs_fft = np.fft.fft(angle_seqs, axis=2)
+    seqs_fft = np.fft.fft(seqs, axis=2)
     seqs_ps = np.abs(seqs_fft) ** 2
 
     seqs_ps_global = seqs_ps.sum(axis=0) + 1e-8
