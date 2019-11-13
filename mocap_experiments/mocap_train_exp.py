@@ -33,7 +33,7 @@ pd = {}
 
 pd['base_dir'] = 'log/paper3/'
 pd['cell_type'] = 'gru'
-pd['num_units'] = 1024*4
+pd['num_units'] = 1024*5
 pd['sample_prob'] = 1.0
 pd['init_learning_rate'] = 0.001
 pd['decay_rate'] = 0.98
@@ -41,22 +41,23 @@ pd['decay_rate'] = 0.98
 
 kl1_target = 0.012
 kl2_target = 0.012
+mse_target = 10000
 
-pd['epochs'] = 1600  # 400
+pd['epochs'] = 500  # 400
 pd['GPUs'] = [0]
 pd['batch_size'] = 50
 # pd['window_function'] = 'learned_tukey'
 # pd['window_function'] = 'learned_plank'
 pd['window_function'] = 'hann'  # 'learned_gaussian'
 pd['freq_loss'] = None
-pd['use_residuals'] = False
+pd['use_residuals'] = True
 pd['fft'] = True
 pd['linear_reshape'] = False
 pd['stiefel'] = False
 pd['input_noise'] = False
 
 pd['decay_steps'] = 1000
-pd['chunk_size'] = 224*2
+pd['chunk_size'] = 128
 pd['input_samples'] = pd['chunk_size']
 
 mocap_handler = H36MDataSet(train=True, chunk_size=pd['chunk_size'], dataset_name='h36mv2')
@@ -65,10 +66,10 @@ pd['mocap_handler'] = mocap_handler
 
 pd['consistency_loss'] = True
 pd['mse_samples'] = 64
-pd['pred_samples'] = 224
+pd['pred_samples'] = 64
 assert pd['mse_samples'] <= pd['pred_samples']
 if pd['consistency_loss']:
-    pd['consistency_samples'] = 224
+    pd['consistency_samples'] = 64
     assert pd['consistency_samples'] <= pd['pred_samples']
     pd['consistency_loss_weight'] = 0.001
 pd['window_size'] = 1
@@ -78,7 +79,7 @@ pd['discarded_samples'] = 0
 if pd['fft']:
     pd['window_size'] = 16
     pd['fft_compression_rate'] = 2
-    pd['overlap'] = int(pd['window_size']*0.8)
+    pd['overlap'] = int(pd['window_size']*0.6)
     pd['step_size'] = pd['window_size'] - pd['overlap']
     pd['fft_pred_samples'] = pd['pred_samples'] // pd['step_size'] + 1
     if pd['fft_compression_rate']:
@@ -98,14 +99,14 @@ else:
 lpd_lst = []
 # define a list of experiments.
 for consistency_loss_weight in [0.001, 0.0]:
-    for fft in [True, False]:
+    for fft in [True]:
         cpd = pd.copy()
         cpd['consistency_loss_weight'] = consistency_loss_weight
         cpd['fft'] = fft
         if cpd['fft']:
             cpd['window_size'] = 16
             cpd['fft_compression_rate'] = 2
-            cpd['overlap'] = int(cpd['window_size']*0.9)
+            cpd['overlap'] = int(cpd['window_size']*0.6)
             cpd['step_size'] = cpd['window_size'] - cpd['overlap']
             cpd['fft_pred_samples'] = cpd['pred_samples'] // cpd['step_size'] + 1
             if cpd['fft_compression_rate']:
@@ -293,6 +294,14 @@ for exp_no, lpd in enumerate(lpd_lst):
                 print()
                 print('epoch: %5d,  test mse_net: %5.2f, test_cs_loss: %5.2f' %
                       (e, mse_net, cs_loss_np_mean))
+
+                if mse_target > mse_net:
+                    mse_target = mse_net
+                    print('Saving a copy.')
+                    ret = pgraph.saver.save(sess, lpd['base_dir'] + time_str +
+                                            param_str + '/mse_'+str(mse_net)+'/cpk')
+                    print('saved at:', ret)
+
 
                 # add to tensorboard
                 np_scalar_to_summary('test/mse_net_test', mse_net, np_global_step, summary_writer)

@@ -13,24 +13,29 @@ from mocap_experiments.util import compute_ent_metrics, organize_into_batches, c
 PoseData = collections.namedtuple('PoseData', ['f', 'action', 'actor', 'array'])
 
 
-experiments_folder = '/home/moritz/uni/fourier-prediction/mocap_experiments/log/mocap/test/'
-experiment_directory = '2019-11-07 17:26:12_gru_size_2048_fft_True_bs_100_ps_64_dis_0_lr_0.001_dr' \
-                       '_0.96_ds_1000_sp_1.0_rc_False_pt_15096114_clw_0.001_csp_64_wf_hann_ws_64_ol_' \
-                       '32_ffts_32_fftp_3_fl_None_eps_0.01_fftcr_10/'
-path = experiments_folder + experiment_directory
-project_folder = '/home/moritz/uni/fourier-prediction/mocap_experiments/log/mocap/test/'
-folder = '2019-11-07 23:39:13_gru_size_4096_fft_True_bs_50_ps_64_dis_0_lr_0.001_dr_0.98_ds' \
-         '_1000_sp_1.0_rc_False_pt_52015206_clw_0_csp_64_wf_hann_ws_32_ol_28_ffts_8_fftp_9_' \
-         'fl_None_eps_0.01_fftcr_16/'
-path = project_folder + folder
-checkpoint_folder = 'soa_kl1_kl2_0.010279945518383045_0.010479976860678938'
+# experiments_folder = '/home/moritz/uni/fourier-prediction/mocap_experiments/log/mocap/test/'
+# experiment_directory = '2019-11-07 17:26:12_gru_size_2048_fft_True_bs_100_ps_64_dis_0_lr_0.001_dr' \
+#                       '_0.96_ds_1000_sp_1.0_rc_False_pt_15096114_clw_0.001_csp_64_wf_hann_ws_64_ol_' \
+#                       '32_ffts_32_fftp_3_fl_None_eps_0.01_fftcr_10/'
+# path = experiments_folder + experiment_directory
+# project_folder = '/home/moritz/uni/fourier-prediction/mocap_experiments/log/mocap/test/'
+# folder = '2019-11-07 23:39:13_gru_size_4096_fft_True_bs_50_ps_64_dis_0_lr_0.001_dr_0.98_ds' \
+#          '_1000_sp_1.0_rc_False_pt_52015206_clw_0_csp_64_wf_hann_ws_32_ol_28_ffts_8_fftp_9_' \
+#          'fl_None_eps_0.01_fftcr_16/'
+# path = project_folder + folder
+# checkpoint_folder = 'soa_kl1_kl2_0.010279945518383045_0.010479976860678938'
+base_path = '/home/moritz/uni/fourier-prediction/mocap_experiments/log/paper3/'
+folder = '2019-11-13 10:28:57_gru_size_4096_fft_True_bs_50_ps_224_dis_0_lr_0.001_dr_0.95_ds_1000_sp_1.0_mses_64' \
+         '_rc_False_pt_57029016_clw_0.001_csp_224_wf_hann_ws_16_ol_14_ffts_2_fftp_113_fl_None_eps_0.01_fftcr_2/'
+checkpoint_folder = 'mse_7599.164'
+path = base_path + folder
 
 pd = pickle.load(open(path + 'param.pkl', 'rb'))
 
-pd['chunk_size'] = 512
-pd['pred_samples'] = 256
-pd['mse_samples'] = 256
-pd['input_samples'] = pd['chunk_size']
+# pd['chunk_size'] = 224*2
+# pd['pred_samples'] = 224
+# pd['mse_samples'] = 224
+# pd['input_samples'] = pd['chunk_size']
 mocap_handler_test = H36MDataSet(train=False, chunk_size=pd['chunk_size'], dataset_name='h36m')
 
 graph = FFTpredictionGraph(pd)
@@ -90,18 +95,18 @@ with tf.Session(graph=graph.graph, config=config) as sess:
                                         seqs=np.moveaxis(net_out, [0, 1, 2, 3], [0, 2, 1, 3]))
     print('entropy', ent, 'kl1', kl1, 'kl2', kl2)
 
-    gt_out_4s = gt_out[:, :200:10, :, :]
-    net_out_4s = net_out[:, :200:10, :, :]
-    _ = compute_ent_metrics_splits(np.moveaxis(gt_out_4s, [0, 1, 2, 3], [0, 2, 1, 3]),
-                                   np.moveaxis(net_out_4s, [0, 1, 2, 3], [0, 2, 1, 3]), seq_len=20)
+    # gt_out_4s = gt_out[:, :200:10, :, :]
+    # net_out_4s = net_out[:, :200:10, :, :]
+    # _ = compute_ent_metrics_splits(np.moveaxis(gt_out_4s, [0, 1, 2, 3], [0, 2, 1, 3]),
+    #                                np.moveaxis(net_out_4s, [0, 1, 2, 3], [0, 2, 1, 3]), seq_len=20)
 
     test_datenc_np = np.reshape(test_datenc_np, [test_datenc_np.shape[0], test_datenc_np.shape[1], 17, 3])
     test_datdec_np = np.reshape(test_datdec_np, [test_datdec_np.shape[0], test_datdec_np.shape[1], 17, 3])
     test_decout_np = np.reshape(test_decout_np, [test_decout_np.shape[0], test_decout_np.shape[1], 17, 3])
-    sel = 5
+    sel = 30
     gt_movie = np.concatenate([test_datenc_np, test_datdec_np], axis=1)
     net_movie = np.concatenate([test_datenc_np, test_decout_np], axis=1)
     write_movie(np.transpose(gt_movie[sel], [1, 2, 0]), r_base=1,
-                name='test_in.mp4', color_shift_at=50)
+                name='test_in.mp4', color_shift_at=224)
     write_movie(np.transpose(net_movie[sel], [1, 2, 0]), r_base=1,
-                name='test_out.mp4', color_shift_at=50)
+                name='test_out.mp4', color_shift_at=224)

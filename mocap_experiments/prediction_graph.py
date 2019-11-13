@@ -331,7 +331,10 @@ class FFTpredictionGraph(object):
                 tf.summary.scalar('gradients/gradient_norm_' + var.name, tf.norm(grad))
 
             with tf.variable_scope("clip_grads"):
-                capped_gvs = [(tf.clip_by_value(grad, -1., 1.), var) for grad, var in gvs]
+                capped_gvs = [(tf.clip_by_value(grad, -0.1, 0.1), var) for grad, var in gvs]
+
+            for grad, var in capped_gvs:
+                tf.summary.scalar('gradients_clip/gradient_norm_' + var.name, tf.norm(grad))
 
             # grad_summary = tf.histogram_summary(grads)
             # training_op = optimizer.minimize(loss, global_step=global_step)
