@@ -33,7 +33,7 @@ pd = {}
 
 pd['base_dir'] = 'log/paper4/'
 pd['cell_type'] = 'gru'
-pd['num_units'] = 1024*5
+pd['num_units'] = 1024*3
 pd['sample_prob'] = 1.0
 pd['init_learning_rate'] = 0.001
 pd['decay_rate'] = 0.98
