@@ -156,7 +156,7 @@ with tf.Session(graph=graph.graph, config=config) as sess:
     test_datenc_np = np.reshape(test_datenc_np, [test_datenc_np.shape[0], test_datenc_np.shape[1], 17, 3])
     test_datdec_np = np.reshape(test_datdec_np, [test_datdec_np.shape[0], test_datdec_np.shape[1], 17, 3])
     test_decout_np = np.reshape(test_decout_np, [test_decout_np.shape[0], test_decout_np.shape[1], 17, 3])
-    sel = 6  # 30
+    sel = 8  # 30
     gt_movie = np.concatenate([test_datenc_np, test_datdec_np], axis=1)
     net_movie = np.concatenate([test_datenc_np, test_decout_np], axis=1)
     write_movie(np.transpose(gt_movie[sel], [1, 2, 0]), r_base=1,

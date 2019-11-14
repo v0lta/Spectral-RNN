@@ -31,7 +31,7 @@ def np_scalar_to_summary(tag: str, scalar: np.array, np_step: np.array,
 # set up a parameter dictionary.
 pd = {}
 
-pd['base_dir'] = 'log/paper5/'
+pd['base_dir'] = 'log/paper6/'
 pd['cell_type'] = 'gru'
 pd['num_units'] = 1024*4
 pd['sample_prob'] = 1.0
@@ -43,7 +43,7 @@ kl1_target = 0.012
 kl2_target = 0.012
 mse_target = 5000
 
-pd['epochs'] = 250  # 400
+pd['epochs'] = 5000  # 400
 pd['GPUs'] = [0]
 pd['batch_size'] = 50
 # pd['window_function'] = 'learned_tukey'
@@ -57,7 +57,7 @@ pd['stiefel'] = False
 pd['input_noise'] = False
 
 pd['decay_steps'] = 1000
-pd['chunk_size'] = 100
+pd['chunk_size'] = 448
 pd['input_samples'] = pd['chunk_size']
 
 mocap_handler = H36MDataSet(train=True, chunk_size=pd['chunk_size'], dataset_name='h36mv2')
@@ -66,20 +66,20 @@ pd['mocap_handler'] = mocap_handler
 
 pd['consistency_loss'] = True
 pd['mse_samples'] = 50
-pd['pred_samples'] = 50
+pd['pred_samples'] = 224
 assert pd['mse_samples'] <= pd['pred_samples']
 if pd['consistency_loss']:
-    pd['consistency_samples'] = 50
+    pd['consistency_samples'] = 224
     assert pd['consistency_samples'] <= pd['pred_samples']
-    pd['consistency_loss_weight'] = 0.001
+    pd['consistency_loss_weight'] = 0.000
 pd['window_size'] = 1
 pd['discarded_samples'] = 0
 
 
 if pd['fft']:
-    pd['window_size'] = 20
-    pd['fft_compression_rate'] = 5
-    pd['overlap'] = int(pd['window_size']*0.8)
+    pd['window_size'] = 64
+    pd['fft_compression_rate'] = 32
+    pd['overlap'] = int(pd['window_size']*0.9)
     pd['step_size'] = pd['window_size'] - pd['overlap']
     pd['fft_pred_samples'] = pd['pred_samples'] // pd['step_size'] + 1
     if pd['fft_compression_rate']:
@@ -105,7 +105,7 @@ for consistency_loss_weight in [0.001, 0.0]:
         cpd['fft'] = fft
         if cpd['fft']:
             cpd['window_size'] = 20
-            cpd['fft_compression_rate'] = 2
+            cpd['fft_compression_rate'] = 5
             cpd['overlap'] = int(cpd['window_size']*0.8)
             cpd['step_size'] = cpd['window_size'] - cpd['overlap']
             cpd['fft_pred_samples'] = cpd['pred_samples'] // cpd['step_size'] + 1
