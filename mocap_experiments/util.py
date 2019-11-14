@@ -314,7 +314,7 @@ def compute_ent_metrics(gt_seqs, seqs, print_debug=False, euler=True):
     return seqs_ent_global.mean(), seqs_kl_gen_gt.mean(), seqs_kl_gt_gen.mean()
 
 
-def compute_ent_metrics_splits(gt_seqs, seqs, seq_len, print_debug=False, print_numbers=False):
+def compute_ent_metrics_splits(gt_seqs, seqs, seq_len, print_debug=False, print_numbers=False, euler=True):
     """
     As found at  https://github.com/magnux/MotionGAN/blob/master/test.py line 634.
     """
@@ -326,7 +326,7 @@ def compute_ent_metrics_splits(gt_seqs, seqs, seq_len, print_debug=False, print_
         seqs_tmp = seqs[:, :, seq_start:seq_end, :]
 
         seqs_ent_global_mean, seqs_kl_gen_gt_mean, seqs_kl_gt_gen_mean = \
-            compute_ent_metrics(gt_seqs=gt_seqs_tmp, seqs=seqs_tmp, print_debug=print_debug)
+            compute_ent_metrics(gt_seqs=gt_seqs_tmp, seqs=seqs_tmp, print_debug=print_debug, euler=euler)
         if print_numbers:
             print("frames: ", (seq_start, seq_end),
                   "%.5f & %.5f & %.5f" % (seqs_ent_global_mean, seqs_kl_gen_gt_mean, seqs_kl_gt_gen_mean))
@@ -348,12 +348,14 @@ if __name__ == '__main__':
     val_batches = data_set_val.data_array
     # compute metric on two.
     # self.batch_size, self.njoints, self.seq_len, 3
-    train_batches = train_batches[:, :200:10, :, :]
-    val_batches = val_batches[:, :200:10, :, :]
+    train_batches_5hz = train_batches[:, :200:10, :, :]
+    val_batches_5hz = val_batches[:, :200:10, :, :]
+    _ = compute_ent_metrics_splits(gt_seqs=np.moveaxis(train_batches_5hz, [0, 1, 2, 3], [0, 2, 1, 3]),
+                                   seqs=np.moveaxis(val_batches_5hz, [0, 1, 2, 3], [0, 2, 1, 3]),
+                                   seq_len=20, print_debug=True)
     _ = compute_ent_metrics_splits(gt_seqs=np.moveaxis(train_batches, [0, 1, 2, 3], [0, 2, 1, 3]),
                                    seqs=np.moveaxis(val_batches, [0, 1, 2, 3], [0, 2, 1, 3]),
-                                   seq_len=20, print_debug=True)
-
+                                   seq_len=200, print_debug=False, print_numbers=True, euler=False)
 
     # 50  0.6601937642721489 0.0054249518712179545 0.004659657744025847
     # 100 1.008094971949801 0.006738225054610497 0.006051738150345249
