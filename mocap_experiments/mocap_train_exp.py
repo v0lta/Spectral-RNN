@@ -57,7 +57,7 @@ pd['stiefel'] = False
 pd['input_noise'] = False
 
 pd['decay_steps'] = 1000
-pd['chunk_size'] = 448
+pd['chunk_size'] = 400
 pd['input_samples'] = pd['chunk_size']
 
 mocap_handler = H36MDataSet(train=True, chunk_size=pd['chunk_size'], dataset_name='h36mv2')
@@ -66,10 +66,10 @@ pd['mocap_handler'] = mocap_handler
 
 pd['consistency_loss'] = True
 pd['mse_samples'] = 50
-pd['pred_samples'] = 224
+pd['pred_samples'] = 200
 assert pd['mse_samples'] <= pd['pred_samples']
 if pd['consistency_loss']:
-    pd['consistency_samples'] = 224
+    pd['consistency_samples'] = 200
     assert pd['consistency_samples'] <= pd['pred_samples']
     pd['consistency_loss_weight'] = 0.000
 pd['window_size'] = 1
@@ -98,7 +98,7 @@ else:
 
 lpd_lst = []
 # define a list of experiments.
-for consistency_loss_weight in [0.0, 0.001]:
+for consistency_loss_weight in [0.001, 0.0]:
     for fft in [True]:
         cpd = pd.copy()
         cpd['consistency_loss_weight'] = consistency_loss_weight
