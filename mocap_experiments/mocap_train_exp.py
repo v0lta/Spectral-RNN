@@ -36,7 +36,7 @@ pd['cell_type'] = 'gru'
 pd['num_units'] = 1024*3
 pd['sample_prob'] = 1.0
 pd['init_learning_rate'] = 0.001
-pd['decay_rate'] = 0.96
+pd['decay_rate'] = 0.97
 # pd['input_noise_std'] = 0
 
 kl1_target = 0.02
@@ -98,7 +98,7 @@ else:
 
 lpd_lst = []
 # define a list of experiments.
-for consistency_loss_weight in [0.0, 0.001, 0.005]:
+for consistency_loss_weight in [0.005, 0]:
     for fft in [True]:
         cpd = pd.copy()
         cpd['consistency_loss_weight'] = consistency_loss_weight

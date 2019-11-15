@@ -82,9 +82,9 @@ if __name__ == '__main__':
     from mocap_experiments.write_movie import write_movie
     from mocap_experiments.load_h36m import H36MDataSet
     from mocap_experiments.util import compute_ent_metrics
-    data = H36MDataSet()
+    data = H36MDataSet(chunk_size=200, train=False)
     batches = (data.data_array - data.mean)/data.std
-    batch_size = 30
+    batch_size = 50
     batch_chunk = batches[:batch_size, :, :, :]
     batch_chunk_rs = np.reshape(batch_chunk, [batch_size, data.chunk_size, 17*3])
     batch_chunk2 = batches[batch_size:(batch_size*2), :, :, :]
@@ -98,12 +98,16 @@ if __name__ == '__main__':
     kl2 = tf.reduce_mean(kl2)
     loss, _, _, _, _ = consistency_loss_fun(batch_chunk_tf1, batch_chunk_tf2)
 
+    re_batches = np.reshape(batches, [batches.shape[0], batches.shape[1], 17*3])
+    full_test_ps = tf.reduce_mean(compute_power_spectrum(re_batches), axis=0)
+
     with tf.Session() as sess:
         ps1_np = sess.run(ps1)
         pse1_np = sess.run(pse1)
         kl1_np = sess.run(kl1)
         kl2_np = sess.run(kl2)
         loss_np = sess.run(loss)
+        full_test_ps_np = sess.run(full_test_ps)
 
     print(pse1_np, kl1_np, kl2_np, loss_np)
     print(compute_ent_metrics(np.moveaxis(batch_chunk, [0, 1, 2, 3], [0, 2, 1, 3]),
