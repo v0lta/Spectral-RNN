@@ -48,7 +48,7 @@ pd['GPUs'] = [0]
 pd['batch_size'] = 50
 # pd['window_function'] = 'learned_tukey'
 # pd['window_function'] = 'learned_plank'
-pd['window_function'] = 'hann'  # 'learned_gaussian'
+pd['window_function'] = 'learned_gaussian'  # 'learned_gaussian'
 pd['freq_loss'] = None
 pd['use_residuals'] = False
 pd['fft'] = True
@@ -98,14 +98,14 @@ else:
 
 lpd_lst = []
 # define a list of experiments.
-for consistency_loss_weight in [0.005, 0]:
+for consistency_loss_weight in [0.001]:
     for fft in [True]:
         cpd = pd.copy()
         cpd['consistency_loss_weight'] = consistency_loss_weight
         cpd['fft'] = fft
         if cpd['fft']:
             cpd['window_size'] = 20
-            cpd['fft_compression_rate'] = 5
+            cpd['fft_compression_rate'] = 3
             cpd['overlap'] = int(cpd['window_size']*0.8)
             cpd['step_size'] = cpd['window_size'] - cpd['overlap']
             cpd['fft_pred_samples'] = cpd['pred_samples'] // cpd['step_size'] + 1
@@ -232,7 +232,7 @@ for exp_no, lpd in enumerate(lpd_lst):
 
             # do a test run.
             # print('test run ', end='')
-            if e % 5 == 0:
+            if e % 4 == 0:
                 test_mse_lst_net = []
                 test_csl_lst_net = []
                 test_net_lst_out = []
