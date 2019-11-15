@@ -98,7 +98,7 @@ else:
 
 lpd_lst = []
 # define a list of experiments.
-for consistency_loss_weight in [0.001, 0.0]:
+for consistency_loss_weight in [0.005, 0.001, 0.0]:
     for fft in [True]:
         cpd = pd.copy()
         cpd['consistency_loss_weight'] = consistency_loss_weight
