@@ -364,7 +364,7 @@ for exp_no, lpd in enumerate(lpd_lst):
                         np_scalar_to_summary('test_euler_5Hz/kl_gen_gt'+str(i),
                                              seqs_kl_gen_gt_mean[i], np_global_step, summary_writer)
                         np_scalar_to_summary('test_euler_5Hz/kl_gt_gen'+str(i),
-                                             seqs_kl_gen_gt_mean[i], np_global_step, summary_writer)
+                                             seqs_kl_gt_gen_mean[i], np_global_step, summary_writer)
 
                     gt_out_4s_50hz = gt_out[:, :200, :, :]
                     net_out_4s_50hz = net_out[:, :200, :, :]
@@ -379,7 +379,7 @@ for exp_no, lpd in enumerate(lpd_lst):
                         np_scalar_to_summary('test_euler_50Hz/kl_gen_gt'+str(i),
                                              seqs_kl_gen_gt_mean[i], np_global_step, summary_writer)
                         np_scalar_to_summary('test_euler_50Hz/kl_gt_gen'+str(i),
-                                             seqs_kl_gen_gt_mean[i], np_global_step, summary_writer)
+                                             seqs_kl_gt_gen_mean[i], np_global_step, summary_writer)
 
 
         print('Saving a copy.')

@@ -72,10 +72,9 @@ base_path = '/home/moritz/uni/fourier-prediction/mocap_experiments/log/paper_arc
 folder = '2019-11-09 12:33:03_gru_size_4096_fft_True_bs_50_ps_224_dis_0_lr_0.001_dr_0.98_ds_1000_sp' \
          '_1.0_mses_64_rc_False_pt_52015206_clw_0.001_csp_224_wf_hann_ws_64_ol_57_ffts_7_fftp_33_fl_' \
          'None_eps_0.01_fftcr_32/'
-
+checkpoint_folder = 'weights'
 
 path = base_path + folder
-checkpoint_folder = 'weights'
 
 pd = pickle.load(open(path + 'param.pkl', 'rb'))
 
