@@ -43,7 +43,7 @@ kl1_target = 0.02
 kl2_target = 0.02
 mse_target = 5000
 
-pd['epochs'] = 4000  # 400
+pd['epochs'] = 1500  # 400
 pd['GPUs'] = [0]
 pd['batch_size'] = 50
 # pd['window_function'] = 'learned_tukey'
@@ -98,13 +98,13 @@ else:
 
 lpd_lst = []
 # define a list of experiments.
-for consistency_loss_weight in [0.005, 0.001, 0.0]:
+for consistency_loss_weight in [0.0, 0.001, 0.005]:
     for fft in [True]:
         cpd = pd.copy()
         cpd['consistency_loss_weight'] = consistency_loss_weight
         cpd['fft'] = fft
         if cpd['fft']:
-            cpd['window_size'] = 26
+            cpd['window_size'] = 20
             cpd['fft_compression_rate'] = 5
             cpd['overlap'] = int(cpd['window_size']*0.8)
             cpd['step_size'] = cpd['window_size'] - cpd['overlap']
@@ -191,8 +191,8 @@ for exp_no, lpd in enumerate(lpd_lst):
                     batch, [lpd['batch_size'], lpd['chunk_size'], 17*3])}
 
                 np_loss, np_consistency_loss, summary_to_file, np_global_step, _, \
-                    datenc_np, datdec_np, decout_np, \
-                    datand_np = \
+                    _, train_datdec_np, train_decout_np, \
+                    _ = \
                     sess.run([pgraph.loss, pgraph.consistency_loss, pgraph.summary_sum, pgraph.global_step,
                               pgraph.training_op, pgraph.data_encoder_time,
                               pgraph.data_decoder_time,
@@ -207,13 +207,13 @@ for exp_no, lpd in enumerate(lpd_lst):
                 if it % 100 == 0:
                     plt.figure()
                     plt.plot(
-                        decout_np[0, lpd['discarded_samples']:lpd['pred_samples'], 0])
+                        train_decout_np[0, lpd['discarded_samples']:lpd['pred_samples'], 0])
                     plt.plot(
-                        datdec_np[0, lpd['discarded_samples']:lpd['pred_samples'], 0])
+                        train_datdec_np[0, lpd['discarded_samples']:lpd['pred_samples'], 0])
                     plt.plot(
                         np.abs(
-                            decout_np[0, lpd['discarded_samples']:lpd['pred_samples'], 0]
-                            - datdec_np[0, lpd['discarded_samples']:lpd['pred_samples'],
+                            train_decout_np[0, lpd['discarded_samples']:lpd['pred_samples'], 0]
+                            - train_datdec_np[0, lpd['discarded_samples']:lpd['pred_samples'],
                                         0]))
                     plt.title("Prediction vs. ground truth")
                     buf = io.BytesIO()
@@ -243,13 +243,13 @@ for exp_no, lpd in enumerate(lpd_lst):
                 ps_kl_yx_lst = []
                 test_batch_lst = organize_into_batches(test_data, lpd)
                 for test_batch in test_batch_lst:
-                    gt = np.reshape(test_batch, [lpd['batch_size'], lpd['chunk_size'], 17*3])
+                    test_gt = np.reshape(test_batch, [lpd['batch_size'], lpd['chunk_size'], 17*3])
 
-                    feed_dict = {pgraph.data_nd: gt}
+                    test_feed_dict = {pgraph.data_nd: test_gt}
                     if lpd['fft']:
                         np_loss, np_global_step, \
                             test_datenc_np, test_datdec_np, test_decout_np, \
-                            datand_np, window_np, cs_loss_np, mean_psx_np, \
+                            _, window_np, cs_loss_np, mean_psx_np, \
                             mean_psy_np, mean_ps_kl_xy_np, mean_ps_kl_yx_np = \
                             sess.run([pgraph.loss, pgraph.global_step,
                                       pgraph.data_encoder_time,
@@ -257,11 +257,11 @@ for exp_no, lpd in enumerate(lpd_lst):
                                       pgraph.decoder_out, pgraph.data_nd, pgraph.window,
                                       pgraph.consistency_loss, pgraph.mean_psx, pgraph.mean_psy,
                                       pgraph.mean_ps_kl_xy, pgraph.mean_ps_kl_yx],
-                                     feed_dict=feed_dict)
+                                     feed_dict=test_feed_dict)
                     else:
                         np_loss, np_global_step, \
                             test_datenc_np, test_datdec_np, test_decout_np, \
-                            datand_np, cs_loss_np, mean_psx_np, mean_psy_np, \
+                            _, cs_loss_np, mean_psx_np, mean_psy_np, \
                             mean_ps_kl_xy_np, mean_ps_kl_yx_np = \
                             sess.run([pgraph.loss, pgraph.global_step,
                                       pgraph.data_encoder_time,
@@ -269,7 +269,7 @@ for exp_no, lpd in enumerate(lpd_lst):
                                       pgraph.decoder_out, pgraph.data_nd, pgraph.consistency_loss,
                                       pgraph.mean_psx, pgraph.mean_psy,
                                       pgraph.mean_ps_kl_xy, pgraph.mean_ps_kl_yx],
-                                     feed_dict=feed_dict)
+                                     feed_dict=test_feed_dict)
                     net_pred = test_decout_np[:, :, 0]*mocap_handler.std + mocap_handler.mean
                     gt = gt[:, -lpd['pred_samples']:, 0]
                     test_mse_lst_net.append(
