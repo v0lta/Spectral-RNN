@@ -33,17 +33,17 @@ pd = {}
 
 pd['base_dir'] = 'log/paper6/'
 pd['cell_type'] = 'gru'
-pd['num_units'] = 1024*4
+pd['num_units'] = 1024*3
 pd['sample_prob'] = 1.0
 pd['init_learning_rate'] = 0.001
-pd['decay_rate'] = 0.98
+pd['decay_rate'] = 0.96
 # pd['input_noise_std'] = 0
 
-kl1_target = 0.012
-kl2_target = 0.012
+kl1_target = 0.02
+kl2_target = 0.02
 mse_target = 5000
 
-pd['epochs'] = 5000  # 400
+pd['epochs'] = 4000  # 400
 pd['GPUs'] = [0]
 pd['batch_size'] = 50
 # pd['window_function'] = 'learned_tukey'
@@ -57,7 +57,7 @@ pd['stiefel'] = False
 pd['input_noise'] = False
 
 pd['decay_steps'] = 1000
-pd['chunk_size'] = 400
+pd['chunk_size'] = 300
 pd['input_samples'] = pd['chunk_size']
 
 mocap_handler = H36MDataSet(train=True, chunk_size=pd['chunk_size'], dataset_name='h36mv2')
@@ -104,7 +104,7 @@ for consistency_loss_weight in [0.001, 0.0]:
         cpd['consistency_loss_weight'] = consistency_loss_weight
         cpd['fft'] = fft
         if cpd['fft']:
-            cpd['window_size'] = 20
+            cpd['window_size'] = 26
             cpd['fft_compression_rate'] = 5
             cpd['overlap'] = int(cpd['window_size']*0.8)
             cpd['step_size'] = cpd['window_size'] - cpd['overlap']
@@ -351,7 +351,7 @@ for exp_no, lpd in enumerate(lpd_lst):
                                             param_str + '/soa_kl1_kl2_'+str(kl1)+'_'+str(kl2)+'/cpk')
                     print('saved at:', ret)
 
-                if lpd['pred_samples'] > 200:
+                if lpd['pred_samples'] >= 200:
                     gt_out_4s_5hz = gt_out[:, :200:10, :, :]
                     net_out_4s_5hz = net_out[:, :200:10, :, :]
                     seqs_ent_global_mean, seqs_kl_gen_gt_mean, seqs_kl_gt_gen_mean = \
