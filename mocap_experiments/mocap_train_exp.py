@@ -271,9 +271,9 @@ for exp_no, lpd in enumerate(lpd_lst):
                                       pgraph.mean_ps_kl_xy, pgraph.mean_ps_kl_yx],
                                      feed_dict=test_feed_dict)
                     net_pred = test_decout_np[:, :, 0]*mocap_handler.std + mocap_handler.mean
-                    gt = gt[:, -lpd['pred_samples']:, 0]
+                    test_gt = test_gt[:, -lpd['pred_samples']:, 0]
                     test_mse_lst_net.append(
-                        np.mean((gt[:, lpd['discarded_samples']:lpd['mse_samples']]
+                        np.mean((test_gt[:, lpd['discarded_samples']:lpd['mse_samples']]
                                  - net_pred[:, lpd['discarded_samples']:lpd['mse_samples']])
                                 ** 2))
                     test_net_lst_out.append(test_decout_np)
