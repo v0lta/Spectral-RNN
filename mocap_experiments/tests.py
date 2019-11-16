@@ -26,12 +26,12 @@ PoseData = collections.namedtuple('PoseData', ['f', 'action', 'actor', 'array'])
 # checkpoint_folder = 'soa_kl1_kl2_0.010279945518383045_0.010479976860678938'
 
 # paper figure experiment...
-# base_path = '/home/moritz/uni/fourier-prediction/mocap_experiments/log/paper3/'
-# folder = '2019-11-13 16:31:17_gru_size_5120_fft_True_bs_50_ps_48_dis_0_lr_0.001_dr_0.98_ds_1000_sp_1.0_mses_48' \
-#         '_rc_True_pt_87014808_clw_0.001_csp_48_wf_hann_ws_16_ol_9_ffts_7_fftp_7_fl_None_eps_0.01' \
-#         '_fftcr_2/'
-# checkpoint_folder = 'mse_3865.5574'
-# path = base_path + folder
+base_path = '/home/moritz/uni/fourier-prediction/mocap_experiments/log/paper3/'
+folder = '2019-11-13 16:31:17_gru_size_5120_fft_True_bs_50_ps_48_dis_0_lr_0.001_dr_0.98_ds_1000_sp_1.0_mses_48' \
+        '_rc_True_pt_87014808_clw_0.001_csp_48_wf_hann_ws_16_ol_9_ffts_7_fftp_7_fl_None_eps_0.01' \
+        '_fftcr_2/'
+checkpoint_folder = 'mse_3865.5574'
+path = base_path + folder
 
 # fft 2.5 experiment.
 # base_path = '/home/moritz/uni/fourier-prediction/mocap_experiments/log/paper5/'
@@ -68,20 +68,26 @@ PoseData = collections.namedtuple('PoseData', ['f', 'action', 'actor', 'array'])
 #         '_0.001_dr_0.98_ds_1000_sp_1.0_mses_50_rc_False_pt_51179571_clw_0.001_csp_50/'
 
 # table experiment
-base_path = '/home/moritz/uni/fourier-prediction/mocap_experiments/log/paper_archive/'
-folder = '2019-11-09 12:33:03_gru_size_4096_fft_True_bs_50_ps_224_dis_0_lr_0.001_dr_0.98_ds_1000_sp' \
-         '_1.0_mses_64_rc_False_pt_52015206_clw_0.001_csp_224_wf_hann_ws_64_ol_57_ffts_7_fftp_33_fl_' \
-         'None_eps_0.01_fftcr_32/'
+# base_path = '/home/moritz/uni/fourier-prediction/mocap_experiments/log/paper_archive/'
+# folder = '2019-11-09 12:33:03_gru_size_4096_fft_True_bs_50_ps_224_dis_0_lr_0.001_dr_0.98_ds_1000_sp' \
+#          '_1.0_mses_64_rc_False_pt_52015206_clw_0.001_csp_224_wf_hann_ws_64_ol_57_ffts_7_fftp_33_fl_' \
+#          'None_eps_0.01_fftcr_32/'
+
+
+base_path = '/home/moritz/uni/fourier-prediction/mocap_experiments/log/paper6/'
+folder = '2019-11-15 20:32:47_gru_size_3072_fft_True_bs_50_ps_200_dis_0_lr_0.001_dr_0.97_ds_1000' \
+         '_sp_1.0_mses_50_rc_False_pt_32081203_clw_0.005_csp_200_wf_learned_gaussian_ws_20_ol_16_' \
+         'ffts_4_fftp_51_fl_None_eps_0.01_fftcr_3/'
 checkpoint_folder = 'weights'
 
 path = base_path + folder
 
 pd = pickle.load(open(path + 'param.pkl', 'rb'))
 
-# pd['chunk_size'] = 250
-# pd['pred_samples'] = 200
-# pd['mse_samples'] = 200
-# pd['input_samples'] = pd['chunk_size']
+pd['chunk_size'] = 250
+pd['pred_samples'] = 200
+pd['mse_samples'] = 200
+pd['input_samples'] = pd['chunk_size']
 mocap_handler_test = H36MDataSet(train=False, chunk_size=pd['chunk_size'], dataset_name='h36m')
 
 graph = FFTpredictionGraph(pd)
@@ -146,21 +152,26 @@ with tf.Session(graph=graph.graph, config=config) as sess:
                                         seqs=np.moveaxis(net_out, [0, 1, 2, 3], [0, 2, 1, 3]), euler=False)
     print('carthesian entropy', ent, 'carthesian kl1', kl1, 'carthesian kl2', kl2)
 
-    gt_out_4s = gt_out[:, :200:10, :, :]
-    net_out_4s = net_out[:, :200:10, :, :]
-    _ = compute_ent_metrics_splits(np.moveaxis(gt_out_4s, [0, 1, 2, 3], [0, 2, 1, 3]),
-                                   np.moveaxis(net_out_4s, [0, 1, 2, 3], [0, 2, 1, 3]), seq_len=20,
-                                   print_numbers=True)
+    five_hz = False
+    if five_hz:
+        gt_out_4s = gt_out[:, :200:10, :, :]
+        net_out_4s = net_out[:, :200:10, :, :]
+        _ = compute_ent_metrics_splits(np.moveaxis(gt_out_4s, [0, 1, 2, 3], [0, 2, 1, 3]),
+                                       np.moveaxis(net_out_4s, [0, 1, 2, 3], [0, 2, 1, 3]), seq_len=20,
+                                       print_numbers=True)
 
     test_datenc_np = np.reshape(test_datenc_np, [test_datenc_np.shape[0], test_datenc_np.shape[1], 17, 3])
     test_datdec_np = np.reshape(test_datdec_np, [test_datdec_np.shape[0], test_datdec_np.shape[1], 17, 3])
     test_decout_np = np.reshape(test_decout_np, [test_decout_np.shape[0], test_decout_np.shape[1], 17, 3])
-    sel = 8  # 30
+    sel = 30  #8  # 30
     gt_movie = np.concatenate([test_datenc_np, test_datdec_np], axis=1)
     net_movie = np.concatenate([test_datenc_np, test_decout_np], axis=1)
-    write_movie(np.transpose(gt_movie[sel], [1, 2, 0]), r_base=1,
+    write_movie(np.transpose(gt_movie[sel], [1, 2, 0]), r_base=2,
                 name='test_in.mp4', color_shift_at=pd['chunk_size'] - pd['pred_samples'])
     write_movie(np.transpose(net_movie[sel], [1, 2, 0]), r_base=1,
                 name='test_out.mp4', color_shift_at=pd['chunk_size'] - pd['pred_samples'])
     # write_figure(np.transpose(gt_movie[sel][::5, :, :], [1, 2, 0]), color_shift_at=int(pd['pred_samples']/5), r_base=1,
     #              name='test_figure.pdf')
+    for i in range(50):
+        write_movie(np.transpose(gt_movie[i], [1, 2, 0]), r_base=1.5,  name='test_in_vid_' + str(i) + '.mp4',
+                    color_shift_at=pd['chunk_size'] - pd['pred_samples'])

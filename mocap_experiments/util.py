@@ -340,7 +340,7 @@ if __name__ == '__main__':
     import collections
     from mocap_experiments.load_h36m import H36MDataSet
 
-    seq_len = 200
+    seq_len = 50
     PoseData = collections.namedtuple('PoseData', ['f', 'action', 'actor', 'array'])
     data_set = H36MDataSet(chunk_size=seq_len, dataset_name='h36m')
     data_set_val = H36MDataSet(chunk_size=seq_len, dataset_name='h36m', train=False)
@@ -348,14 +348,17 @@ if __name__ == '__main__':
     val_batches = data_set_val.data_array
     # compute metric on two.
     # self.batch_size, self.njoints, self.seq_len, 3
-    train_batches_5hz = train_batches[:, :200:10, :, :]
-    val_batches_5hz = val_batches[:, :200:10, :, :]
-    _ = compute_ent_metrics_splits(gt_seqs=np.moveaxis(train_batches_5hz, [0, 1, 2, 3], [0, 2, 1, 3]),
-                                   seqs=np.moveaxis(val_batches_5hz, [0, 1, 2, 3], [0, 2, 1, 3]),
-                                   seq_len=20, print_debug=True)
-    _ = compute_ent_metrics_splits(gt_seqs=np.moveaxis(train_batches, [0, 1, 2, 3], [0, 2, 1, 3]),
-                                   seqs=np.moveaxis(val_batches, [0, 1, 2, 3], [0, 2, 1, 3]),
-                                   seq_len=200, print_debug=False, print_numbers=True, euler=False)
+    # train_batches_5hz = train_batches[:, :200:10, :, :]
+    # val_batches_5hz = val_batches[:, :200:10, :, :]
+    # _ = compute_ent_metrics_splits(gt_seqs=np.moveaxis(train_batches_5hz, [0, 1, 2, 3], [0, 2, 1, 3]),
+    #                                seqs=np.moveaxis(val_batches_5hz, [0, 1, 2, 3], [0, 2, 1, 3]),
+    #                                seq_len=20, print_debug=True)
+    # _ = compute_ent_metrics_splits(gt_seqs=np.moveaxis(train_batches, [0, 1, 2, 3], [0, 2, 1, 3]),
+    #                                seqs=np.moveaxis(val_batches, [0, 1, 2, 3], [0, 2, 1, 3]),
+    #                                seq_len=200, print_debug=False, print_numbers=True, euler=False)
+
+    _ = compute_ent_metrics(np.moveaxis(train_batches, [0, 1, 2, 3], [0, 2, 1, 3]),
+                            np.moveaxis(val_batches, [0, 1, 2, 3], [0, 2, 1, 3]), euler=False, print_debug=True)
 
     # 50  0.6601937642721489 0.0054249518712179545 0.004659657744025847
     # 100 1.008094971949801 0.006738225054610497 0.006051738150345249

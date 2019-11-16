@@ -62,6 +62,23 @@ def write_figure(pose_array, name='writer_test.pdf', r_base=1000, color_shift_at
     plt.savefig(name)
     plt.close()
 
+def write_subplots(pose_array, name='writer_test.pdf', r_base=1000, color_shift_at=0):
+    time = pose_array.shape[-1]
+    fig = plt.figure()
+    ax = fig.add_subplot(111, projection='3d')
+    for i in range(time):
+        if i > color_shift_at:
+            plotter = viz.Ax3DPose(ax, 'Human36', lcolor='#e88d1e', rcolor='#3ce7ae')
+            plotter.update(pose_array[:, :, i].flatten(), r_base=r_base)
+        else:
+            plotter = viz.Ax3DPose(ax, 'Human36')
+            plotter.update(pose_array[:, :, i].flatten(), r_base=r_base)
+    ax.set_yticklabels([])
+    ax.set_zticklabels([])
+    ax.set_xticklabels([])
+    plt.savefig(name)
+    plt.close()
+
 if __name__ == "__main__":
     os.environ["CDF_LIB"] = '/home/moritz/CDF/cdf37_0-dist/lib'
     from spacepy import pycdf

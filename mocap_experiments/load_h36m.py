@@ -82,7 +82,7 @@ if __name__ == "__main__":
     except ValueError:
         print("tensorflow is already in eager mode.")
 
-    data = H36MDataSet(chunk_size=128)
+    data = H36MDataSet(chunk_size=1000, train=False)
     batches = data.get_batches()
     batches = data.get_batches()
     if time:
@@ -92,21 +92,44 @@ if __name__ == "__main__":
         write_movie(np.transpose(batches[0], [1, 2, 0]), 'sample_batch_norm.mp4', r_base=1000/data.std)
         print('written')
     else:
-        batches = batches - data.mean
-        batches = batches/data.std
-        window_size = 8
-        overlap = int(window_size*0.5)
-        window = tf.constant(scisig.get_window('hann', window_size),
-                             dtype=tf.float32)
-        # test fft.
-        shape = batches.shape
-        rs_batches = np.reshape(batches, [shape[0], shape[1], shape[2]*shape[3]])
-        time_last_batches = np.moveaxis(rs_batches, [0, 1, 2], [0, 2, 1])
-        time_last_batches = tf.constant(time_last_batches)
-        freq_batches = stft(time_last_batches, window, window_size, overlap, padded=True)
-        time_data = istft(freq_batches, window, nperseg=window_size, noverlap=overlap, epsilon=0.01)
-        dimensions_last = np.moveaxis(time_data.numpy(), [0, 1, 2], [0, 2, 1])
-        np_time_data = np.reshape(dimensions_last, shape)
-        write_movie(np.transpose(np_time_data[0], [1, 2, 0]), 'fft_sample_batch_norm.mp4', r_base=1000/data.std)
-        error = np.linalg.norm((batches[0] - np_time_data[0]).flatten())
-        print('done, error:', error)
+        # batches = batches - data.mean
+        # batches = batches/data.std
+        # window_size = 8
+        # overlap = int(window_size*0.5)
+        # window = tf.constant(scisig.get_window('hann', window_size),
+        #                      dtype=tf.float32)
+        # # test fft.
+        # shape = batches.shape
+        # rs_batches = np.reshape(batches, [shape[0], shape[1], shape[2]*shape[3]])
+        # time_last_batches = np.moveaxis(rs_batches, [0, 1, 2], [0, 2, 1])
+        # time_last_batches = tf.constant(time_last_batches)
+        # freq_batches = stft(time_last_batches, window, window_size, overlap, padded=True)
+        # time_data = istft(freq_batches, window, nperseg=window_size, noverlap=overlap, epsilon=0.01)
+        # dimensions_last = np.moveaxis(time_data.numpy(), [0, 1, 2], [0, 2, 1])
+        # np_time_data = np.reshape(dimensions_last, shape)
+        # write_movie(np.transpose(np_time_data[0], [1, 2, 0]), 'fft_sample_batch_norm.mp4', r_base=1000/data.std)
+        # error = np.linalg.norm((batches[0] - np_time_data[0]).flatten())
+        # print('done, error:', error)
+
+        # plot the power spectrum.
+        import matplotlib2tikz as tkz
+        freq_data = np.fft.rfft((data.data_array - data.mean)/data.std, axis=1)
+        freq_data_ps = np.abs(freq_data)
+        mean_freq_data_ps = np.mean(freq_data_ps, axis=0)
+        freqs = np.fft.rfftfreq(n=data.data_array.shape[1], d=1/50)
+        rs_mean_freq_data_ps = np.reshape(mean_freq_data_ps, [freqs.shape[0], 17*3])
+        # plt.semilogy(freqs, rs_mean_freq_data_ps)
+        # tkz.save('freq_plot.tex', standalone=True)
+        res_lst = []
+        sum = np.zeros(51)
+        for f in range(freqs.shape[0]):
+            sum += rs_mean_freq_data_ps[f]
+            res_lst.append(sum.copy())
+        res_array = np.stack(res_lst, 0) / np.sum(rs_mean_freq_data_ps, axis=0)
+        plt.plot(freqs, res_array)
+        plt.xlabel('frequency')
+        plt.ylabel('cumulative power')
+        tkz.save('cumulative_power_plot.tex', standalone=True)
+
+
+
