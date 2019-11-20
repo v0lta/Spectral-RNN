@@ -31,7 +31,7 @@ def np_scalar_to_summary(tag: str, scalar: np.array, np_step: np.array,
 # set up a parameter dictionary.
 pd = {}
 
-pd['base_dir'] = 'log/paper6/'
+pd['base_dir'] = 'log/suppl/'
 pd['cell_type'] = 'gru'
 pd['num_units'] = 1024*3
 pd['sample_prob'] = 1.0
@@ -43,7 +43,7 @@ kl1_target = 0.02
 kl2_target = 0.02
 mse_target = 5000
 
-pd['epochs'] = 1500  # 400
+pd['iterations'] = 1  # 1500  # 400
 pd['GPUs'] = [0]
 pd['batch_size'] = 50
 # pd['window_function'] = 'learned_tukey'
@@ -179,7 +179,7 @@ for exp_no, lpd in enumerate(lpd_lst):
     with tf.Session(graph=pgraph.graph, config=config) as sess:
         print('initialize....')
         pgraph.init_op.run()
-        for e in range(0, lpd['epochs']):
+        for e in range(0, lpd['iterations']):
             training_batches = mocap_handler.get_batches()
 
             batch_lst = organize_into_batches(training_batches, lpd)
@@ -201,7 +201,7 @@ for exp_no, lpd in enumerate(lpd_lst):
                 stop = time.time()
                 if it % 10 == 0:
                     print('it: %5d, loss: %5.6f, consist loss: %5.6f, time: %1.2f [s], epoch: %3d of %3d'
-                          % (it, np_loss, np_consistency_loss, stop-start, e, lpd['epochs']))
+                          % (it, np_loss, np_consistency_loss, stop-start, e, lpd['iterations']))
                 summary_writer.add_summary(summary_to_file, global_step=np_global_step)
 
                 if it % 100 == 0:
@@ -270,8 +270,8 @@ for exp_no, lpd in enumerate(lpd_lst):
                                       pgraph.mean_psx, pgraph.mean_psy,
                                       pgraph.mean_ps_kl_xy, pgraph.mean_ps_kl_yx],
                                      feed_dict=test_feed_dict)
-                    net_pred = test_decout_np[:, :, 0]*mocap_handler.std + mocap_handler.mean
-                    test_gt = test_gt[:, -lpd['pred_samples']:, 0]
+                    net_pred = test_decout_np[:, :, :]*mocap_handler.std + mocap_handler.mean
+                    test_gt = test_gt[:, -lpd['pred_samples']:, :]
                     test_mse_lst_net.append(
                         np.mean((test_gt[:, lpd['discarded_samples']:lpd['mse_samples']]
                                  - net_pred[:, lpd['discarded_samples']:lpd['mse_samples']])
@@ -411,3 +411,12 @@ for exp_no, lpd in enumerate(lpd_lst):
         write_movie(np.transpose(net_movie[sel2][:(224+60), :, :], [1, 2, 0]), r_base=1.5,
                     name=lpd['base_dir'] + time_str + param_str + '/out2_4s.mp4',
                     color_shift_at=lpd['chunk_size'] - lpd['pred_samples'] - 1)
+
+        for sel in range(lpd['batch_size']):
+            write_movie(np.transpose(gt_movie[sel], [1, 2, 0]), r_base=1.5,
+                        name=lpd['base_dir'] + time_str + param_str + '/batch_el' + str(sel) + '_in.mp4',
+                        color_shift_at=lpd['chunk_size'] - lpd['pred_samples'] - 1)
+            write_movie(np.transpose(net_movie[sel], [1, 2, 0]), r_base=1.5,
+                        name=lpd['base_dir'] + time_str + param_str + '/batch_el' + str(sel) + '_in.mp4',
+                        color_shift_at=lpd['chunk_size'] - lpd['pred_samples'] - 1)
+        print('done')

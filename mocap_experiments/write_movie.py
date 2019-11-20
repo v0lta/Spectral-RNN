@@ -65,17 +65,17 @@ def write_figure(pose_array, name='writer_test.pdf', r_base=1000, color_shift_at
 def write_subplots(pose_array, name='writer_test.pdf', r_base=1000, color_shift_at=0):
     time = pose_array.shape[-1]
     fig = plt.figure()
-    ax = fig.add_subplot(111, projection='3d')
     for i in range(time):
         if i > color_shift_at:
+            ax = fig.add_subplot(1, time, i+1, projection='3d')
             plotter = viz.Ax3DPose(ax, 'Human36', lcolor='#e88d1e', rcolor='#3ce7ae')
             plotter.update(pose_array[:, :, i].flatten(), r_base=r_base)
+            plt.axis('off')
         else:
+            ax = fig.add_subplot(1, time, i+1, projection='3d')
             plotter = viz.Ax3DPose(ax, 'Human36')
             plotter.update(pose_array[:, :, i].flatten(), r_base=r_base)
-    ax.set_yticklabels([])
-    ax.set_zticklabels([])
-    ax.set_xticklabels([])
+            plt.axis('off')
     plt.savefig(name)
     plt.close()
 

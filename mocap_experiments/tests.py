@@ -7,7 +7,7 @@ import collections
 import matplotlib.pyplot as plt
 from mocap_experiments.load_h36m import H36MDataSet
 from mocap_experiments.prediction_graph import FFTpredictionGraph
-from mocap_experiments.write_movie import write_movie, write_figure
+from mocap_experiments.write_movie import write_movie, write_figure, write_subplots
 from mocap_experiments.util import compute_ent_metrics, organize_into_batches, compute_ent_metrics_splits
 
 PoseData = collections.namedtuple('PoseData', ['f', 'action', 'actor', 'array'])
@@ -74,20 +74,20 @@ path = base_path + folder
 #          'None_eps_0.01_fftcr_32/'
 
 
-base_path = '/home/moritz/uni/fourier-prediction/mocap_experiments/log/paper6/'
-folder = '2019-11-15 20:32:47_gru_size_3072_fft_True_bs_50_ps_200_dis_0_lr_0.001_dr_0.97_ds_1000' \
-         '_sp_1.0_mses_50_rc_False_pt_32081203_clw_0.005_csp_200_wf_learned_gaussian_ws_20_ol_16_' \
-         'ffts_4_fftp_51_fl_None_eps_0.01_fftcr_3/'
-checkpoint_folder = 'weights'
-
-path = base_path + folder
-
+# base_path = '/home/moritz/uni/fourier-prediction/mocap_experiments/log/paper6/'
+# folder = '2019-11-15 20:32:47_gru_size_3072_fft_True_bs_50_ps_200_dis_0_lr_0.001_dr_0.97_ds_1000' \
+#          '_sp_1.0_mses_50_rc_False_pt_32081203_clw_0.005_csp_200_wf_learned_gaussian_ws_20_ol_16_' \
+#          'ffts_4_fftp_51_fl_None_eps_0.01_fftcr_3/'
+# checkpoint_folder = 'weights'
+#
+# path = base_path + folder
+#
 pd = pickle.load(open(path + 'param.pkl', 'rb'))
-
-pd['chunk_size'] = 250
-pd['pred_samples'] = 200
-pd['mse_samples'] = 200
-pd['input_samples'] = pd['chunk_size']
+#
+# pd['chunk_size'] = 250
+# pd['pred_samples'] = 200
+# pd['mse_samples'] = 200
+# pd['input_samples'] = pd['chunk_size']
 mocap_handler_test = H36MDataSet(train=False, chunk_size=pd['chunk_size'], dataset_name='h36m')
 
 graph = FFTpredictionGraph(pd)
@@ -152,26 +152,30 @@ with tf.Session(graph=graph.graph, config=config) as sess:
                                         seqs=np.moveaxis(net_out, [0, 1, 2, 3], [0, 2, 1, 3]), euler=False)
     print('carthesian entropy', ent, 'carthesian kl1', kl1, 'carthesian kl2', kl2)
 
-    five_hz = False
-    if five_hz:
-        gt_out_4s = gt_out[:, :200:10, :, :]
-        net_out_4s = net_out[:, :200:10, :, :]
-        _ = compute_ent_metrics_splits(np.moveaxis(gt_out_4s, [0, 1, 2, 3], [0, 2, 1, 3]),
-                                       np.moveaxis(net_out_4s, [0, 1, 2, 3], [0, 2, 1, 3]), seq_len=20,
-                                       print_numbers=True)
+    # five_hz = False
+    # if five_hz:
+    #     gt_out_4s = gt_out[:, :200:10, :, :]
+    #     net_out_4s = net_out[:, :200:10, :, :]
+    #     _ = compute_ent_metrics_splits(np.moveaxis(gt_out_4s, [0, 1, 2, 3], [0, 2, 1, 3]),
+    #                                    np.moveaxis(net_out_4s, [0, 1, 2, 3], [0, 2, 1, 3]), seq_len=20,
+    #                                    print_numbers=True)
 
     test_datenc_np = np.reshape(test_datenc_np, [test_datenc_np.shape[0], test_datenc_np.shape[1], 17, 3])
     test_datdec_np = np.reshape(test_datdec_np, [test_datdec_np.shape[0], test_datdec_np.shape[1], 17, 3])
     test_decout_np = np.reshape(test_decout_np, [test_decout_np.shape[0], test_decout_np.shape[1], 17, 3])
-    sel = 30  #8  # 30
+    sel = 8  #11  # 30
     gt_movie = np.concatenate([test_datenc_np, test_datdec_np], axis=1)
     net_movie = np.concatenate([test_datenc_np, test_decout_np], axis=1)
-    write_movie(np.transpose(gt_movie[sel], [1, 2, 0]), r_base=2,
-                name='test_in.mp4', color_shift_at=pd['chunk_size'] - pd['pred_samples'])
-    write_movie(np.transpose(net_movie[sel], [1, 2, 0]), r_base=1,
-                name='test_out.mp4', color_shift_at=pd['chunk_size'] - pd['pred_samples'])
-    # write_figure(np.transpose(gt_movie[sel][::5, :, :], [1, 2, 0]), color_shift_at=int(pd['pred_samples']/5), r_base=1,
+    # write_movie(np.transpose(gt_movie[sel], [1, 2, 0]), r_base=2,
+    #             name='test_in.mp4', color_shift_at=pd['chunk_size'] - pd['pred_samples'])
+    # write_movie(np.transpose(net_movie[sel], [1, 2, 0]), r_base=1,
+    #             name='test_out.mp4', color_shift_at=pd['chunk_size'] - pd['pred_samples'])
+    write_figure(np.transpose(net_movie[sel][::12, :, :], [1, 2, 0]),
+                              color_shift_at=int(pd['chunk_size'] - pd['pred_samples'])/12, r_base=1,
+                 name='test_figure.pdf')
+    # write_subplots(np.transpose(net_movie[sel][::12, :, :], [1, 2, 0]),
+    #                             color_shift_at=int(pd['chunk_size'] - pd['pred_samples']/12), r_base=1,
     #              name='test_figure.pdf')
-    for i in range(50):
-        write_movie(np.transpose(gt_movie[i], [1, 2, 0]), r_base=1.5,  name='test_in_vid_' + str(i) + '.mp4',
-                    color_shift_at=pd['chunk_size'] - pd['pred_samples'])
+    # for i in range(50):
+    #     write_movie(np.transpose(gt_movie[i], [1, 2, 0]), r_base=1.5,  name='test_in_vid_' + str(i) + '.mp4',
+    #                 color_shift_at=pd['chunk_size'] - pd['pred_samples'])
