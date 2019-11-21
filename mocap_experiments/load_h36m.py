@@ -7,10 +7,13 @@ H36M_USED_JOINTS = [0, 1, 2, 3, 6, 7, 8, 12, 13, 14, 15, 17, 18, 19, 25, 26, 27]
 
 
 class H36MDataSet(object):
-    """
-    Create a Human 3.6M data set based on the output created by human36M_pickle_skeletons.py
-    """
     def __init__(self, train=True, chunk_size=100, dataset_name='h36m'):
+        """
+        Create a Human 3.6M data set based on the output created by human36M_pickle_skeletons.py
+        :param train: If true load the training set.
+        :param chunk_size: The size of the loaded data snippets.
+        :param dataset_name: The name used when creating the pickle file.
+        """
         print('train set', train)
         self.train = train
         if train:
@@ -29,6 +32,7 @@ class H36MDataSet(object):
         self.mean, self.std = self.get_mean_and_std()
 
     def get_mean_and_std(self):
+        """ Compute mean and standard deviation and return it. """
         mean = np.mean(self.data_array)
         std = np.std(self.data_array)
         return mean, std

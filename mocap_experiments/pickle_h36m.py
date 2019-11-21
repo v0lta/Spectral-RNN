@@ -1,5 +1,7 @@
 """
 Based on https://github.com/magnux/MotionGAN/blob/master/utils/human36_skels_to_h5.py
+Download the D3 Position files from the by subject category in http://vision.imar.ro/human3.6m/filebrowser.php
+extract them and run this code to create pickled versions of the dataset.
 """
 
 import os
@@ -32,7 +34,7 @@ if __name__ == "__main__":
                 if path_folders[-3] == 'S5':
                     val_file_path_lst.append(path + '/' + file_path)
                 else:
-                    train_file_path_lst.append(path +  '/' + file_path)
+                    train_file_path_lst.append(path + '/' + file_path)
 
     # create the training_file:
     training_lst = []

@@ -13,18 +13,6 @@ from mocap_experiments.util import compute_ent_metrics, organize_into_batches, c
 PoseData = collections.namedtuple('PoseData', ['f', 'action', 'actor', 'array'])
 
 
-# experiments_folder = '/home/moritz/uni/fourier-prediction/mocap_experiments/log/mocap/test/'
-# experiment_directory = '2019-11-07 17:26:12_gru_size_2048_fft_True_bs_100_ps_64_dis_0_lr_0.001_dr' \
-#                       '_0.96_ds_1000_sp_1.0_rc_False_pt_15096114_clw_0.001_csp_64_wf_hann_ws_64_ol_' \
-#                       '32_ffts_32_fftp_3_fl_None_eps_0.01_fftcr_10/'
-# path = experiments_folder + experiment_directory
-# project_folder = '/home/moritz/uni/fourier-prediction/mocap_experiments/log/mocap/test/'
-# folder = '2019-11-07 23:39:13_gru_size_4096_fft_True_bs_50_ps_64_dis_0_lr_0.001_dr_0.98_ds' \
-#          '_1000_sp_1.0_rc_False_pt_52015206_clw_0_csp_64_wf_hann_ws_32_ol_28_ffts_8_fftp_9_' \
-#          'fl_None_eps_0.01_fftcr_16/'
-# path = project_folder + folder
-# checkpoint_folder = 'soa_kl1_kl2_0.010279945518383045_0.010479976860678938'
-
 # paper figure experiment...
 base_path = '/home/moritz/uni/fourier-prediction/mocap_experiments/log/paper3/'
 folder = '2019-11-13 16:31:17_gru_size_5120_fft_True_bs_50_ps_48_dis_0_lr_0.001_dr_0.98_ds_1000_sp_1.0_mses_48' \
@@ -33,65 +21,12 @@ folder = '2019-11-13 16:31:17_gru_size_5120_fft_True_bs_50_ps_48_dis_0_lr_0.001_
 checkpoint_folder = 'mse_3865.5574'
 path = base_path + folder
 
-# fft 2.5 experiment.
-# base_path = '/home/moritz/uni/fourier-prediction/mocap_experiments/log/paper5/'
-# folder = '2019-11-13 21:12:06_gru_size_3072_fft_True_bs_50_ps_50_dis_0_lr_0.001_dr_0.98_ds_1000_sp_1.0_' \
-#          'mses_50_rc_False_pt_30827724_clw_0.001_csp_50_wf_hann_ws_20_ol_16_ffts_4_fftp_13_fl_None_eps_0.01_fftcr_5/'
-# path = base_path + folder
-# checkpoint_folder = 'mse_4823.359'
-
-# paper 5 experiments
-# base_path = '/home/moritz/uni/fourier-prediction/mocap_experiments/log/paper5/'
-# folder = '2019-11-13 21:12:06_gru_size_3072_fft_True_bs_50_ps_50_dis_0_lr_0.001_dr_0.98_ds_1000' \
-#          '_sp_1.0_mses_50_rc_False_pt_30827724_clw_0.001_csp_50_wf_hann_ws_20_ol_16_ffts_4_fftp_13' \
-#          '_fl_None_eps_0.01_fftcr_5/'
-# folder = '2019-11-13 21:51:29_gru_size_3072_fft_True_bs_50_ps_50_dis_0_lr_0.001_dr_0.98_ds_1000_sp' \
-#          '_1.0_mses_50_rc_False_pt_30827724_clw_0.001_csp_50_wf_hann_ws_20_ol_16_ffts_4_fftp_13_fl' \
-#          '_None_eps_0.01_fftcr_5/'
-# folder = '2019-11-13 22:23:33_gru_size_3072_fft_True_bs_50_ps_50_dis_0_lr_0.001_dr_0.98_ds_1000_sp' \
-#          '_1.0_mses_50_rc_False_pt_30827724_clw_0.001_csp_50_wf_hann_ws_20_ol_16_ffts_4_fftp_13_fl_' \
-#          'None_eps_0.01_fftcr_4/'
-# folder = '2019-11-14 00:36:16_gru_size_3072_fft_True_bs_50_ps_50_dis_0_lr_0.001_dr_0.98_ds_1000_sp' \
-#          '_1.0_mses_50_rc_False_pt_30827724_clw_0.0_csp_50_wf_hann_ws_20_ol_16_ffts_4_fftp_13_fl_' \
-#          'None_eps_0.01_fftcr_4/'
-# folder = '2019-11-13 22:55:23_gru_size_3072_fft_False_bs_50_ps_50_dis_0_lr_0.001_dr_0.98_ds_1000_sp' \
-#          '_1.0_mses_50_rc_False_pt_28947507_clw_0.001_csp_50/'
-# folder = '2019-11-14 01:08:12_gru_size_3072_fft_False_bs_50_ps_50_dis_0_lr_0.001_dr_0.98_ds_1000_sp_' \
-#          '1.0_mses_50_rc_False_pt_28947507_clw_0.0_csp_50/'
-
-# paper 5 infcuda experiments
-# base_path = '/home/moritz/uni/fourier-prediction/mocap_experiments/log/paper5_infcuda/'
-# folder = '2019-11-13 22:05:51_gru_size_4096_fft_True_bs_50_ps_50_dis_0_lr_0.001_dr_0.98' \
-#         '_ds_1000_sp_1.0_mses_50_rc_False_pt_53686476_clw_0.001_csp_50_wf_hann_ws_20_ol_' \
-#         '16_ffts_4_fftp_13_fl_None_eps_0.01_fftcr_5/'
-#folder = '2019-11-14 01:16:49_gru_size_4096_fft_False_bs_50_ps_50_dis_0_lr' \
-#         '_0.001_dr_0.98_ds_1000_sp_1.0_mses_50_rc_False_pt_51179571_clw_0.001_csp_50/'
-
-# table experiment
-# base_path = '/home/moritz/uni/fourier-prediction/mocap_experiments/log/paper_archive/'
-# folder = '2019-11-09 12:33:03_gru_size_4096_fft_True_bs_50_ps_224_dis_0_lr_0.001_dr_0.98_ds_1000_sp' \
-#          '_1.0_mses_64_rc_False_pt_52015206_clw_0.001_csp_224_wf_hann_ws_64_ol_57_ffts_7_fftp_33_fl_' \
-#          'None_eps_0.01_fftcr_32/'
 
 
-# base_path = '/home/moritz/uni/fourier-prediction/mocap_experiments/log/paper6/'
-# folder = '2019-11-15 20:32:47_gru_size_3072_fft_True_bs_50_ps_200_dis_0_lr_0.001_dr_0.97_ds_1000' \
-#          '_sp_1.0_mses_50_rc_False_pt_32081203_clw_0.005_csp_200_wf_learned_gaussian_ws_20_ol_16_' \
-#          'ffts_4_fftp_51_fl_None_eps_0.01_fftcr_3/'
-# checkpoint_folder = 'weights'
-#
-# path = base_path + folder
-#
 pd = pickle.load(open(path + 'param.pkl', 'rb'))
-#
-# pd['chunk_size'] = 250
-# pd['pred_samples'] = 200
-# pd['mse_samples'] = 200
-# pd['input_samples'] = pd['chunk_size']
 mocap_handler_test = H36MDataSet(train=False, chunk_size=pd['chunk_size'], dataset_name='h36m')
 
 graph = FFTpredictionGraph(pd)
-
 gpu_options = tf.GPUOptions(visible_device_list=str(pd['GPUs'])[1:-1])
 # gpu_options = tf.GPUOptions(per_process_gpu_memory_fraction=1.0)
 config = tf.ConfigProto(allow_soft_placement=True,
@@ -127,8 +62,8 @@ with tf.Session(graph=graph.graph, config=config) as sess:
                           graph.data_decoder_time,
                           graph.decoder_out, graph.data_nd],
                          feed_dict=feed_dict)
-        net_pred = test_decout_np[:, :, 0]*pd['mocap_handler'].std + pd['mocap_handler'].mean
-        gt = gt[:, -pd['pred_samples']:, 0]
+        net_pred = test_decout_np[:, :, :]*pd['mocap_handler'].std + pd['mocap_handler'].mean
+        gt = gt[:, -pd['pred_samples']:, :]
         test_mse_lst_net.append(
             np.mean((gt[:, pd['discarded_samples']:]
                      - net_pred[:, pd['discarded_samples']:pd['pred_samples']])

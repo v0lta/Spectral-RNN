@@ -109,7 +109,6 @@ class FFTpredictionGraph(object):
                     else:
                         # arrange as batch time freq dim
                         in_data_fft = tf.transpose(in_data_fft, [0, 2, 3, 1])
-                        # TODO: Implement the multidimensional case.
                         raise NotImplementedError
 
                 data_encoder_freq, _, enc_freqs = \
@@ -156,7 +155,6 @@ class FFTpredictionGraph(object):
                 if pd['use_residuals']:
                     cell = ResidualWrapper(cell=cell)
             elif pd['cell_type'] == 'gru':
-                # todo: Add extra dimension, approach.
                 gru = rnn_cell.GRUCell(pd['num_units'])
                 if pd['fft'] is True:
                     dtype = tf.float32

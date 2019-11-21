@@ -22,6 +22,7 @@ def read_pose(x):
 
 def write_movie(pose_array, name='writer_test.mp4', fps=15, r_base=1000, color_shift_at=0):
     """
+    Write a movie of ground truth and predicted outputs.
     :param pose_array: np.array [joints, 3dpoints, time]
     :param name: the name for the movie.
     """
@@ -46,6 +47,11 @@ def write_movie(pose_array, name='writer_test.mp4', fps=15, r_base=1000, color_s
 
 
 def write_figure(pose_array, name='writer_test.pdf', r_base=1000, color_shift_at=0):
+    """
+    Plot multiple figures into the same coordinate system.
+    :param pose_array: np.array [joints, 3dpoints, time]
+    :param name: the name for the pdf file.
+    """
     time = pose_array.shape[-1]
     fig = plt.figure()
     ax = fig.add_subplot(111, projection='3d')
@@ -62,22 +68,6 @@ def write_figure(pose_array, name='writer_test.pdf', r_base=1000, color_shift_at
     plt.savefig(name)
     plt.close()
 
-def write_subplots(pose_array, name='writer_test.pdf', r_base=1000, color_shift_at=0):
-    time = pose_array.shape[-1]
-    fig = plt.figure()
-    for i in range(time):
-        if i > color_shift_at:
-            ax = fig.add_subplot(1, time, i+1, projection='3d')
-            plotter = viz.Ax3DPose(ax, 'Human36', lcolor='#e88d1e', rcolor='#3ce7ae')
-            plotter.update(pose_array[:, :, i].flatten(), r_base=r_base)
-            plt.axis('off')
-        else:
-            ax = fig.add_subplot(1, time, i+1, projection='3d')
-            plotter = viz.Ax3DPose(ax, 'Human36')
-            plotter.update(pose_array[:, :, i].flatten(), r_base=r_base)
-            plt.axis('off')
-    plt.savefig(name)
-    plt.close()
 
 if __name__ == "__main__":
     os.environ["CDF_LIB"] = '/home/moritz/CDF/cdf37_0-dist/lib'

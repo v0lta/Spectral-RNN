@@ -17,7 +17,6 @@ def np_scalar_to_summary(tag: str, scalar: np.array, np_step: np.array,
                          summary_file_writer: tf.summary.FileWriter):
     """
     Adds a numpy scalar to the logfile.
-
     :param tag: The tensorboard plot title.
     :param scalar: The scalar value to be recordd in that plot.
     :param np_step: The x-Axis step
@@ -43,7 +42,7 @@ kl1_target = 0.02
 kl2_target = 0.02
 mse_target = 5000
 
-pd['iterations'] = 1  # 1500  # 400
+pd['iterations'] = 1500  # 400
 pd['GPUs'] = [0]
 pd['batch_size'] = 50
 # pd['window_function'] = 'learned_tukey'
@@ -71,7 +70,7 @@ assert pd['mse_samples'] <= pd['pred_samples']
 if pd['consistency_loss']:
     pd['consistency_samples'] = 200
     assert pd['consistency_samples'] <= pd['pred_samples']
-    pd['consistency_loss_weight'] = 0.000
+    pd['consistency_loss_weight'] = 0.001
 pd['window_size'] = 1
 pd['discarded_samples'] = 0
 
@@ -417,6 +416,6 @@ for exp_no, lpd in enumerate(lpd_lst):
                         name=lpd['base_dir'] + time_str + param_str + '/batch_el' + str(sel) + '_in.mp4',
                         color_shift_at=lpd['chunk_size'] - lpd['pred_samples'] - 1)
             write_movie(np.transpose(net_movie[sel], [1, 2, 0]), r_base=1.5,
-                        name=lpd['base_dir'] + time_str + param_str + '/batch_el' + str(sel) + '_in.mp4',
+                        name=lpd['base_dir'] + time_str + param_str + '/batch_el' + str(sel) + '_out.mp4',
                         color_shift_at=lpd['chunk_size'] - lpd['pred_samples'] - 1)
         print('done')

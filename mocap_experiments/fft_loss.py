@@ -18,7 +18,7 @@ def compute_power_spectrum(x):
 
 def power_spectrum_entropy(x):
     """
-    :param x: Mocap-data tensor [batch_size, time, 17*3]
+    :param x: Mocap-data tensor [batch_size, time, joints (17*3)]
     :return: A scalar containing the power spectrum entropy [batch_size, 17*3=51]
     """
     ps = compute_power_spectrum(x) + 1e-8  # add a small epsilon for numerical stability.

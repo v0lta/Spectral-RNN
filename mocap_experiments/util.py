@@ -316,6 +316,7 @@ def compute_ent_metrics(gt_seqs, seqs, print_debug=False, euler=True):
 
 def compute_ent_metrics_splits(gt_seqs, seqs, seq_len, print_debug=False, print_numbers=False, euler=True):
     """
+    Compute the entropy and kullback-leiberler divergence of four data-splits and the total.
     As found at  https://github.com/magnux/MotionGAN/blob/master/test.py line 634.
     """
     seqs_ent_global_lst = []

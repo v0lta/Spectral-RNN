@@ -22,27 +22,23 @@ def compute_parameter_total(trainable_variables):
     for variable in trainable_variables:
         # shape is an array of tf.Dimension
         shape = variable.get_shape()
-        # print('var_name', variable.name, 'shape', shape, 'dim', len(shape))
         variable_parameters = 1
         for dim in shape:
-            # print(dim)
             variable_parameters *= dim.value
-        # print('parameters', variable_parameters)
         total_parameters += variable_parameters
-    print('total:', total_parameters)
+    print('parameter total:', total_parameters)
     return total_parameters
 
 
 class FFTpredictionGraph(object):
-    '''
-    Create a fourier prediction graph.
-    Arguments:
-        pd prediction parameter dict.
-        generator: A generator object used
-                   to generate synthetic data.
-    '''
-
     def __init__(self, pd, generator=None):
+        """
+        Create a fourier prediction graph.
+        Arguments:
+            pd prediction parameter dict.
+            generator: A generator object used
+                       to generate synthetic data.
+        """
         self.pd = pd
         self.graph = tf.Graph()
         with self.graph.as_default():
@@ -89,10 +85,10 @@ class FFTpredictionGraph(object):
                     window = tf.constant(window, tf.float32)
 
                 def transpose_stft_squeeze(in_data, window, pd):
-                    '''
+                    """
                     Compute a windowed stft and do low pass filtering if
                     necessary.
-                    '''
+                    """
                     tmp_in_data = tf.transpose(in_data, [0, 2, 1])
                     in_data_fft = eagerSTFT.stft(tmp_in_data, window,
                                                  pd['window_size'], pd['overlap'],
@@ -186,7 +182,6 @@ class FFTpredictionGraph(object):
 
                 zero_state = cell.zero_state(pd['batch_size'], dtype=dtype)
                 zero_state = LSTMStateTuple(encoder_in[:, 0, :], zero_state[1])
-                # debug_here()
                 encoder_out, encoder_state = tf.nn.dynamic_rnn(cell, encoder_in,
                                                                initial_state=zero_state,
                                                                dtype=dtype)
@@ -336,8 +331,6 @@ class FFTpredictionGraph(object):
             for grad, var in capped_gvs:
                 tf.summary.scalar('gradients_clip/gradient_norm_' + var.name, tf.norm(grad))
 
-            # grad_summary = tf.histogram_summary(grads)
-            # training_op = optimizer.minimize(loss, global_step=global_step)
             self.training_op = optimizer.apply_gradients(capped_gvs,
                                                          global_step=global_step)
             tf.summary.scalar('loss/time_loss', time_loss)

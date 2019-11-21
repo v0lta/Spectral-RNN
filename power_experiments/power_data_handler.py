@@ -18,9 +18,13 @@ class PowerDataHandler(object):
     '''
 
     def __init__(self, path, context=15, samples_per_day=96, test_keys=None):
-        '''
-        Creates a power data handler.
-        '''
+        """
+        Creat the power data handler
+        :param path: Where to power files are stored
+        :param context: The number of days used for context.
+        :param samples_per_day: The number of measurement points per day.
+        :param test_keys: What to test on.
+        """
         self.path = path
         self.context = context
         self._samples_per_day = samples_per_day
@@ -49,7 +53,6 @@ class PowerDataHandler(object):
                                 prev_day = current_day
                                 day_start = i
                             if i == 0:
-                                # TODO assertions.
                                 head = row
                                 pass
                             else:
@@ -64,7 +67,6 @@ class PowerDataHandler(object):
                                 day_data.append((forecast, true_value))
                                 # ipdb.set_trace()
 
-                    # TODO: check head append to year list!
                     year = name.split('-')[-2].split('_')[-1][:4]
                     # assert root.split('/')[-1] == head[-1].split('|')[-1][3:-1]
                     company_dict[year] = np.array(year_lst)

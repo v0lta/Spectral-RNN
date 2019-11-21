@@ -49,7 +49,6 @@ OPENPOSE_NJOINTS = 16
 
 
 def select_dataset(data_set):
-
     if data_set == "NTURGBD":
         raise NotImplementedError()
     elif data_set == "MSRC12":
