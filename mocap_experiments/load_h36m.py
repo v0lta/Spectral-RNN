@@ -74,17 +74,17 @@ class H36MDataSet(object):
 
 
 if __name__ == "__main__":
-    import tensorflow as tf
+    # import tensorflow as tf
     import matplotlib.pyplot as plt
     import scipy.signal as scisig
     from mocap_experiments.write_movie import write_movie
-    from eager_STFT import stft, istft
-    time = False
+    # from eager_STFT import stft, istft
+    time = True
 
-    try:
-        tf.enable_eager_execution()
-    except ValueError:
-        print("tensorflow is already in eager mode.")
+    # try:
+    #     tf.enable_eager_execution()
+    # except ValueError:
+    #    print("tensorflow is already in eager mode.")
 
     data = H36MDataSet(chunk_size=1000, train=False)
     batches = data.get_batches()

@@ -46,6 +46,7 @@ if __name__ == "__main__":
         assert actor != 'S5'
         training_lst.append(PoseData(training_file_path, action, actor, array))
     pickle.dump(training_lst, open(data_path + '/train_' + dataset + 'v2.pkl', 'wb'))
+    print('wrote to:', data_path + '/train_' + dataset + 'v2.pkl')
 
     val_lst = []
     for val_file_path in val_file_path_lst:
@@ -56,3 +57,4 @@ if __name__ == "__main__":
         assert actor == 'S5'
         val_lst.append(PoseData(val_file_path, action, actor, array))
     pickle.dump(val_lst, open(data_path + '/val_' + dataset + 'v2.pkl', 'wb'))
+    print('wrote to:', data_path + '/val_' + dataset + 'v2.pkl')

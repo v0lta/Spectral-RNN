@@ -65,12 +65,12 @@ pd['mocap_handler'] = mocap_handler
 
 pd['consistency_loss'] = True
 pd['mse_samples'] = 50
-pd['pred_samples'] = 200
+pd['pred_samples'] = 100
 assert pd['mse_samples'] <= pd['pred_samples']
 if pd['consistency_loss']:
-    pd['consistency_samples'] = 200
+    pd['consistency_samples'] = 100
     assert pd['consistency_samples'] <= pd['pred_samples']
-    pd['consistency_loss_weight'] = 0.001
+    pd['consistency_loss_weight'] = 0.000
 pd['window_size'] = 1
 pd['discarded_samples'] = 0
 

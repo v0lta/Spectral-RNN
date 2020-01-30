@@ -7,21 +7,18 @@ import collections
 import matplotlib.pyplot as plt
 from mocap_experiments.load_h36m import H36MDataSet
 from mocap_experiments.prediction_graph import FFTpredictionGraph
-from mocap_experiments.write_movie import write_movie, write_figure, write_subplots
+from mocap_experiments.write_movie import write_movie, write_figure
 from mocap_experiments.util import compute_ent_metrics, organize_into_batches, compute_ent_metrics_splits
 
 PoseData = collections.namedtuple('PoseData', ['f', 'action', 'actor', 'array'])
 
-
-# paper figure experiment...
-base_path = '/home/moritz/uni/fourier-prediction/mocap_experiments/log/paper3/'
-folder = '2019-11-13 16:31:17_gru_size_5120_fft_True_bs_50_ps_48_dis_0_lr_0.001_dr_0.98_ds_1000_sp_1.0_mses_48' \
-        '_rc_True_pt_87014808_clw_0.001_csp_48_wf_hann_ws_16_ol_9_ffts_7_fftp_7_fl_None_eps_0.01' \
-        '_fftcr_2/'
-checkpoint_folder = 'mse_3865.5574'
+# supplementary experiment.
+base_path = '/home/moritz/uni/fourier-prediction/mocap_experiments/log/suppl/'
+folder = '2019-11-20 17:02:32_gru_size_3072_fft_True_bs_50_ps_200_dis_0_lr_0.001_dr_0.97_ds_1000' \
+         '_sp_1.0_mses_50_rc_False_pt_30827725_clw_0.001_csp_200_wf_learned_gaussian_ws_20_ol_16_ffts_4' \
+         '_fftp_51_fl_None_eps_0.01_fftcr_5/'
+checkpoint_folder = 'weights'
 path = base_path + folder
-
-
 
 pd = pickle.load(open(path + 'param.pkl', 'rb'))
 mocap_handler_test = H36MDataSet(train=False, chunk_size=pd['chunk_size'], dataset_name='h36m')
@@ -105,12 +102,16 @@ with tf.Session(graph=graph.graph, config=config) as sess:
     #             name='test_in.mp4', color_shift_at=pd['chunk_size'] - pd['pred_samples'])
     # write_movie(np.transpose(net_movie[sel], [1, 2, 0]), r_base=1,
     #             name='test_out.mp4', color_shift_at=pd['chunk_size'] - pd['pred_samples'])
-    write_figure(np.transpose(net_movie[sel][::12, :, :], [1, 2, 0]),
-                              color_shift_at=int(pd['chunk_size'] - pd['pred_samples'])/12, r_base=1,
-                 name='test_figure.pdf')
-    # write_subplots(np.transpose(net_movie[sel][::12, :, :], [1, 2, 0]),
-    #                             color_shift_at=int(pd['chunk_size'] - pd['pred_samples']/12), r_base=1,
+    # write_figure(np.transpose(net_movie[sel][::12, :, :], [1, 2, 0]),
+    #                           color_shift_at=int(pd['chunk_size'] - pd['pred_samples'])/12, r_base=1,
     #              name='test_figure.pdf')
-    # for i in range(50):
-    #     write_movie(np.transpose(gt_movie[i], [1, 2, 0]), r_base=1.5,  name='test_in_vid_' + str(i) + '.mp4',
-    #                 color_shift_at=pd['chunk_size'] - pd['pred_samples'])
+    gt_movie = gt_movie[:, ::10, :, :]
+    net_movie = net_movie[:, ::10, :, :]
+    for sel in [49]:  # range(pd['batch_size']):
+        write_movie(np.transpose(gt_movie[sel], [1, 2, 0]), r_base=1.8,
+                    name='test_vids/' + str(sel) + '5Hz_in.mp4',
+                    color_shift_at=pd['chunk_size']//10 - pd['pred_samples']//10 - 1, title='context and ground truth')
+        write_movie(np.transpose(net_movie[sel], [1, 2, 0]), r_base=1.8,
+                    name='test_vids/' + str(sel) + '5Hz_out.mp4',
+                    color_shift_at=pd['chunk_size']//10 - pd['pred_samples']//10 - 1, title='context and prediction')
+    print('done')

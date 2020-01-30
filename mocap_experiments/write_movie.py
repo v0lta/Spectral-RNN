@@ -20,7 +20,7 @@ def read_pose(x):
     return np.stack([pose_x, pose_y, pose_z], axis=1)
 
 
-def write_movie(pose_array, name='writer_test.mp4', fps=15, r_base=1000, color_shift_at=0):
+def write_movie(pose_array, name='writer_test.mp4', fps=15, r_base=1000, color_shift_at=0, title=None):
     """
     Write a movie of ground truth and predicted outputs.
     :param pose_array: np.array [joints, 3dpoints, time]
@@ -34,8 +34,8 @@ def write_movie(pose_array, name='writer_test.mp4', fps=15, r_base=1000, color_s
     fig = plt.figure()
     with writer.saving(fig, name, 100):
         ax = fig.add_subplot(111, projection='3d')
-        gt_plotter = viz.Ax3DPose(ax, 'Human36')
-        net_plotter = viz.Ax3DPose(ax, 'Human36', lcolor='#e88d1e', rcolor='#3ce7ae')
+        gt_plotter = viz.Ax3DPose(ax, 'Human36', title=title)
+        net_plotter = viz.Ax3DPose(ax, 'Human36', lcolor='#e88d1e', rcolor='#3ce7ae', title=title)
         net_plotter.axes_set = True
         for i in range(time):
             if i > color_shift_at:

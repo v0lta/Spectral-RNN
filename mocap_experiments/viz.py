@@ -69,7 +69,7 @@ def select_dataset(data_set):
 
 
 class Ax3DPose(object):
-    def __init__(self, ax, data_set, lcolor="#3498db", rcolor="#e74c3c"):
+    def __init__(self, ax, data_set, lcolor="#3498db", rcolor="#e74c3c", title=None):
         """
         Create a 3d pose visualizer that can be updated with new poses.
         Args
@@ -101,6 +101,8 @@ class Ax3DPose(object):
         self.ax.set_ylabel("y")
         self.ax.set_zlabel("z")
         self.axes_set = False
+        if title:
+            self.ax.set_title(title)
 
     def update(self, channels, r_base=1000):
         """
@@ -136,7 +138,7 @@ class Ax3DPose(object):
             self.ax.set_zlim3d([-r + zroot, r + zroot])
             self.ax.set_ylim3d([-r + yroot, r + yroot])
 
-            self.ax.set_aspect('equal')
+            # self.ax.set_aspect('equal')
             self.axes_set = True
 
 
