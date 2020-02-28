@@ -124,6 +124,6 @@ pd11['num_units'] = 32
 pd11 = fix_parameters(pd11)
 
 # define a list of experiments.
-lpd_lst = [pd, pd2, pd3, pd4, pd5, pd6, pd7]
+lpd_lst = [pd, pd2, pd3, pd4, pd5, pd6, pd7, pd8, pd9, pd10, pd11]
 
 run_experiemtns(lpd_lst)
