@@ -106,3 +106,5 @@ if __name__ == "__main__":
 
     with tf.Session(graph=graph) as sess:
         data_nd_np = sess.run([data_nd])
+
+    print('done')

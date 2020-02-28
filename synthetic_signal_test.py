@@ -1,4 +1,5 @@
 import io
+import copy
 import time
 import pickle
 import tensorflow as tf
@@ -6,12 +7,10 @@ import numpy as np
 import matplotlib.pyplot as plt
 from mackey_glass_generator import MackeyGenerator
 from power_experiments.prediction_graph import FFTpredictionGraph
-from IPython.core.debugger import Pdb
-debug_here = Pdb().set_trace
 
 pd = {}
-pd['base_dir'] = 'logs/cvpr/'
-pd['cell_type'] = 'cgRNN'
+pd['base_dir'] = 'logs/cvpr_workshop/'
+pd['cell_type'] = 'gru'
 pd['num_units'] = 64
 pd['sample_prob'] = 1.0
 pd['init_learning_rate'] = 0.001
@@ -23,10 +22,11 @@ pd['iterations'] = 20000
 pd['GPUs'] = [0]
 pd['batch_size'] = 12
 pd['window_function'] = 'learned_gaussian'
-pd['freq_loss'] = 'complex_square'
+pd['freq_loss'] = None
 pd['use_residuals'] = True
 pd['fft'] = True
 pd['linear_reshape'] = False
+pd['downsampling'] = 1  # set to 1 to turn this off.
 pd['stiefel'] = False
 
 # data parameters
@@ -40,11 +40,12 @@ pd['generator'] = MackeyGenerator(pd['batch_size'],
 pd['window_size'] = 128
 pd['pred_samples'] = 2560
 pd['discarded_samples'] = 0
+
 pd['overlap'] = int(pd['window_size']*0.5)
 pd['step_size'] = pd['window_size'] - pd['overlap']
 pd['fft_pred_samples'] = pd['pred_samples'] // pd['step_size'] + 1
 pd['fft_compression_rate'] = None
-# dont touch!
+# don't touch!
 pd['conv_fft_bins'] = None
 pd['fully_fft_comp'] = None
 
@@ -65,60 +66,6 @@ else:
 
 # define a list of experiments.
 lpd_lst = [pd]
-
-# cell_size_loop
-# fft_loop = pd['fft']
-# if fft_loop:
-#     assert pd['fft'] is True
-#     assert pd['linear_reshape'] is False
-#     # cell_type loop:
-#     for cell_type in ['gru']:
-#         # window_loop
-#         for window in ['learned_gaussian']:
-#             # cell size_loop.
-#             for num_units in [64]:  # 32 ,45, 64
-#                 # window_size loop
-#                 for window_size in [128]:
-#                     # compression loop:
-#                     for compression in [32]:
-#                         cpd = pd.copy()
-#                         cpd['window_size'] = window_size
-#                         cpd['overlap'] = int(cpd['window_size']*0.5)
-#                         cpd['window_function'] = window
-#                         cpd['fft_compression_rate'] = compression
-#                         cpd['num_units'] = num_units
-#                         cpd['cell_type'] = cell_type
-#                         if cpd['fft_compression_rate']:
-#                             cpd['num_proj'] = int((cpd['window_size']//2 + 1)
-#                                                   / cpd['fft_compression_rate'])
-#                         else:
-#                             cpd['num_proj'] = int((cpd['window_size']//2 + 1))
-#                         lpd_lst.append(cpd)
-
-# reshape_loop = pd['linear_reshape']
-# if reshape_loop:
-#     assert pd['fft'] is False
-#     assert pd['linear_reshape'] is True
-#     # cell_type loop:
-#     for cell_type in ['gru']:
-#         for num_units in [64]:
-#             cpd = pd.copy()
-#             cpd['num_units'] = num_units
-#             cpd['cell_type'] = cell_type
-#             lpd_lst.append(cpd)
-
-# time_loop = not (pd['linear_reshape'] or pd['fft'])
-# if time_loop:
-#     assert pd['fft'] is False
-#     assert pd['linear_reshape'] is False
-#     for cell_type in ['gru']:
-#         for num_units in [32, 64]:
-#             # cell_type loop:
-#             cpd = pd.copy()
-#             cpd['num_units'] = num_units
-#             cpd['cell_type'] = cell_type
-#             lpd_lst.append(cpd)
-
 
 for exp_no, lpd in enumerate(lpd_lst):
     time_str = time.strftime("%Y-%m-%d %H:%M:%S", time.gmtime())
@@ -146,6 +93,9 @@ for exp_no, lpd in enumerate(lpd_lst):
         param_str += '_eps_' + str(lpd['epsilon'])
         param_str += '_fftcr_' + str(lpd['fft_compression_rate'])
 
+    if lpd['downsampling'] > 2:
+        param_str += '_downs_' + str(lpd['downsampling'])
+
     if lpd['stiefel']:
         param_str += '_stfl'
 
@@ -165,7 +115,7 @@ for exp_no, lpd in enumerate(lpd_lst):
     # gpu_options = tf.GPUOptions(per_process_gpu_memory_fraction=1.0)
     config = tf.ConfigProto(allow_soft_placement=True,
                             log_device_placement=False,
-                            gpu_options=gpu_options)
+                            ) #gpu_options=gpu_options)
     with tf.Session(graph=pgraph.graph, config=config) as sess:
         print('initialize....')
         pgraph.init_op.run()

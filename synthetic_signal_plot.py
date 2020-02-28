@@ -22,6 +22,9 @@ def plot(path, restore_step, label, gt=False):
     config = tf.ConfigProto(allow_soft_placement=True,
                             log_device_placement=False,
                             gpu_options=gpu_options)
+
+    # TODO: Measure inference time.
+
     with tf.Session(graph=pgraph.graph, config=config) as sess:
       pgraph.saver.restore(sess, save_path=path
                            + '/weights/' + 'cpk' + '-' + str(restore_step))

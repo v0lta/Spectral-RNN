@@ -172,6 +172,13 @@ def istft(Zxx, window, nperseg=None, noverlap=None, nfft=None,
     return scaled
 
 
+def interpolate(signal, new_sample_no):
+        signal_unsqueeze = tf.expand_dims(signal, axis=1)
+        new_size = [1, new_sample_no]
+        signal_up = tf.image.resize_images(signal_unsqueeze, new_size)
+        return tf.squeeze(signal_up, axis=1)
+
+
 if __name__ == "__main__":
     try:
         tf.enable_eager_execution()
@@ -310,7 +317,7 @@ if __name__ == "__main__":
         plt.imshow(np.log(np.abs(result_tf[0, 0, :, :].numpy())))
         plt.show()
 
-    if 1:
+    if 0:
         import matplotlib.pyplot as plt
         from mpl_toolkits.mplot3d import Axes3D
         # test multi-dimensional Lorenz.
@@ -376,3 +383,11 @@ if __name__ == "__main__":
         ax = fig.add_subplot(111, projection='3d')
         ax.plot(scaled.numpy()[0, 0, :], scaled.numpy()[0, 1, :], scaled.numpy()[0, 2, :])
         plt.show()
+
+    if 1:
+        spikes_low_res = spikes[:, ::10, :]
+        plt.plot(spikes.numpy()[0, :, 0])
+        spikes_rec = interpolate(spikes_low_res, spikes.shape[1].value)
+        plt.plot(spikes_rec.numpy()[0, :, 0])
+        plt.show()
+        print('stop')
