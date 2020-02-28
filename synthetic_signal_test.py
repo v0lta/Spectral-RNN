@@ -17,7 +17,7 @@ pd['init_learning_rate'] = 0.001
 pd['decay_rate'] = 0.9
 pd['decay_steps'] = 1000
 
-pd['iterations'] = 20000
+pd['iterations'] = 2 # 20000
 # pd['iterations'] = 2
 pd['GPUs'] = [0]
 pd['batch_size'] = 12
@@ -44,7 +44,7 @@ pd['discarded_samples'] = 0
 pd['overlap'] = int(pd['window_size']*0.5)
 pd['step_size'] = pd['window_size'] - pd['overlap']
 pd['fft_pred_samples'] = pd['pred_samples'] // pd['step_size'] + 1
-pd['fft_compression_rate'] = None
+pd['fft_compression_rate'] = 2
 # don't touch!
 pd['conv_fft_bins'] = None
 pd['fully_fft_comp'] = None
@@ -187,5 +187,5 @@ for exp_no, lpd in enumerate(lpd_lst):
 
         # epoch done. Save.
         print('Saving a copy.')
-        pgraph.saver.save(sess, lpd['base_dir'] + time_str + param_str + '/weights/cpk',
+        pgraph.saver.save(sess, lpd['base_dir'] + param_str + '/weights/cpk',
                           global_step=np_global_step)
