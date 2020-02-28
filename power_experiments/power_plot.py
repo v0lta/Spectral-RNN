@@ -2,7 +2,7 @@ import pickle
 import numpy as np
 import scipy.signal as scisig
 import matplotlib.pyplot as plt
-import matplotlib2tikz as tikz
+import tikzplotlib as tikz
 
 import sys
 sys.path.insert(0, "../")

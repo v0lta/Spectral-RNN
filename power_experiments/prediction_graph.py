@@ -129,6 +129,9 @@ class FFTpredictionGraph(object):
                         data_encoder_freq = fft_bin_conv(data_encoder_freq)
                         data_encoder_freq = tf.squeeze(data_encoder_freq, -1)
 
+            elif pd['downsampling'] > 1:
+                data_encoder_down = data_encoder_time[:, ::pd['downsampling'], :]
+
             elif pd['linear_reshape']:
                 encoder_time_steps = data_encoder_time.shape[1].value//pd['step_size']
                 data_encoder_time = tf.reshape(data_encoder_time, [pd['batch_size'],
@@ -175,6 +178,8 @@ class FFTpredictionGraph(object):
 
             if pd['fft']:
                 encoder_in = data_encoder_freq
+            elif pd['downsampling'] > 2:
+                encoder_in = data_encoder_down
             else:
                 encoder_in = data_encoder_time
 
@@ -189,6 +194,8 @@ class FFTpredictionGraph(object):
                 if not pd['fft']:
                     if pd['linear_reshape']:
                         decoder_in = tf.zeros([pd['batch_size'], decoder_time_steps, 1])
+                    elif pd['downsampling'] > 1:
+                        decoder_in = tf.zeros([pd['batch_size'], pd['pred_samples']/pd['downsampling'], 1])
                     else:
                         decoder_in = tf.zeros([pd['batch_size'], pd['pred_samples'], 1])
                     encoder_state = LSTMStateTuple(data_encoder_time[:, -1, :],
@@ -267,6 +274,8 @@ class FFTpredictionGraph(object):
                                               epsilon=pd['epsilon'])
                 # data_encoder_gt = expand_dims_and_transpose(encoder_in, pd, enc_freqs)
                 decoder_out = tf.transpose(decoder_out, [0, 2, 1])
+            elif pd['downsampling'] > 1:
+                decoder_out = eagerSTFT.interpolate(decoder_out, data_decoder_time.shape[1].value)
             elif pd['linear_reshape']:
                 decoder_out = tf.reshape(decoder_out,
                                          [pd['batch_size'],
