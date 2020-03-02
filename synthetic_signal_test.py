@@ -3,14 +3,13 @@ from mackey_glass_generator import MackeyGenerator
 from run_synthetics import run_experiemtns
 
 pd = {}
-pd['base_dir'] = 'logs/cvpr_workshop/'
+pd['base_dir'] = 'logs/cvpr_workshop2/'
 pd['cell_type'] = 'gru'
 pd['num_units'] = 64
 pd['sample_prob'] = 1.0
 pd['init_learning_rate'] = 0.001
 pd['decay_rate'] = 0.9
 pd['decay_steps'] = 1000
-
 pd['iterations'] = 20000
 # pd['iterations'] = 2
 pd['GPUs'] = [0]
@@ -18,11 +17,9 @@ pd['batch_size'] = 12
 pd['window_function'] = 'learned_gaussian'
 pd['freq_loss'] = None
 pd['use_residuals'] = True
-
 pd['linear_reshape'] = False
 pd['downsampling'] = 1  # set to 1 to turn this off.
 pd['stiefel'] = False
-
 # data parameters
 pd['tmax'] = 512
 pd['delta_t'] = 0.1
@@ -30,7 +27,6 @@ pd['input_samples'] = int(pd['tmax']/pd['delta_t'])
 pd['generator'] = MackeyGenerator(pd['batch_size'],
                                   pd['tmax'], pd['delta_t'],
                                   restore_and_plot=False)
-
 pd['window_size'] = 128
 pd['pred_samples'] = 2560
 pd['discarded_samples'] = 0
@@ -67,13 +63,10 @@ def fix_parameters(pd):
 
 
 pd = fix_parameters(pd)
-
-
 pd2 = copy.copy(pd)
 pd2['linear_reshape'] = True
 pd2['downsampling'] = 1
 pd2 = fix_parameters(pd2)
-
 
 pd3 = copy.copy(pd)
 pd3['linear_reshape'] = True
@@ -108,13 +101,13 @@ pd8 = fix_parameters(pd8)
 pd9 = copy.copy(pd)
 pd9['fft'] = True
 pd9['cell_type'] = 'cgRNN'
-pd9['num_units'] = 64
+pd9['num_units'] = 54
 pd9 = fix_parameters(pd9)
 
 pd10 = copy.copy(pd)
 pd10['fft'] = True
 pd10['cell_type'] = 'cgRNN'
-pd10['num_units'] = 54
+pd10['num_units'] = 32
 pd10 = fix_parameters(pd10)
 
 pd11 = copy.copy(pd)
@@ -125,5 +118,4 @@ pd11 = fix_parameters(pd11)
 
 # define a list of experiments.
 lpd_lst = [pd, pd2, pd3, pd4, pd5, pd6, pd7, pd8, pd9, pd10, pd11]
-
 run_experiemtns(lpd_lst)
