@@ -280,8 +280,6 @@ class FFTpredictionGraph(object):
                                          [pd['batch_size'],
                                           pd['pred_samples'], 1])
 
-
-
             time_loss = tf.losses.mean_squared_error(
                 tf.real(data_decoder_time),
                 tf.real(decoder_out[:, :pd['pred_samples'], :]))

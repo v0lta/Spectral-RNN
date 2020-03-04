@@ -1,4 +1,7 @@
+import os
+os.environ['TF_CPP_MIN_LOG_LEVEL'] = '2'
 import io
+import copy
 import time
 import pickle
 import tensorflow as tf
@@ -9,6 +12,9 @@ from mocap_experiments.load_h36m import H36MDataSet
 from mocap_experiments.prediction_graph import FFTpredictionGraph
 from mocap_experiments.write_movie import write_movie
 from mocap_experiments.util import compute_ent_metrics, organize_into_batches, compute_ent_metrics_splits
+
+from tensorflow.python.util import deprecation
+deprecation._PRINT_DEPRECATION_WARNINGS = False
 
 PoseData = collections.namedtuple('PoseData', ['f', 'action', 'actor', 'array'])
 
@@ -30,7 +36,7 @@ def np_scalar_to_summary(tag: str, scalar: np.array, np_step: np.array,
 # set up a parameter dictionary.
 pd = {}
 
-pd['base_dir'] = 'log/suppl/'
+pd['base_dir'] = 'log/cvpr_workshop2/'
 pd['cell_type'] = 'gru'
 pd['num_units'] = 1024*3
 pd['sample_prob'] = 1.0
@@ -42,7 +48,7 @@ kl1_target = 0.02
 kl2_target = 0.02
 mse_target = 5000
 
-pd['iterations'] = 1500  # 400
+pd['iterations'] = 500  # 400
 pd['GPUs'] = [0]
 pd['batch_size'] = 50
 # pd['window_function'] = 'learned_tukey'
@@ -51,12 +57,17 @@ pd['window_function'] = 'learned_gaussian'  # 'learned_gaussian'
 pd['freq_loss'] = None
 pd['use_residuals'] = False
 pd['fft'] = True
+pd['window_size'] = 16
+pd['fft_compression_rate'] = 1
+pd['overlap'] = int(pd['window_size']*0.5)
+pd['step_size'] = pd['window_size'] - pd['overlap']
 pd['linear_reshape'] = False
+pd['downsampling'] = 1
 pd['stiefel'] = False
 pd['input_noise'] = False
 
 pd['decay_steps'] = 1000
-pd['chunk_size'] = 300
+pd['chunk_size'] = 128
 pd['input_samples'] = pd['chunk_size']
 
 mocap_handler = H36MDataSet(train=True, chunk_size=pd['chunk_size'], dataset_name='h36mv2')
@@ -64,60 +75,57 @@ mocap_handler_test = H36MDataSet(train=False, chunk_size=pd['chunk_size'], datas
 pd['mocap_handler'] = mocap_handler
 
 pd['consistency_loss'] = True
-pd['mse_samples'] = 50
-pd['pred_samples'] = 100
-assert pd['mse_samples'] <= pd['pred_samples']
-if pd['consistency_loss']:
-    pd['consistency_samples'] = 100
-    assert pd['consistency_samples'] <= pd['pred_samples']
-    pd['consistency_loss_weight'] = 0.000
-pd['window_size'] = 1
-pd['discarded_samples'] = 0
+pd['mse_samples'] = 64
+pd['pred_samples'] = 64
 
 
-if pd['fft']:
-    pd['window_size'] = 64
-    pd['fft_compression_rate'] = 32
-    pd['overlap'] = int(pd['window_size']*0.9)
-    pd['step_size'] = pd['window_size'] - pd['overlap']
-    pd['fft_pred_samples'] = pd['pred_samples'] // pd['step_size'] + 1
-    if pd['fft_compression_rate']:
-        pd['num_proj'] = 17*3*int((pd['window_size']//2 + 1) / pd['fft_compression_rate'])
-    else:
-        pd['num_proj'] = 17*3*int((pd['window_size']//2 + 1))
-elif pd['linear_reshape']:
-    pd['num_proj'] = pd['step_size']
-else:
-    pd['num_proj'] = 17*3
+def fix_pd(pd):
+    assert pd['mse_samples'] <= pd['pred_samples']
+    if pd['consistency_loss']:
+        pd['consistency_samples'] = 64
+        assert pd['consistency_samples'] <= pd['pred_samples']
+        pd['consistency_loss_weight'] = 0.000
+    pd['discarded_samples'] = 0
 
-if pd['fft']:
-    pd['epsilon'] = 1e-2
-else:
-    pd['epsilon'] = None
 
-lpd_lst = []
-# define a list of experiments.
-for consistency_loss_weight in [0.001]:
-    for fft in [True]:
-        cpd = pd.copy()
-        cpd['consistency_loss_weight'] = consistency_loss_weight
-        cpd['fft'] = fft
-        if cpd['fft']:
-            cpd['window_size'] = 20
-            cpd['fft_compression_rate'] = 5
-            cpd['overlap'] = int(cpd['window_size']*0.8)
-            cpd['step_size'] = cpd['window_size'] - cpd['overlap']
-            cpd['fft_pred_samples'] = cpd['pred_samples'] // cpd['step_size'] + 1
-            if cpd['fft_compression_rate']:
-                cpd['num_proj'] = 17*3*int((cpd['window_size']//2 + 1) / cpd['fft_compression_rate'])
-            else:
-                cpd['num_proj'] = 17*3*int((cpd['window_size']//2 + 1))
+    if pd['fft']:
+        pd['fft_pred_samples'] = pd['pred_samples'] // pd['step_size'] + 1
+        if pd['fft_compression_rate']:
+            pd['num_proj'] = 17*3*int((pd['window_size']//2 + 1) / pd['fft_compression_rate'])
         else:
-            cpd['num_proj'] = 17*3
-        lpd_lst.append(cpd)
+            pd['num_proj'] = 17*3*int((pd['window_size']//2 + 1))
+    elif pd['linear_reshape']:
+        pd['num_proj'] = (pd['step_size']//pd['downsampling'])*17*3
+    else:
+        pd['num_proj'] = 17*3
 
+    if pd['fft']:
+        pd['epsilon'] = 1e-2
+    else:
+        pd['epsilon'] = None
+    return pd
+
+
+fftc_pd = copy.copy(pd)
+fftc_pd['fft_compression_rate'] = 4
+
+re_pd = copy.copy(pd)
+re_pd['fft'] = False
+re_pd['linear_reshape'] = True
+re_pd['downsampling'] = 1
+
+red_pd = copy.copy(pd)
+red_pd['fft'] = False
+red_pd['linear_reshape'] = True
+red_pd['downsampling'] = 4
+
+time_pd = copy.copy(pd)
+time_pd['fft'] = False
+time_pd['linear_reshape'] = False
+
+
+lpd_lst = [fix_pd(pd), fix_pd(fftc_pd), fix_pd(re_pd), fix_pd(red_pd), fix_pd(time_pd)]
 print('number of experiments:', len(lpd_lst))
-
 
 for exp_no, lpd in enumerate(lpd_lst):
     print('---------- Experiment', exp_no, 'of', len(lpd_lst), '----------')
@@ -158,6 +166,10 @@ for exp_no, lpd in enumerate(lpd_lst):
 
     if lpd['linear_reshape']:
         param_str += '_linre'
+
+        if lpd['downsampling'] > 1:
+            param_str += '_downs_' + str(lpd['downsampling'])
+
 
     # do each of the experiments in the parameter dictionary list.
     print(param_str)
@@ -230,7 +242,6 @@ for exp_no, lpd in enumerate(lpd_lst):
                     buf.close()
 
             # do a test run.
-            # print('test run ', end='')
             if e % 4 == 0:
                 test_mse_lst_net = []
                 test_csl_lst_net = []
@@ -240,11 +251,13 @@ for exp_no, lpd in enumerate(lpd_lst):
                 psy_lst = []
                 ps_kl_xy_lst = []
                 ps_kl_yx_lst = []
+                test_runtime_lst = []
                 test_batch_lst = organize_into_batches(test_data, lpd)
                 for test_batch in test_batch_lst:
                     test_gt = np.reshape(test_batch, [lpd['batch_size'], lpd['chunk_size'], 17*3])
 
                     test_feed_dict = {pgraph.data_nd: test_gt}
+                    test_time_start = time.time()
                     if lpd['fft']:
                         np_loss, np_global_step, \
                             test_datenc_np, test_datdec_np, test_decout_np, \
@@ -269,6 +282,7 @@ for exp_no, lpd in enumerate(lpd_lst):
                                       pgraph.mean_psx, pgraph.mean_psy,
                                       pgraph.mean_ps_kl_xy, pgraph.mean_ps_kl_yx],
                                      feed_dict=test_feed_dict)
+                    test_runtime_lst.append(time.time() - test_time_start)
                     net_pred = test_decout_np[:, :, :]*mocap_handler.std + mocap_handler.mean
                     test_gt = test_gt[:, -lpd['pred_samples']:, :]
                     test_mse_lst_net.append(
@@ -309,6 +323,7 @@ for exp_no, lpd in enumerate(lpd_lst):
                 np_scalar_to_summary('test_cartesian_50hz/psy', mean_psy, np_global_step, summary_writer)
                 np_scalar_to_summary('test_cartesian_50hz/ps_kl_xy', mean_ps_kl_xy, np_global_step, summary_writer)
                 np_scalar_to_summary('test_cartesian_50hz/ps_kl_yx', mean_ps_kl_yx, np_global_step, summary_writer)
+                np_scalar_to_summary('test/runtime', np.mean(test_runtime_lst), np_global_step, summary_writer)
 
                 if lpd['fft']:
                     # window plot in tensorboard.
@@ -411,11 +426,11 @@ for exp_no, lpd in enumerate(lpd_lst):
                     name=lpd['base_dir'] + time_str + param_str + '/out2_4s.mp4',
                     color_shift_at=lpd['chunk_size'] - lpd['pred_samples'] - 1)
 
-        for sel in range(lpd['batch_size']):
-            write_movie(np.transpose(gt_movie[sel], [1, 2, 0]), r_base=1.5,
-                        name=lpd['base_dir'] + time_str + param_str + '/batch_el' + str(sel) + '_in.mp4',
-                        color_shift_at=lpd['chunk_size'] - lpd['pred_samples'] - 1)
-            write_movie(np.transpose(net_movie[sel], [1, 2, 0]), r_base=1.5,
-                        name=lpd['base_dir'] + time_str + param_str + '/batch_el' + str(sel) + '_out.mp4',
-                        color_shift_at=lpd['chunk_size'] - lpd['pred_samples'] - 1)
+        # for sel in range(lpd['batch_size']):
+        #     write_movie(np.transpose(gt_movie[sel], [1, 2, 0]), r_base=1.5,
+        #                 name=lpd['base_dir'] + time_str + param_str + '/batch_el' + str(sel) + '_in.mp4',
+        #                 color_shift_at=lpd['chunk_size'] - lpd['pred_samples'] - 1)
+        #     write_movie(np.transpose(net_movie[sel], [1, 2, 0]), r_base=1.5,
+        #                 name=lpd['base_dir'] + time_str + param_str + '/batch_el' + str(sel) + '_out.mp4',
+        #                 color_shift_at=lpd['chunk_size'] - lpd['pred_samples'] - 1)
         print('done')

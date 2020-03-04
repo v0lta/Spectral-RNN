@@ -1,8 +1,6 @@
 import tensorflow as tf
 import scipy.signal as scisig
 import sys
-from IPython.core.debugger import Pdb
-debug_here = Pdb().set_trace
 sys.path.insert(0, "../")
 import custom_cells as ccell
 import custom_conv as cconv
@@ -68,6 +66,8 @@ class FFTpredictionGraph(object):
                                                              - pd['pred_samples'],
                                                              pd['pred_samples']],
                                                             axis=1)
+            self.data_encoder_time = data_encoder_time
+            self.data_decoder_time = data_decoder_time
 
             if pd['fft']:
                 dtype = tf.complex64
@@ -130,10 +130,12 @@ class FFTpredictionGraph(object):
                 fft_pred_samples = data_decoder_freq.shape[1].value
 
             elif pd['linear_reshape']:
+                if pd['downsampling'] > 1:
+                    data_encoder_time = data_encoder_time[:, ::pd['downsampling'], :]
+
                 encoder_time_steps = data_encoder_time.shape[1].value//pd['step_size']
-                data_encoder_time = tf.reshape(data_encoder_time, [pd['batch_size'],
-                                                                   encoder_time_steps,
-                                                                   pd['step_size']])
+                data_encoder_time = tf.reshape(data_encoder_time, [
+                    pd['batch_size'], pd['step_size'], pd['num_proj']])
                 decoder_time_steps = data_decoder_time.shape[1].value//pd['step_size']
 
             if pd['cell_type'] == 'cgRNN':
@@ -264,10 +266,15 @@ class FFTpredictionGraph(object):
                                               epsilon=pd['epsilon'])
                 # data_encoder_gt = expand_dims_and_transpose(encoder_in, pd, enc_freqs)
                 decoder_out = tf.transpose(decoder_out, [0, 2, 1])
+
             elif pd['linear_reshape']:
-                decoder_out = tf.reshape(decoder_out,
-                                         [pd['batch_size'],
-                                          pd['pred_samples'], 1])
+                decoder_out = tf.reshape(decoder_out, [pd['batch_size'], pd['pred_samples']//pd['downsampling'], 17*3])
+                if pd['downsampling'] > 1:
+                    # decoder_out_t = tf.transpose(decoder_out, [0, 2, 1])
+                    decoder_out = eagerSTFT.interpolate(decoder_out,
+                                                        pd['pred_samples'])
+                    # decoder_out = tf.transpose(decoder_out_t, [0, 2, 1])
+
 
             time_loss = tf.losses.mean_squared_error(
                 tf.real(data_decoder_time[:, :pd['mse_samples'], :]),
@@ -346,7 +353,5 @@ class FFTpredictionGraph(object):
             self.global_step = global_step
             self.decoder_out = decoder_out
             self.data_nd = data_nd
-            self.data_encoder_time = data_encoder_time
-            self.data_decoder_time = data_decoder_time
             if pd['fft']:
                 self.window = window
