@@ -55,7 +55,7 @@ pd['batch_size'] = 50
 # pd['window_function'] = 'learned_plank'
 pd['window_function'] = 'learned_gaussian'  # 'learned_gaussian'
 pd['freq_loss'] = None
-pd['use_residuals'] = False
+pd['use_residuals'] = True
 pd['fft'] = True
 pd['window_size'] = 16
 pd['fft_compression_rate'] = 1
@@ -109,6 +109,10 @@ def fix_pd(pd):
 fftc_pd = copy.copy(pd)
 fftc_pd['fft_compression_rate'] = 4
 
+
+fftc_pd2 = copy.copy(pd)
+fftc_pd2['fft_compression_rate'] = 8
+
 re_pd = copy.copy(pd)
 re_pd['fft'] = False
 re_pd['linear_reshape'] = True
@@ -118,6 +122,11 @@ red_pd = copy.copy(pd)
 red_pd['fft'] = False
 red_pd['linear_reshape'] = True
 red_pd['downsampling'] = 4
+
+red_pd2 = copy.copy(pd)
+red_pd2['fft'] = False
+red_pd2['linear_reshape'] = True
+red_pd2['downsampling'] = 8
 
 time_pd = copy.copy(pd)
 time_pd['fft'] = False
