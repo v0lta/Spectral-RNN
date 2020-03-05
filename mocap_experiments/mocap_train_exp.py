@@ -133,7 +133,8 @@ time_pd['fft'] = False
 time_pd['linear_reshape'] = False
 
 
-lpd_lst = [fix_pd(pd), fix_pd(fftc_pd), fix_pd(re_pd), fix_pd(red_pd), fix_pd(time_pd)]
+lpd_lst = [fix_pd(pd), fix_pd(fftc_pd), fix_pd(fftc_pd2), fix_pd(re_pd), fix_pd(red_pd), fix_pd(red_pd2),
+           fix_pd(time_pd)]
 print('number of experiments:', len(lpd_lst))
 
 for exp_no, lpd in enumerate(lpd_lst):
