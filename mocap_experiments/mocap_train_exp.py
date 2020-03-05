@@ -36,7 +36,7 @@ def np_scalar_to_summary(tag: str, scalar: np.array, np_step: np.array,
 # set up a parameter dictionary.
 pd = {}
 
-pd['base_dir'] = 'log/cvpr_workshop2/'
+pd['base_dir'] = 'log/cvpr_workshop3/'
 pd['cell_type'] = 'gru'
 pd['num_units'] = 1024*3
 pd['sample_prob'] = 1.0
@@ -426,11 +426,11 @@ for exp_no, lpd in enumerate(lpd_lst):
                     name=lpd['base_dir'] + time_str + param_str + '/out2_4s.mp4',
                     color_shift_at=lpd['chunk_size'] - lpd['pred_samples'] - 1)
 
-        # for sel in range(lpd['batch_size']):
-        #     write_movie(np.transpose(gt_movie[sel], [1, 2, 0]), r_base=1.5,
-        #                 name=lpd['base_dir'] + time_str + param_str + '/batch_el' + str(sel) + '_in.mp4',
-        #                 color_shift_at=lpd['chunk_size'] - lpd['pred_samples'] - 1)
-        #     write_movie(np.transpose(net_movie[sel], [1, 2, 0]), r_base=1.5,
-        #                 name=lpd['base_dir'] + time_str + param_str + '/batch_el' + str(sel) + '_out.mp4',
-        #                 color_shift_at=lpd['chunk_size'] - lpd['pred_samples'] - 1)
+        for sel in range(lpd['batch_size']):
+            write_movie(np.transpose(gt_movie[sel], [1, 2, 0]), r_base=1.5,
+                        name=lpd['base_dir'] + time_str + param_str + '/batch_el' + str(sel) + '_in.mp4',
+                        color_shift_at=lpd['chunk_size'] - lpd['pred_samples'] - 1)
+            write_movie(np.transpose(net_movie[sel], [1, 2, 0]), r_base=1.5,
+                        name=lpd['base_dir'] + time_str + param_str + '/batch_el' + str(sel) + '_out.mp4',
+                        color_shift_at=lpd['chunk_size'] - lpd['pred_samples'] - 1)
         print('done')
