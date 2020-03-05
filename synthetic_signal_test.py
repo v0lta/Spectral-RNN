@@ -3,7 +3,7 @@ from mackey_glass_generator import MackeyGenerator
 from run_synthetics import run_experiemtns
 
 pd = {}
-pd['base_dir'] = 'logs/cvpr_workshop_synthetic_2/'
+pd['base_dir'] = 'logs/cvpr_workshop_synthetic_3/'
 pd['cell_type'] = 'gru'
 pd['num_units'] = 64
 pd['sample_prob'] = 1.0

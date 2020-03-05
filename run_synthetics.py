@@ -11,6 +11,20 @@ from mackey_glass_generator import MackeyGenerator
 from power_experiments.prediction_graph import FFTpredictionGraph
 
 
+def np_scalar_to_summary(tag: str, scalar: np.array, np_step: np.array,
+                         summary_file_writer: tf.summary.FileWriter):
+    """
+    Adds a numpy scalar to the logfile.
+    :param tag: The tensorboard plot title.
+    :param scalar: The scalar value to be recordd in that plot.
+    :param np_step: The x-Axis step
+    :param summary_file_writer: The summary writer used to do the recording.
+    """
+    mse_net_summary = tf.Summary.Value(tag=tag, simple_value=scalar)
+    mse_net_summary = tf.Summary(value=[mse_net_summary])
+    summary_file_writer.add_summary(mse_net_summary, global_step=np_step)
+
+
 def run_experiemtns(lpd_lst):
     for exp_no, lpd in enumerate(lpd_lst):
         time_str = time.strftime("%Y-%m-%d %H:%M:%S", time.gmtime())
@@ -85,6 +99,7 @@ def run_experiemtns(lpd_lst):
                           % (it, np_loss, stop-start))
                 # debug_here()
                 summary_writer.add_summary(summary_to_file, global_step=np_global_step)
+                np_scalar_to_summary('runtime', stop-start, np_global_step)
 
                 if it % 100 == 0:
                     plt.figure()
