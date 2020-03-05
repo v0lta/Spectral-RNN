@@ -99,7 +99,7 @@ def run_experiemtns(lpd_lst):
                           % (it, np_loss, stop-start))
                 # debug_here()
                 summary_writer.add_summary(summary_to_file, global_step=np_global_step)
-                np_scalar_to_summary('runtime', stop-start, np_global_step)
+                np_scalar_to_summary('runtime', stop-start, np_global_step, summary_writer)
 
                 if it % 100 == 0:
                     plt.figure()
