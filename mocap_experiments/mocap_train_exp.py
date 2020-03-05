@@ -109,7 +109,6 @@ def fix_pd(pd):
 fftc_pd = copy.copy(pd)
 fftc_pd['fft_compression_rate'] = 4
 
-
 fftc_pd2 = copy.copy(pd)
 fftc_pd2['fft_compression_rate'] = 8
 
