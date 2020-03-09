@@ -70,12 +70,12 @@ pd2 = fix_parameters(pd2)
 
 pd3 = copy.copy(pd)
 pd3['linear_reshape'] = True
-pd3['downsampling'] = 2
+pd3['downsampling'] = 8
 pd3 = fix_parameters(pd3)
 
 pd4 = copy.copy(pd)
 pd4['linear_reshape'] = True
-pd4['downsampling'] = 8
+pd4['downsampling'] = 16
 pd4 = fix_parameters(pd4)
 
 pd5 = copy.copy(pd)
@@ -85,12 +85,12 @@ pd5 = fix_parameters(pd5)
 
 pd6 = copy.copy(pd)
 pd6['fft'] = True
-pd6['fft_compression_rate'] = 2
+pd6['fft_compression_rate'] = 8
 pd6 = fix_parameters(pd6)
 
 pd7 = copy.copy(pd)
 pd7['fft'] = True
-pd7['fft_compression_rate'] = 8
+pd7['fft_compression_rate'] = 16
 pd7 = fix_parameters(pd7)
 
 pd8 = copy.copy(pd)
@@ -116,6 +116,24 @@ pd11['cell_type'] = 'cgRNN'
 pd11['num_units'] = 32
 pd11 = fix_parameters(pd11)
 
+pd12 = copy.copy(pd)
+pd12['fft'] = True
+pd12['cell_type'] = 'cgRNN'
+pd12['freq_loss'] = 'complex_square'
+pd12 = fix_parameters(pd12)
+
+pd13 = copy.copy(pd)
+pd13['fft'] = True
+pd13['fft_compression_rate'] = 32
+pd13 = fix_parameters(pd13)
+
+pd14 = copy.copy(pd)
+pd14['linear_reshape'] = True
+pd14['downsampling'] = 32
+pd14 = fix_parameters(pd14)
+
+
 # define a list of experiments.
-lpd_lst = [pd, pd2, pd3, pd4, pd5, pd6, pd7, pd8, pd9, pd10, pd11]
+# lpd_lst = [pd, pd2, pd3, pd4, pd5, pd6, pd7, pd8, pd9, pd10, pd11, pd12]
+lpd_lst = [pd13, pd14]
 run_experiemtns(lpd_lst)

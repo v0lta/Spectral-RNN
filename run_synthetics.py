@@ -101,7 +101,7 @@ def run_experiemtns(lpd_lst):
                 summary_writer.add_summary(summary_to_file, global_step=np_global_step)
                 np_scalar_to_summary('runtime', stop-start, np_global_step, summary_writer)
 
-                if it % 100 == 0:
+                if it % 250 == 0:
                     plt.figure()
                     plt.plot(decout_np[0, lpd['discarded_samples']:lpd['pred_samples'], 0])
                     plt.plot(datdec_np[0, lpd['discarded_samples']:lpd['pred_samples'], 0])
