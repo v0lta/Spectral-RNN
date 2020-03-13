@@ -307,8 +307,8 @@ for exp_no, lpd in enumerate(lpd_lst):
                         np.mean((test_gt[:, lpd['discarded_samples']:lpd['mse_samples']]
                                  - net_pred[:, lpd['discarded_samples']:lpd['mse_samples']])
                                 ** 2))
-                    test_ae_net.append(np.abs(np.mean(test_gt[:, lpd['discarded_samples']:lpd['mse_samples']]
-                                      - net_pred[:, lpd['discarded_samples']:lpd['mse_samples']])))
+                    test_ae_net.append(np.mean(np.abs(test_gt[:, lpd['discarded_samples']:lpd['mse_samples']]
+                                       - net_pred[:, lpd['discarded_samples']:lpd['mse_samples']])))
                     test_net_lst_out.append(test_decout_np)
                     test_gt_lst_out.append(test_datdec_np)
                     test_csl_lst_net.append(cs_loss_np)
