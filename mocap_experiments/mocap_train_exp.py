@@ -35,8 +35,7 @@ def np_scalar_to_summary(tag: str, scalar: np.array, np_step: np.array,
 
 # set up a parameter dictionary.
 pd = {}
-
-pd['base_dir'] = 'log/mocap_cvpr_workshop3/'
+pd['base_dir'] = './log/mocap_cvpr_workshop_5/'
 pd['cell_type'] = 'gru'
 pd['num_units'] = 1024*3
 pd['sample_prob'] = 1.0
@@ -48,7 +47,7 @@ kl1_target = 0.02
 kl2_target = 0.02
 mse_target = 5000
 
-pd['iterations'] = 500  # 400
+pd['iterations'] = 300  # 400
 pd['GPUs'] = [0]
 pd['batch_size'] = 50
 # pd['window_function'] = 'learned_tukey'
@@ -112,6 +111,9 @@ fftc_pd['fft_compression_rate'] = 4
 fftc_pd2 = copy.copy(pd)
 fftc_pd2['fft_compression_rate'] = 8
 
+fftc_pd3 = copy.copy(pd)
+fftc_pd3['fft_compression_rate'] = 2
+
 re_pd = copy.copy(pd)
 re_pd['fft'] = False
 re_pd['linear_reshape'] = True
@@ -127,13 +129,19 @@ red_pd2['fft'] = False
 red_pd2['linear_reshape'] = True
 red_pd2['downsampling'] = 8
 
+red_pd3 = copy.copy(pd)
+red_pd3['fft'] = False
+red_pd3['linear_reshape'] = True
+red_pd3['downsampling'] = 2
+
 time_pd = copy.copy(pd)
 time_pd['fft'] = False
 time_pd['linear_reshape'] = False
 
 
 lpd_lst = [fix_pd(pd), fix_pd(fftc_pd), fix_pd(fftc_pd2), fix_pd(re_pd), fix_pd(red_pd), fix_pd(red_pd2),
-           fix_pd(time_pd)]
+           fix_pd(time_pd), fix_pd(fftc_pd3), fix_pd(red_pd3)]
+# lpd_lst = [fix_pd(time_pd)]
 print('number of experiments:', len(lpd_lst))
 
 for exp_no, lpd in enumerate(lpd_lst):
@@ -224,7 +232,7 @@ for exp_no, lpd in enumerate(lpd_lst):
                           % (it, np_loss, np_consistency_loss, stop-start, e, lpd['iterations']))
                 summary_writer.add_summary(summary_to_file, global_step=np_global_step)
 
-                if it % 100 == 0:
+                if it % 1000 == 0:
                     plt.figure()
                     plt.plot(
                         train_decout_np[0, lpd['discarded_samples']:lpd['pred_samples'], 0])
@@ -253,6 +261,7 @@ for exp_no, lpd in enumerate(lpd_lst):
             # do a test run.
             if e % 4 == 0:
                 test_mse_lst_net = []
+                test_ae_net = []
                 test_csl_lst_net = []
                 test_net_lst_out = []
                 test_gt_lst_out = []
@@ -298,6 +307,8 @@ for exp_no, lpd in enumerate(lpd_lst):
                         np.mean((test_gt[:, lpd['discarded_samples']:lpd['mse_samples']]
                                  - net_pred[:, lpd['discarded_samples']:lpd['mse_samples']])
                                 ** 2))
+                    test_ae_net.append(np.abs(np.mean(test_gt[:, lpd['discarded_samples']:lpd['mse_samples']]
+                                      - net_pred[:, lpd['discarded_samples']:lpd['mse_samples']])))
                     test_net_lst_out.append(test_decout_np)
                     test_gt_lst_out.append(test_datdec_np)
                     test_csl_lst_net.append(cs_loss_np)
@@ -308,6 +319,7 @@ for exp_no, lpd in enumerate(lpd_lst):
 
                     print('.', end='')
                 mse_net = np.mean(np.array(test_mse_lst_net))
+                ae_net = np.mean(test_ae_net)
                 cs_loss_np_mean = np.mean(test_csl_lst_net)
                 mean_psx = np.mean(psx_lst)
                 mean_psy = np.mean(psy_lst)
@@ -324,9 +336,9 @@ for exp_no, lpd in enumerate(lpd_lst):
                                             param_str + '/mse_'+str(mse_net)+'/cpk')
                     print('saved at:', ret)
 
-
                 # add to tensorboard
                 np_scalar_to_summary('test/mse_net_test', mse_net, np_global_step, summary_writer)
+                np_scalar_to_summary('test/abse_net_test', ae_net, np_global_step, summary_writer)
                 np_scalar_to_summary('test/cl_net_test', cs_loss_np_mean, np_global_step, summary_writer)
                 np_scalar_to_summary('test_cartesian_50hz/psx', mean_psx, np_global_step, summary_writer)
                 np_scalar_to_summary('test_cartesian_50hz/psy', mean_psy, np_global_step, summary_writer)
@@ -334,24 +346,24 @@ for exp_no, lpd in enumerate(lpd_lst):
                 np_scalar_to_summary('test_cartesian_50hz/ps_kl_yx', mean_ps_kl_yx, np_global_step, summary_writer)
                 np_scalar_to_summary('test/runtime', np.mean(test_runtime_lst), np_global_step, summary_writer)
 
-                if lpd['fft']:
-                    # window plot in tensorboard.
-                    plt.figure()
-                    plt.plot(window_np)
-                    plt.title(lpd['window_function'])
-                    buf2 = io.BytesIO()
-                    plt.savefig(buf2, format='png')
-                    buf2.seek(0)
-                    summary_image2 = tf.Summary.Image(
-                        encoded_image_string=buf2.getvalue(),
-                        height=int(plt.rcParams["figure.figsize"][0]*100),
-                        width=int(plt.rcParams["figure.figsize"][1]*100))
-                    summary_image2 = tf.Summary.Value(tag=lpd['window_function'],
-                                                      image=summary_image2)
-                    summary_image2 = tf.Summary(value=[summary_image2])
-                    summary_writer.add_summary(summary_image2, global_step=np_global_step)
-                    plt.close()
-                    buf.close()
+                # if lpd['fft']:
+                #     # window plot in tensorboard.
+                #     plt.figure()
+                #     plt.plot(window_np)
+                #     plt.title(lpd['window_function'])
+                #     buf2 = io.BytesIO()
+                #     plt.savefig(buf2, format='png')
+                #     buf2.seek(0)
+                #     summary_image2 = tf.Summary.Image(
+                #         encoded_image_string=buf2.getvalue(),
+                #         height=int(plt.rcParams["figure.figsize"][0]*100),
+                #         width=int(plt.rcParams["figure.figsize"][1]*100))
+                #     summary_image2 = tf.Summary.Value(tag=lpd['window_function'],
+                #                                       image=summary_image2)
+                #     summary_image2 = tf.Summary(value=[summary_image2])
+                #     summary_writer.add_summary(summary_image2, global_step=np_global_step)
+                #     plt.close()
+                #     buf.close()
 
             # do the evaluation
             if e % 5 == 0:

@@ -13,9 +13,9 @@ fifteen_minute_sampling = True
 
 # set up a parameter dictionary.
 pd = {}
-pd['base_dir'] = 'log/cvpr_workshop_power_pred2/'
+pd['base_dir'] = 'log/cvpr_workshop_power_pred4/'
 
-pd['prediction_days'] = 60  #1
+pd['prediction_days'] = 60 #,  1
 if pd['prediction_days'] > 1:
     pd['context_days'] = pd['prediction_days']*2
 else:
@@ -25,12 +25,12 @@ pd['cell_type'] = 'gru'
 pd['num_units'] = 64
 pd['sample_prob'] = 1.0
 pd['init_learning_rate'] = 0.004
-pd['decay_rate'] = 0.95
+pd['decay_rate'] = 0.96
 
 
-pd['epochs'] = 80
+pd['epochs'] = 320
 pd['GPUs'] = [0]
-pd['batch_size'] = 100
+pd['batch_size'] = 50
 # window_function = 'hann'
 # pd['window_function'] = 'learned_tukey'
 # pd['window_function'] = 'learned_plank'

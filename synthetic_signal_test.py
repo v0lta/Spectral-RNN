@@ -3,14 +3,14 @@ from mackey_glass_generator import MackeyGenerator
 from run_synthetics import run_experiemtns
 
 pd = {}
-pd['base_dir'] = 'logs/cvpr_workshop_synthetic_3/'
+pd['base_dir'] = 'log/cvpr_workshop_synthetic_5/'
 pd['cell_type'] = 'gru'
 pd['num_units'] = 64
 pd['sample_prob'] = 1.0
 pd['init_learning_rate'] = 0.001
 pd['decay_rate'] = 0.9
 pd['decay_steps'] = 1000
-pd['iterations'] = 20000
+pd['iterations'] = 30000
 # pd['iterations'] = 2
 pd['GPUs'] = [0]
 pd['batch_size'] = 12
@@ -134,6 +134,6 @@ pd14 = fix_parameters(pd14)
 
 
 # define a list of experiments.
-# lpd_lst = [pd, pd2, pd3, pd4, pd5, pd6, pd7, pd8, pd9, pd10, pd11, pd12]
-lpd_lst = [pd13, pd14]
+lpd_lst = [pd, pd2, pd3, pd4, pd5, pd6, pd7, pd8, pd9, pd10, pd11, pd12, pd13, pd14]
+# lpd_lst = [pd13, pd14]
 run_experiemtns(lpd_lst)

@@ -7,8 +7,6 @@ import tensorflow as tf
 import matplotlib.pyplot as plt
 import numpy as np
 import os
-from IPython.core.debugger import Pdb
-debug_here = Pdb().set_trace
 
 
 def tensoboard_average(y, window):
@@ -58,7 +56,7 @@ def plot_logs(ps, legend, title, window_size=25, vtag='mse', ylim=[0.00, 0.35],
     plt.title(title)
 
     if tikz:
-        from matplotlib2tikz import save as tikz_save
+        from tikzplotlib import save as tikz_save
         tikz_save(filename)
     elif pdf:
         plt.savefig(filename, bbox_inches='tight')
@@ -117,3 +115,39 @@ def return_logs(path, window_size=25, vtag='mse', filter_str=None):
         return filtered_list
     else:
         return xy_lst
+
+
+if __name__ == '__main__':
+    import tikzplotlib
+
+    # window plot
+    window_plot = True
+    if window_plot:
+        print('window plot')
+        path1 = '/home/moritz/uni/fourier-prediction/log/cvpr_workshop_synthetic_5/\
+2020-03-12 01:36:55_gru_size_64_fft_True_bs_12_ps_2560_dis_0_lr_0.001_dr\
+_0.9_ds_1000_sp_1.0_rc_True_pt_45891_wf_learned_gaussian_ws_128_ol_64_ffts_64_fftp_41_fl_None_eps_0.001_fftcr_1'
+        log = return_logs(path1, vtag='gaussian_window/window_sigma')
+        plt.plot(log[0][0][0], log[0][0][1], label='1')
+
+        path2 = '/home/moritz/uni/fourier-prediction/log/cvpr_workshop_synthetic_5/\
+2020-03-12 02:36:09_gru_size_64_fft_True_bs_12_ps_2560_dis_0_lr_0.001_dr\
+_0.9_ds_1000_sp_1.0_rc_True_pt_16593_wf_learned_gaussian_ws_128_ol_64_ffts_64_fftp_41_fl_None_eps_0.001_fftcr_8'
+        log = return_logs(path2, vtag='gaussian_window/window_sigma')
+        plt.plot(log[0][0][0], log[0][0][1], label='1/8')
+
+        path3 = '/home/moritz/uni/fourier-prediction/log/cvpr_workshop_synthetic_5/\
+2020-03-12 03:33:08_gru_size_64_fft_True_bs_12_ps_2560_dis_0_lr_0.001_dr\
+_0.9_ds_1000_sp_1.0_rc_True_pt_14537_wf_learned_gaussian_ws_128_ol_64_ffts_64_fftp_41_fl_None_eps_0.001_fftcr_16'
+        log = return_logs(path3, vtag='gaussian_window/window_sigma')
+        plt.plot(log[0][0][0], log[0][0][1], label='1/16')
+
+        path4 = '/home/moritz/uni/fourier-prediction/log/cvpr_workshop_synthetic_5/\
+2020-03-12 09:59:31_gru_size_64_fft_True_bs_12_ps_2560_dis_0_lr_0.001_dr\
+_0.9_ds_1000_sp_1.0_rc_True_pt_13509_wf_learned_gaussian_ws_128_ol_64_ffts_64_fftp_41_fl_None_eps_0.001_fftcr_32'
+        log = return_logs(path4, vtag='gaussian_window/window_sigma')
+        plt.plot(log[0][0][0], log[0][0][1], label='1/32')
+        plt.legend()
+        tikzplotlib.save('window_sigma_plot.tex', standalone=True)
+        # plt.show()
+    print('done')

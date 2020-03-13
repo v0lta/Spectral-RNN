@@ -13,10 +13,10 @@ from mocap_experiments.util import compute_ent_metrics, organize_into_batches, c
 PoseData = collections.namedtuple('PoseData', ['f', 'action', 'actor', 'array'])
 
 # supplementary experiment.
-base_path = '/home/moritz/uni/fourier-prediction/mocap_experiments/log/suppl/'
-folder = '2019-11-20 17:02:32_gru_size_3072_fft_True_bs_50_ps_200_dis_0_lr_0.001_dr_0.97_ds_1000' \
-         '_sp_1.0_mses_50_rc_False_pt_30827725_clw_0.001_csp_200_wf_learned_gaussian_ws_20_ol_16_ffts_4' \
-         '_fftp_51_fl_None_eps_0.01_fftcr_5/'
+base_path = '/home/moritz/uni/fourier-prediction/log/cvpr_workshop3/'
+folder = '2020-03-05 09:07:06_gru_size_3072_fft_True_bs_50_ps_64_dis_0_lr_0.001_dr_0.97_ds_1000_sp_1.0' \
+         '_mses_64_rc_False_pt_30827725_clw_0.0_csp_64_wf_learned_gaussian_ws_16_ol_8_ffts_' \
+         '8_fftp_9_fl_None_eps_0.01_fftcr_4/'
 checkpoint_folder = 'weights'
 path = base_path + folder
 
@@ -27,8 +27,8 @@ graph = FFTpredictionGraph(pd)
 gpu_options = tf.GPUOptions(visible_device_list=str(pd['GPUs'])[1:-1])
 # gpu_options = tf.GPUOptions(per_process_gpu_memory_fraction=1.0)
 config = tf.ConfigProto(allow_soft_placement=True,
-                        log_device_placement=False,
-                        gpu_options=gpu_options)
+                        log_device_placement=False)
+                        #gpu_options=gpu_options)
 with tf.Session(graph=graph.graph, config=config) as sess:
     test_data = mocap_handler_test.get_batches()
     print('restore weights:.....')
@@ -95,23 +95,23 @@ with tf.Session(graph=graph.graph, config=config) as sess:
     test_datenc_np = np.reshape(test_datenc_np, [test_datenc_np.shape[0], test_datenc_np.shape[1], 17, 3])
     test_datdec_np = np.reshape(test_datdec_np, [test_datdec_np.shape[0], test_datdec_np.shape[1], 17, 3])
     test_decout_np = np.reshape(test_decout_np, [test_decout_np.shape[0], test_decout_np.shape[1], 17, 3])
-    sel = 8  #11  # 30
+    sel = 30  #11  # 30 # 45
     gt_movie = np.concatenate([test_datenc_np, test_datdec_np], axis=1)
     net_movie = np.concatenate([test_datenc_np, test_decout_np], axis=1)
     # write_movie(np.transpose(gt_movie[sel], [1, 2, 0]), r_base=2,
     #             name='test_in.mp4', color_shift_at=pd['chunk_size'] - pd['pred_samples'])
     # write_movie(np.transpose(net_movie[sel], [1, 2, 0]), r_base=1,
     #             name='test_out.mp4', color_shift_at=pd['chunk_size'] - pd['pred_samples'])
-    # write_figure(np.transpose(net_movie[sel][::12, :, :], [1, 2, 0]),
-    #                           color_shift_at=int(pd['chunk_size'] - pd['pred_samples'])/12, r_base=1,
-    #              name='test_figure.pdf')
-    gt_movie = gt_movie[:, ::10, :, :]
-    net_movie = net_movie[:, ::10, :, :]
-    for sel in [49]:  # range(pd['batch_size']):
+    write_figure(np.transpose(net_movie[sel][::12, :, :], [1, 2, 0]),
+                              color_shift_at=int(pd['chunk_size'] - pd['pred_samples'])/12, r_base=1.5,
+                  name='test_data/test_figure.pdf')
+    gt_movie = gt_movie[:, :, :, :]
+    net_movie = net_movie[:, :, :, :]
+    for sel in [30]:  # range(pd['batch_size']):
         write_movie(np.transpose(gt_movie[sel], [1, 2, 0]), r_base=1.8,
-                    name='test_vids/' + str(sel) + '5Hz_in.mp4',
-                    color_shift_at=pd['chunk_size']//10 - pd['pred_samples']//10 - 1, title='context and ground truth')
+                    name='test_data/' + str(sel) + '5Hz_in.mp4',
+                    color_shift_at=pd['chunk_size'] - pd['pred_samples'] - 1, title='context and ground truth')
         write_movie(np.transpose(net_movie[sel], [1, 2, 0]), r_base=1.8,
-                    name='test_vids/' + str(sel) + '5Hz_out.mp4',
-                    color_shift_at=pd['chunk_size']//10 - pd['pred_samples']//10 - 1, title='context and prediction')
+                    name='test_data/' + str(sel) + '5Hz_out.mp4',
+                    color_shift_at=pd['chunk_size'] - pd['pred_samples'] - 1, title='context and prediction')
     print('done')
