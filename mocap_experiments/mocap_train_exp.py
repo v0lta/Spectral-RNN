@@ -35,7 +35,7 @@ def np_scalar_to_summary(tag: str, scalar: np.array, np_step: np.array,
 
 # set up a parameter dictionary.
 pd = {}
-pd['base_dir'] = './log/mocap_cvpr_workshop_5/'
+pd['base_dir'] = './log/mocap_cvpr_workshop_6/'
 pd['cell_type'] = 'gru'
 pd['num_units'] = 1024*3
 pd['sample_prob'] = 1.0
@@ -58,7 +58,7 @@ pd['use_residuals'] = True
 pd['fft'] = True
 pd['window_size'] = 16
 pd['fft_compression_rate'] = 1
-pd['overlap'] = int(pd['window_size']*0.5)
+pd['overlap'] = int(pd['window_size']*0.75)
 pd['step_size'] = pd['window_size'] - pd['overlap']
 pd['linear_reshape'] = False
 pd['downsampling'] = 1
@@ -316,7 +316,6 @@ for exp_no, lpd in enumerate(lpd_lst):
                     psy_lst.append(mean_psy_np)
                     ps_kl_xy_lst.append(mean_ps_kl_xy_np)
                     ps_kl_yx_lst.append(mean_ps_kl_yx_np)
-
                     print('.', end='')
                 mse_net = np.mean(np.array(test_mse_lst_net))
                 ae_net = np.mean(test_ae_net)
