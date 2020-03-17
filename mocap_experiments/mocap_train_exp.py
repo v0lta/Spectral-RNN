@@ -47,7 +47,7 @@ kl1_target = 0.02
 kl2_target = 0.02
 mse_target = 5000
 
-pd['iterations'] = 300  # 400
+pd['iterations'] = 1  #300  # 400
 pd['GPUs'] = [0]
 pd['batch_size'] = 50
 # pd['window_function'] = 'learned_tukey'
@@ -56,9 +56,9 @@ pd['window_function'] = 'learned_gaussian'  # 'learned_gaussian'
 pd['freq_loss'] = None
 pd['use_residuals'] = True
 pd['fft'] = True
-pd['window_size'] = 16
+pd['window_size'] = 32
 pd['fft_compression_rate'] = 1
-pd['overlap'] = int(pd['window_size']*0.75)
+pd['overlap'] = int(pd['window_size']*0.5)
 pd['step_size'] = pd['window_size'] - pd['overlap']
 pd['linear_reshape'] = False
 pd['downsampling'] = 1
@@ -85,7 +85,6 @@ def fix_pd(pd):
         assert pd['consistency_samples'] <= pd['pred_samples']
         pd['consistency_loss_weight'] = 0.000
     pd['discarded_samples'] = 0
-
 
     if pd['fft']:
         pd['fft_pred_samples'] = pd['pred_samples'] // pd['step_size'] + 1
@@ -130,9 +129,9 @@ time_pd['fft'] = False
 time_pd['linear_reshape'] = False
 
 
-# lpd_lst = [fix_pd(pd), fix_pd(fftc_pd), fix_pd(fftc_pd2), fix_pd(re_pd), fix_pd(red_pd), fix_pd(red_pd2),
-#            fix_pd(time_pd), fix_pd(fftc_pd3)]
-lpd_lst = [fix_pd(re_pd)]
+lpd_lst = [fix_pd(pd), fix_pd(fftc_pd2), fix_pd(re_pd), fix_pd(red_pd), fix_pd(red_pd2),
+           fix_pd(time_pd), fix_pd(fftc_pd3)]
+# lpd_lst = [fix_pd(re_pd)]
 print('number of experiments:', len(lpd_lst))
 
 for exp_no, lpd in enumerate(lpd_lst):
