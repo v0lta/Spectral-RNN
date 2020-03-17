@@ -35,7 +35,7 @@ def np_scalar_to_summary(tag: str, scalar: np.array, np_step: np.array,
 
 # set up a parameter dictionary.
 pd = {}
-pd['base_dir'] = './log/mocap_cvpr_workshop_8/'
+pd['base_dir'] = './log/mocap_cvpr_workshop_9/'
 pd['cell_type'] = 'gru'
 pd['num_units'] = 1024*3
 pd['sample_prob'] = 1.0
@@ -104,10 +104,6 @@ def fix_pd(pd):
         pd['epsilon'] = None
     return pd
 
-
-fftc_pd = copy.copy(pd)
-fftc_pd['fft_compression_rate'] = 1
-
 fftc_pd2 = copy.copy(pd)
 fftc_pd2['fft_compression_rate'] = 2
 
@@ -134,9 +130,9 @@ time_pd['fft'] = False
 time_pd['linear_reshape'] = False
 
 
-lpd_lst = [fix_pd(pd), fix_pd(fftc_pd), fix_pd(fftc_pd2), fix_pd(re_pd), fix_pd(red_pd), fix_pd(red_pd2),
-           fix_pd(time_pd), fix_pd(fftc_pd3)]
-# lpd_lst = [fix_pd(time_pd)]
+# lpd_lst = [fix_pd(pd), fix_pd(fftc_pd), fix_pd(fftc_pd2), fix_pd(re_pd), fix_pd(red_pd), fix_pd(red_pd2),
+#            fix_pd(time_pd), fix_pd(fftc_pd3)]
+lpd_lst = [fix_pd(re_pd)]
 print('number of experiments:', len(lpd_lst))
 
 for exp_no, lpd in enumerate(lpd_lst):
