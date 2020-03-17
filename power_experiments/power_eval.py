@@ -109,9 +109,16 @@ _bs_50_ps_5760_dis_0_lr_0.004_dr_0.95_ds_390_sp_1.0_rc_True_pt_27900_linre_downs
     gt = gt_np[i, -pd['pred_samples']:, 0]
     plt.plot(net_pred[pd['discarded_samples']:], label='time-window-down')
 
+    path = base_path + '2020-03-12 16:31:49_gru_size_64_fft_False_fm_True\
+_bs_50_ps_5760_dis_0_lr_0.004_dr_0.95_ds_390_sp_1.0_rc_True_pt_12737'
+    decout_np, official_pred_np, gt_np, pd = get_pred(path, restore_step)
+    net_pred = decout_np[i, :, 0]*pd['power_handler'].std + pd['power_handler'].mean
+    official_pred = official_pred_np[i, - pd['pred_samples']:, 0]
+    gt = gt_np[i, -pd['pred_samples']:, 0]
+    plt.plot(net_pred[pd['discarded_samples']:], label='time')
     plt.plot(gt[pd['discarded_samples']:], label='ground truth')
 
-    plt.legend()
+    # plt.legend()
     plt.ylim([6000, 14000])
     # last week
     # plt.xlim([5088, 5760])

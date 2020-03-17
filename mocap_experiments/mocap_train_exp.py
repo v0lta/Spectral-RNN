@@ -35,7 +35,7 @@ def np_scalar_to_summary(tag: str, scalar: np.array, np_step: np.array,
 
 # set up a parameter dictionary.
 pd = {}
-pd['base_dir'] = './log/mocap_cvpr_workshop_7/'
+pd['base_dir'] = './log/mocap_cvpr_workshop_8/'
 pd['cell_type'] = 'gru'
 pd['num_units'] = 1024*3
 pd['sample_prob'] = 1.0
@@ -56,7 +56,7 @@ pd['window_function'] = 'learned_gaussian'  # 'learned_gaussian'
 pd['freq_loss'] = None
 pd['use_residuals'] = True
 pd['fft'] = True
-pd['window_size'] = 8
+pd['window_size'] = 12
 pd['fft_compression_rate'] = 1
 pd['overlap'] = int(pd['window_size']*0.75)
 pd['step_size'] = pd['window_size'] - pd['overlap']
@@ -106,13 +106,13 @@ def fix_pd(pd):
 
 
 fftc_pd = copy.copy(pd)
-fftc_pd['fft_compression_rate'] = 4
+fftc_pd['fft_compression_rate'] = 1
 
 fftc_pd2 = copy.copy(pd)
-fftc_pd2['fft_compression_rate'] = 8
+fftc_pd2['fft_compression_rate'] = 2
 
 fftc_pd3 = copy.copy(pd)
-fftc_pd3['fft_compression_rate'] = 2
+fftc_pd3['fft_compression_rate'] = 3
 
 re_pd = copy.copy(pd)
 re_pd['fft'] = False
@@ -122,17 +122,12 @@ re_pd['downsampling'] = 1
 red_pd = copy.copy(pd)
 red_pd['fft'] = False
 red_pd['linear_reshape'] = True
-red_pd['downsampling'] = 4
+red_pd['downsampling'] = 2
 
 red_pd2 = copy.copy(pd)
 red_pd2['fft'] = False
 red_pd2['linear_reshape'] = True
-red_pd2['downsampling'] = 8
-
-red_pd3 = copy.copy(pd)
-red_pd3['fft'] = False
-red_pd3['linear_reshape'] = True
-red_pd3['downsampling'] = 2
+red_pd2['downsampling'] = 3
 
 time_pd = copy.copy(pd)
 time_pd['fft'] = False
@@ -140,7 +135,7 @@ time_pd['linear_reshape'] = False
 
 
 lpd_lst = [fix_pd(pd), fix_pd(fftc_pd), fix_pd(fftc_pd2), fix_pd(re_pd), fix_pd(red_pd), fix_pd(red_pd2),
-           fix_pd(time_pd), fix_pd(fftc_pd3), fix_pd(red_pd3)]
+           fix_pd(time_pd), fix_pd(fftc_pd3)]
 # lpd_lst = [fix_pd(time_pd)]
 print('number of experiments:', len(lpd_lst))
 
