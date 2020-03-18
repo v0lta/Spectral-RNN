@@ -47,7 +47,7 @@ kl1_target = 0.02
 kl2_target = 0.02
 mse_target = 5000
 
-pd['iterations'] = 1 #300  # 400
+pd['iterations'] = 300  # 400
 pd['GPUs'] = [0]
 pd['batch_size'] = 50
 # pd['window_function'] = 'learned_tukey'
