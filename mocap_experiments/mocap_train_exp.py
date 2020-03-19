@@ -35,7 +35,7 @@ def np_scalar_to_summary(tag: str, scalar: np.array, np_step: np.array,
 
 # set up a parameter dictionary.
 pd = {}
-pd['base_dir'] = './log/mocap_cvpr_workshop_22'
+pd['base_dir'] = './log/mocap_cvpr_workshop_23'
 pd['cell_type'] = 'gru'
 pd['num_units'] = 1024*3
 pd['sample_prob'] = 1.0
