@@ -35,7 +35,7 @@ def np_scalar_to_summary(tag: str, scalar: np.array, np_step: np.array,
 
 # set up a parameter dictionary.
 pd = {}
-pd['base_dir'] = './log/mocap_cvpr_workshop_20/'
+pd['base_dir'] = './log/mocap_cvpr_workshop_21'
 pd['cell_type'] = 'gru'
 pd['num_units'] = 1024*3
 pd['sample_prob'] = 1.0
@@ -56,7 +56,7 @@ pd['window_function'] = 'learned_gaussian'  # 'learned_gaussian'
 pd['freq_loss'] = None
 pd['use_residuals'] = True
 pd['fft'] = True
-pd['window_size'] = 16
+pd['window_size'] = 40
 pd['fft_compression_rate'] = 1
 pd['overlap'] = int(pd['window_size']*0.75)
 pd['step_size'] = pd['window_size'] - pd['overlap']
@@ -124,8 +124,8 @@ time_pd['fft'] = False
 time_pd['linear_reshape'] = False
 
 
-lpd_lst = [fix_pd(pd), fix_pd(fftc_pd2), fix_pd(re_pd), fix_pd(red_pd),
-           fix_pd(fftc_pd3), fix_pd(time_pd)]
+lpd_lst = [fix_pd(pd), fix_pd(fftc_pd2), fix_pd(fftc_pd3), fix_pd(re_pd), fix_pd(red_pd),
+           fix_pd(time_pd)]
 # lpd_lst = [fix_pd(red_pd)]
 print('number of experiments:', len(lpd_lst))
 
