@@ -104,10 +104,10 @@ def fix_pd(pd):
     return pd
 
 fftc_pd2 = copy.copy(pd)
-fftc_pd2['fft_compression_rate'] = 1.5
+fftc_pd2['fft_compression_rate'] = 2
 
 fftc_pd3 = copy.copy(pd)
-fftc_pd3['fft_compression_rate'] = 2
+fftc_pd3['fft_compression_rate'] = 4
 
 re_pd = copy.copy(pd)
 re_pd['fft'] = False
@@ -117,7 +117,7 @@ re_pd['downsampling'] = 1
 red_pd = copy.copy(pd)
 red_pd['fft'] = False
 red_pd['linear_reshape'] = True
-red_pd['downsampling'] = 2
+red_pd['downsampling'] = 34
 
 time_pd = copy.copy(pd)
 time_pd['fft'] = False
