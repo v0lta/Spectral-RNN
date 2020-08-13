@@ -4,8 +4,7 @@ Source code for the paper:
 https://arxiv.org/pdf/1812.05645.pdf if you find this work useful please consider citing the paper.
 The code has been tested using Tensorflow 1.10.0 but should also run in 1.13.
 
-Experiments:
-------------
+###### Experiments:
 
  - To recreate the synthetic experiments run `synthetic_signal_test.py` after adjusting the   
    hyperparameters as described in the paper.
@@ -22,8 +21,7 @@ Experiments:
    in the paper.
  
 
-Citation:
----------
+###### Citation:
 ```
 @inproceedings{wolter2018spectral,
   title={Sequence Prediction using Spectral RNNs},
@@ -33,16 +31,12 @@ Citation:
 }
 ```
 
-
-
-Demo Video:
------------
+###### Demo Video:
 ![Alt Text](demo.gif)
 
 In the demo the desired behaviour is shown on the left, while the right side depicts the network predictions.
 The red and blue coloured stick figures are context, the green and yellow figures show the ground truth and 
 network output.
 
-Funding:
---------
+###### Funding:
 This work has been partly funded by the Deutsche Forschungsgemeinschaft (DFG, German Research Foundation) YA 447/2-1 and GA 1927/4-1 (FOR2535 Anticipating Human Behavior) as well as by the National Research Foundation of Singapore under its NRF Fellowship Programme [NRF-NRFFAI1-2019-0001].
