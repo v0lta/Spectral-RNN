@@ -1,7 +1,4 @@
 import tensorflow as tf
-from IPython.core.debugger import Tracer
-debug_here = Tracer()
-
 
 def generate_mackey(batch_size=100, tmax=200, delta_t=1, rnd=True):
     """

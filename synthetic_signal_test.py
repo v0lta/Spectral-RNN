@@ -1,34 +1,25 @@
-import io
-import time
-import pickle
-import tensorflow as tf
-import numpy as np
-import matplotlib.pyplot as plt
+import copy
 from mackey_glass_generator import MackeyGenerator
-from power_experiments.prediction_graph import FFTpredictionGraph
-from IPython.core.debugger import Pdb
-debug_here = Pdb().set_trace
+from run_synthetics import run_experiemtns
 
 pd = {}
-pd['base_dir'] = 'logs/mackey1k2c8d_window_size_v3/'
-pd['cell_type'] = 'cgRNN'
+pd['base_dir'] = 'log/cvpr_workshop_synthetic_5/'
+pd['cell_type'] = 'gru'
 pd['num_units'] = 64
 pd['sample_prob'] = 1.0
 pd['init_learning_rate'] = 0.001
 pd['decay_rate'] = 0.9
 pd['decay_steps'] = 1000
-
-pd['iterations'] = 20000
+pd['iterations'] = 30000
 # pd['iterations'] = 2
 pd['GPUs'] = [0]
 pd['batch_size'] = 12
 pd['window_function'] = 'learned_gaussian'
 pd['freq_loss'] = None
 pd['use_residuals'] = True
-pd['fft'] = True
 pd['linear_reshape'] = False
+pd['downsampling'] = 1  # set to 1 to turn this off.
 pd['stiefel'] = False
-
 # data parameters
 pd['tmax'] = 512
 pd['delta_t'] = 0.1
@@ -36,206 +27,113 @@ pd['input_samples'] = int(pd['tmax']/pd['delta_t'])
 pd['generator'] = MackeyGenerator(pd['batch_size'],
                                   pd['tmax'], pd['delta_t'],
                                   restore_and_plot=False)
-
 pd['window_size'] = 128
 pd['pred_samples'] = 2560
 pd['discarded_samples'] = 0
+
+pd['fft'] = False
 pd['overlap'] = int(pd['window_size']*0.5)
 pd['step_size'] = pd['window_size'] - pd['overlap']
 pd['fft_pred_samples'] = pd['pred_samples'] // pd['step_size'] + 1
 pd['fft_compression_rate'] = None
-# dont touch!
+# don't touch!
 pd['conv_fft_bins'] = None
 pd['fully_fft_comp'] = None
 
-if pd['fft']:
-    pd['num_proj'] = int(pd['window_size']//2 + 1)
-elif pd['linear_reshape']:
-    pd['num_proj'] = pd['step_size']
-else:
-    pd['num_proj'] = 1
 
-if pd['fft']:
-    if pd['window_function'] == 'boxcar':
-        pd['epsilon'] = 0.0
+def fix_parameters(pd):
+    if pd['fft']:
+        if pd['fft_compression_rate']:
+            pd['num_proj'] = int((pd['window_size']//2 + 1) / pd['fft_compression_rate'])
+        else:
+            pd['num_proj'] = int((pd['window_size']//2 + 1))
+    elif pd['linear_reshape']:
+        pd['num_proj'] = pd['step_size']/pd['downsampling']
     else:
-        pd['epsilon'] = 1e-3
-else:
-    pd['epsilon'] = None
+        pd['num_proj'] = 1
+
+    if pd['fft']:
+        if pd['window_function'] == 'boxcar':
+            pd['epsilon'] = 0.0
+        else:
+            pd['epsilon'] = 1e-3
+    else:
+        pd['epsilon'] = None
+    return pd
+
+
+pd = fix_parameters(pd)
+pd2 = copy.copy(pd)
+pd2['linear_reshape'] = True
+pd2['downsampling'] = 1
+pd2 = fix_parameters(pd2)
+
+pd3 = copy.copy(pd)
+pd3['linear_reshape'] = True
+pd3['downsampling'] = 8
+pd3 = fix_parameters(pd3)
+
+pd4 = copy.copy(pd)
+pd4['linear_reshape'] = True
+pd4['downsampling'] = 16
+pd4 = fix_parameters(pd4)
+
+pd5 = copy.copy(pd)
+pd5['fft'] = True
+pd5['fft_compression_rate'] = 1
+pd5 = fix_parameters(pd5)
+
+pd6 = copy.copy(pd)
+pd6['fft'] = True
+pd6['fft_compression_rate'] = 8
+pd6 = fix_parameters(pd6)
+
+pd7 = copy.copy(pd)
+pd7['fft'] = True
+pd7['fft_compression_rate'] = 16
+pd7 = fix_parameters(pd7)
+
+pd8 = copy.copy(pd)
+pd8['fft'] = True
+pd8['cell_type'] = 'cgRNN'
+pd8 = fix_parameters(pd8)
+
+pd9 = copy.copy(pd)
+pd9['fft'] = True
+pd9['cell_type'] = 'cgRNN'
+pd9['num_units'] = 54
+pd9 = fix_parameters(pd9)
+
+pd10 = copy.copy(pd)
+pd10['fft'] = True
+pd10['cell_type'] = 'cgRNN'
+pd10['num_units'] = 32
+pd10 = fix_parameters(pd10)
+
+pd11 = copy.copy(pd)
+pd11['fft'] = True
+pd11['cell_type'] = 'cgRNN'
+pd11['num_units'] = 32
+pd11 = fix_parameters(pd11)
+
+pd12 = copy.copy(pd)
+pd12['fft'] = True
+pd12['cell_type'] = 'cgRNN'
+pd12['freq_loss'] = 'complex_square'
+pd12 = fix_parameters(pd12)
+
+pd13 = copy.copy(pd)
+pd13['fft'] = True
+pd13['fft_compression_rate'] = 32
+pd13 = fix_parameters(pd13)
+
+pd14 = copy.copy(pd)
+pd14['linear_reshape'] = True
+pd14['downsampling'] = 32
+pd14 = fix_parameters(pd14)
+
 
 # define a list of experiments.
-lpd_lst = []
-
-# cell_size_loop
-fft_loop = pd['fft']
-if fft_loop:
-    assert pd['fft'] is True
-    assert pd['linear_reshape'] is False
-    # cell_type loop:
-    for cell_type in ['gru']:
-        # window_loop
-        for window in ['learned_gaussian']:
-            # cell size_loop.
-            for num_units in [64]:  # 32 ,45, 64
-                # window_size loop
-                for window_size in [128]:
-                    # compression loop:
-                    for compression in [32]:
-                        cpd = pd.copy()
-                        cpd['window_size'] = window_size
-                        cpd['overlap'] = int(cpd['window_size']*0.5)
-                        cpd['window_function'] = window
-                        cpd['fft_compression_rate'] = compression
-                        cpd['num_units'] = num_units
-                        cpd['cell_type'] = cell_type
-                        if cpd['fft_compression_rate']:
-                            cpd['num_proj'] = int((cpd['window_size']//2 + 1)
-                                                  / cpd['fft_compression_rate'])
-                        else:
-                            cpd['num_proj'] = int((cpd['window_size']//2 + 1))
-                        lpd_lst.append(cpd)
-
-reshape_loop = pd['linear_reshape']
-if reshape_loop:
-    assert pd['fft'] is False
-    assert pd['linear_reshape'] is True
-    # cell_type loop:
-    for cell_type in ['gru']:
-        for num_units in [64]:
-            cpd = pd.copy()
-            cpd['num_units'] = num_units
-            cpd['cell_type'] = cell_type
-            lpd_lst.append(cpd)
-
-time_loop = not (pd['linear_reshape'] or pd['fft'])
-if time_loop:
-    assert pd['fft'] is False
-    assert pd['linear_reshape'] is False
-    for cell_type in ['gru']:
-        for num_units in [32, 64]:
-            # cell_type loop:
-            cpd = pd.copy()
-            cpd['num_units'] = num_units
-            cpd['cell_type'] = cell_type
-            lpd_lst.append(cpd)
-
-
-for exp_no, lpd in enumerate(lpd_lst):
-    time_str = time.strftime("%Y-%m-%d %H:%M:%S", time.gmtime())
-    lpd['time_str'] = time_str
-    pgraph = FFTpredictionGraph(lpd, generator=lpd['generator'])
-    param_str = time_str + '_' + lpd['cell_type'] + '_size_' + str(lpd['num_units']) + \
-        '_fft_' + str(lpd['fft']) + \
-        '_bs_' + str(lpd['batch_size']) + \
-        '_ps_' + str(lpd['pred_samples']) + \
-        '_dis_' + str(lpd['discarded_samples']) + \
-        '_lr_' + str(lpd['init_learning_rate']) + \
-        '_dr_' + str(lpd['decay_rate']) + \
-        '_ds_' + str(lpd['decay_steps']) + \
-        '_sp_' + str(lpd['sample_prob']) + \
-        '_rc_' + str(lpd['use_residuals']) + \
-        '_pt_' + str(pgraph.total_parameters)
-
-    if lpd['fft']:
-        param_str += '_wf_' + str(lpd['window_function'])
-        param_str += '_ws_' + str(lpd['window_size'])
-        param_str += '_ol_' + str(lpd['overlap'])
-        param_str += '_ffts_' + str(lpd['step_size'])
-        param_str += '_fftp_' + str(lpd['fft_pred_samples'])
-        param_str += '_fl_' + str(lpd['freq_loss'])
-        param_str += '_eps_' + str(lpd['epsilon'])
-        param_str += '_fftcr_' + str(lpd['fft_compression_rate'])
-
-    if lpd['stiefel']:
-        param_str += '_stfl'
-
-    if lpd['linear_reshape']:
-        param_str += '_linre'
-
-    print('---------- Experiment', exp_no, 'of', len(lpd_lst), '----------')
-    print(param_str)
-    # print(lpd)
-    summary_writer = tf.summary.FileWriter(lpd['base_dir'] + param_str,
-                                           graph=pgraph.graph)
-    # dump the parameters
-    with open(lpd['base_dir'] + param_str + '/param.pkl', 'wb') as file:
-        pickle.dump(lpd, file)
-
-    gpu_options = tf.GPUOptions(visible_device_list=str(lpd['GPUs'])[1:-1])
-    # gpu_options = tf.GPUOptions(per_process_gpu_memory_fraction=1.0)
-    config = tf.ConfigProto(allow_soft_placement=True,
-                            log_device_placement=False,
-                            gpu_options=gpu_options)
-    with tf.Session(graph=pgraph.graph, config=config) as sess:
-        print('initialize....')
-        pgraph.init_op.run()
-        for it in range(lpd['iterations']):
-            start = time.time()
-            # array_split add elements here and there, the true data is at 1
-            if not lpd['fft']:
-                np_loss, summary_to_file, np_global_step, _, datdec_np, decout_np, \
-                    datand_np = \
-                    sess.run([pgraph.loss, pgraph.summary_sum, pgraph.global_step,
-                              pgraph.training_op, pgraph.data_decoder_time,
-                              pgraph.decoder_out, pgraph.data_nd])
-            else:
-                np_loss, summary_to_file, np_global_step, _, datdec_np, decout_np, \
-                    datand_np, window_np = \
-                    sess.run([pgraph.loss, pgraph.summary_sum, pgraph.global_step,
-                              pgraph.training_op, pgraph.data_decoder_time,
-                              pgraph.decoder_out, pgraph.data_nd, pgraph.window])
-            stop = time.time()
-            if it % 100 == 0:
-                print('it: %5d, loss: %5.6f, time: %1.2f [s]'
-                      % (it, np_loss, stop-start))
-            # debug_here()
-            summary_writer.add_summary(summary_to_file, global_step=np_global_step)
-
-            if it % 100 == 0:
-                plt.figure()
-                plt.plot(decout_np[0, lpd['discarded_samples']:lpd['pred_samples'], 0])
-                plt.plot(datdec_np[0, lpd['discarded_samples']:lpd['pred_samples'], 0])
-                plt.plot(
-                    np.abs(decout_np[0, lpd['discarded_samples']:lpd['pred_samples'], 0]
-                           - datdec_np[0, lpd['discarded_samples']:lpd['pred_samples'],
-                                       0]))
-                plt.title("Prediction vs. ground truth")
-                buf = io.BytesIO()
-                plt.savefig(buf, format='png')
-                buf.seek(0)
-                summary_image = tf.Summary.Image(
-                    encoded_image_string=buf.getvalue(),
-                    height=int(plt.rcParams["figure.figsize"][0]*100),
-                    width=int(plt.rcParams["figure.figsize"][1]*100))
-                summary_image = tf.Summary.Value(tag='prediction_error',
-                                                 image=summary_image)
-                summary_image = tf.Summary(value=[summary_image])
-                summary_writer.add_summary(
-                    summary_image, global_step=np_global_step)
-                plt.close()
-                buf.close()
-                # add to tensorboard
-                if lpd['fft']:
-                    # add fft window plot in tensorboard.
-                    plt.figure()
-                    plt.plot(window_np)
-                    plt.title(lpd['window_function'])
-                    buf2 = io.BytesIO()
-                    plt.savefig(buf2, format='png')
-                    buf2.seek(0)
-                    summary_image2 = tf.Summary.Image(
-                        encoded_image_string=buf2.getvalue(),
-                        height=int(plt.rcParams["figure.figsize"][0]*100),
-                        width=int(plt.rcParams["figure.figsize"][1]*100))
-                    summary_image2 = tf.Summary.Value(tag=lpd['window_function'],
-                                                      image=summary_image2)
-                    summary_image2 = tf.Summary(value=[summary_image2])
-                    summary_writer.add_summary(
-                        summary_image2, global_step=np_global_step)
-                    plt.close()
-                    buf.close()
-
-        # epoch done. Save.
-        print('Saving a copy.')
-        pgraph.saver.save(sess, lpd['base_dir'] + time_str + param_str + '/weights/cpk',
-                          global_step=np_global_step)
+lpd_lst = [pd, pd2, pd3, pd4, pd5, pd6, pd7, pd8, pd9, pd10, pd11, pd12, pd13, pd14]
+# lpd_lst = [pd13, pd14]
+run_experiemtns(lpd_lst)

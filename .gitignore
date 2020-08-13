@@ -1,5 +1,7 @@
+.idea/
 ./logs_*
 logs/
+log/
 logs_np_fft/
 logs_tf_fft/
 logs_tf_fft_3/
@@ -25,6 +27,8 @@ q.log
 brain_decode/data/
 brain_decode/log/
 eeg/
+mocap_experiments/data/
+mocap_experiments/log/
 
 # matlab .mat files.
 *.mat

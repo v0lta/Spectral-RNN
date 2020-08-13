@@ -6,8 +6,6 @@ import matplotlib.pyplot as plt
 from lorenz_data_generator import LorenzGenerator
 from mackey_glass_generator import MackeyGenerator
 # from mpl_toolkits.mplot3d import Axes3D
-from IPython.core.debugger import Tracer
-debug_here = Tracer()
 
 
 def zero_ext(x, n, axis=-1):
@@ -92,7 +90,6 @@ def stft(data, window, nperseg, noverlap, nfft=None, sides=None, padded=True,
             raise ValueError('Unknown scaling: %r' % scaling)
         scale = tf.sqrt(scale)
         result *= tf.complex(scale, tf.zeros_like(scale))
-        # debug_here()
     if debug:
         zeros_shape = list(data.shape[:-1]) + [nadd]
         data_np = np.concatenate((data.numpy(), np.zeros(zeros_shape)), axis=-1)
@@ -175,6 +172,13 @@ def istft(Zxx, window, nperseg=None, noverlap=None, nfft=None,
     return scaled
 
 
+def interpolate(signal, new_sample_no):
+        signal_unsqueeze = tf.expand_dims(signal, axis=1)
+        new_size = [1, new_sample_no]
+        signal_up = tf.image.resize_images(signal_unsqueeze, new_size)
+        return tf.squeeze(signal_up, axis=1)
+
+
 if __name__ == "__main__":
     try:
         tf.enable_eager_execution()
@@ -201,7 +205,7 @@ if __name__ == "__main__":
     # plt.plot(spikes.numpy()[0, :, :])
     # plt.savefig('spikes.pdf')
     # plt.show()
-    if 1:
+    if 0:
         tmp_last_spikes = tf.transpose(spikes, [0, 2, 1])
         result_tf, result_np = stft(tmp_last_spikes, window, window_size, overlap,
                                     debug=True)
@@ -379,3 +383,11 @@ if __name__ == "__main__":
         ax = fig.add_subplot(111, projection='3d')
         ax.plot(scaled.numpy()[0, 0, :], scaled.numpy()[0, 1, :], scaled.numpy()[0, 2, :])
         plt.show()
+
+    if 1:
+        spikes_low_res = spikes[:, ::10, :]
+        plt.plot(spikes.numpy()[0, :, 0])
+        spikes_rec = interpolate(spikes_low_res, spikes.shape[1].value)
+        plt.plot(spikes_rec.numpy()[0, :, 0])
+        plt.show()
+        print('stop')
