@@ -20,8 +20,21 @@ Experiments:
    After downloading and pickeling the data run mocap_train_exp.py to repeat the experiments
    in the paper.
  
- 
+
+Citation:
+---------
+```
+@inproceedings{wolter2018spectral,
+  title={Sequence Prediction using Spectral RNNs},
+  author={Wolter, Moritz and Gall, Juergen and Yao, Angela},
+  booktitle={29th International Conference on Artificial Neural Networks},
+  year={2020}
+}
+```
+
+
+
 Demo Video:
 -----------
+![Alt Text](demo.gif)
 
-https://www.wolter.tech/wordpress/wp-content/uploads/2019/12/all_in_one.mp4
