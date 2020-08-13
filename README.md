@@ -41,4 +41,4 @@ Demo Video:
 
 In the demo the desired behaviour is shown on the left, while the right side depicts the network predictions.
 The red and blue coloured stick figures are context, the green and yellow figures show the ground truth and 
-network predictions.
+network output.
