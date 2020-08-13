@@ -1,7 +1,7 @@
 Sequence Prediction using Spectral RNNs
 ------------------------------------
-Source code for the paper: 
-https://arxiv.org/pdf/1812.05645.pdf if you find this work useful please consider citing the paper.
+Source code for spectral RNN learning with optimizable window functions.
+The window functions are available in 'window_learning.py'.
 The code has been tested using Tensorflow 1.10.0 but should also run in 1.13.
 
 ###### Experiments:
@@ -22,6 +22,7 @@ The code has been tested using Tensorflow 1.10.0 but should also run in 1.13.
  
 
 ###### Citation:
+A perprint is available at: https://arxiv.org/pdf/1812.05645.pdf. if you find this work useful please consider citing the paper:
 ```
 @inproceedings{wolter2018spectral,
   title={Sequence Prediction using Spectral RNNs},
