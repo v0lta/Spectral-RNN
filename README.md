@@ -1,4 +1,4 @@
-FOURIER RNNS FOR SEQUENCE PREDICTION
+Sequence Prediction using Spectral RNNs
 ------------------------------------
 Source code for the paper: 
 https://arxiv.org/pdf/1812.05645.pdf if you find this work useful please consider citing the paper.
