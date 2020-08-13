@@ -24,7 +24,7 @@ The code has been tested using Tensorflow 1.10.0.
 ###### Citation:
 A perprint is available at: https://arxiv.org/pdf/1812.05645.pdf. if you find this work useful please consider citing the paper:
 ```
-@inproceedings{wolter2018spectral,
+@inproceedings{wolter2020spectral,
   title={Sequence Prediction using Spectral RNNs},
   author={Wolter, Moritz and Gall, Juergen and Yao, Angela},
   booktitle={29th International Conference on Artificial Neural Networks},
