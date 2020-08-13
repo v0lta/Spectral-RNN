@@ -18,7 +18,7 @@ Experiments:
 
  - The mocap experiments use the human3.6m data set available at
    http://vision.imar.ro/human3.6m/
-   After downloading and pickling the data run mocap_train_exp.py to repeat the experiments
+   After downloading and pickling the data run `mocap_train_exp.py` to repeat the experiments
    in the paper.
  
 
