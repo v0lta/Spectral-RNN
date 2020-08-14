@@ -37,7 +37,7 @@ A perprint is available at: https://arxiv.org/pdf/1812.05645.pdf. if you find th
 
 In the demo the desired behaviour is shown on the left, while the right side depicts the network predictions.
 The red and blue coloured stick figures are context, the green and yellow figures show the ground truth and 
-network output.
+network output. The selection is not balanced, I have chosen examples which worked well.
 
 ###### Funding:
 This work has been funded by the Deutsche Forschungsgemeinschaft (DFG, German Research Foundation) YA 447/2-1 and GA 1927/4-1 (FOR2535 Anticipating Human Behavior) as well as by the National Research Foundation of Singapore under its NRF Fellowship Programme [NRF-NRFFAI1-2019-0001].
