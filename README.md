@@ -22,7 +22,7 @@ The code has been tested using Tensorflow 1.10.0.
 ###### Citation:
 A preprint https://arxiv.org/pdf/1812.05645.pdf, and the springer version
 https://link.springer.com/chapter/10.1007/978-3-030-61609-0_65 are available.
-if you find this work useful, please consider citing the paper:
+If you find this work useful, please consider citing the paper:
 ```
 @inproceedings{wolter2020spectral,
   title={Sequence Prediction using Spectral RNNs},
