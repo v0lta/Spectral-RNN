@@ -13,9 +13,9 @@ fifteen_minute_sampling = True
 
 # set up a parameter dictionary.
 pd = {}
-pd['base_dir'] = 'log/cvpr_workshop_power_pred4/'
+pd['base_dir'] = 'log/power_prediction/'
 
-pd['prediction_days'] = 60 #,  1
+pd['prediction_days'] = 1 #,  60
 if pd['prediction_days'] > 1:
     pd['context_days'] = pd['prediction_days']*2
 else:
@@ -28,7 +28,7 @@ pd['init_learning_rate'] = 0.004
 pd['decay_rate'] = 0.96
 
 
-pd['epochs'] = 320
+pd['epochs'] = 80
 pd['GPUs'] = [0]
 pd['batch_size'] = 50
 # window_function = 'hann'
@@ -121,9 +121,9 @@ def fix_parameters(pd):
 
 # set up the experiment list.
 pd_lst = [fix_parameters(pd)]
-lp_pd = copy.copy(pd)
-lp_pd['fft_compression_rate'] = 4
-pd_lst.append(fix_parameters(lp_pd))
+# lp_pd = copy.copy(pd)
+# lp_pd['fft_compression_rate'] = 4
+# pd_lst.append(fix_parameters(lp_pd))
 
 lr_pd = copy.copy(pd)
 lr_pd['fft'] = False
@@ -131,11 +131,11 @@ lr_pd['linear_reshape'] = True
 lr_pd['downsampling'] = 1
 pd_lst.append(fix_parameters(lr_pd))
 
-lr_pd2 = copy.copy(pd)
-lr_pd2['fft'] = False
-lr_pd2['linear_reshape'] = True
-lr_pd2['downsampling'] = 4
-pd_lst.append(fix_parameters(lr_pd2))
+# lr_pd2 = copy.copy(pd)
+# lr_pd2['fft'] = False
+# lr_pd2['linear_reshape'] = True
+# lr_pd2['downsampling'] = 4
+# pd_lst.append(fix_parameters(lr_pd2))
 
 time_pd = copy.copy(pd)
 time_pd['fft'] = False
