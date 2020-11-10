@@ -11,7 +11,7 @@ The code has been tested using Tensorflow 1.10.0.
 
  - To run the power prediction experiments, download:
    http://www.wolter.tech/wordpress/wp-content/uploads/2019/02/power_data.zip
-   And extract it in the `power_experiments` folder. Then run `power_load_pred_exp.py`
+   And extract it in the `power_experiments` folder. Then run `power_train_exp.py`
    with the desired parameters.
 
  - The mocap experiments use the human3.6m data set available at
