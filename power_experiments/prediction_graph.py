@@ -7,7 +7,6 @@ from IPython.core.debugger import Pdb
 debug_here = Pdb().set_trace
 sys.path.insert(0, "../")
 import custom_cells as ccell
-import custom_conv as cconv
 import custom_optimizers as co
 from RNN_wrapper import ResidualWrapper
 from RNN_wrapper import RnnInputWrapper
@@ -120,16 +119,6 @@ class FFTpredictionGraph(object):
                 assert enc_freqs == dec_freqs, 'encoder-decoder frequencies must agree'
                 fft_pred_samples = data_decoder_freq.shape[1].value
 
-                if pd['conv_fft_bins']:
-                    with tf.variable_scope('downsampling'):
-                        data_encoder_freq = tf.expand_dims(data_encoder_freq, -1)
-                        fft_bin_conv = cconv.ComplexConv2D(
-                            depth=1,
-                            filters=(1, pd['conv_fft_bins']),
-                            strides=(1, pd['conv_fft_bins']),
-                            padding='SAME', activation=None, scope='_down')
-                        data_encoder_freq = fft_bin_conv(data_encoder_freq)
-                        data_encoder_freq = tf.squeeze(data_encoder_freq, -1)
 
             elif pd['linear_reshape']:
                 encoder_time_steps = data_encoder_time.shape[1].value//pd['step_size']
@@ -222,22 +211,6 @@ class FFTpredictionGraph(object):
                     encoder_in = tf.complex(
                         encoder_in[:, :, :int(decoder_freqs_t2/2)],
                         encoder_in[:, :, int(decoder_freqs_t2/2):])
-
-            if pd['fft'] and pd['conv_fft_bins']:
-                decoder_out = tf.expand_dims(decoder_out, -1)
-                with tf.variable_scope('upsampling'):
-                    cup2d = cconv.ComplexUpSampling2D(size=(1, pd['conv_fft_bins']),
-                                                      interpolation='bilinear')
-                    fft_bin_conv = cconv.ComplexConv2D(depth=1,
-                                                       filters=(1, pd['conv_fft_bins']+1),
-                                                       strides=(1, 1),
-                                                       padding='SAME',
-                                                       activation=None,
-                                                       scope='_up')
-                    decoder_out = cup2d(decoder_out)
-                    decoder_out = fft_bin_conv(decoder_out)
-                decoder_out = tf.squeeze(decoder_out, -1)
-                decoder_out = decoder_out[:, :, :dec_freqs]
 
             if pd['fft']:
                 if (pd['freq_loss'] == 'complex_abs') \

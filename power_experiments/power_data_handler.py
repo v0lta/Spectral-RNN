@@ -3,11 +3,9 @@ import os
 import datetime
 import numpy as np
 import random
-from IPython.core.debugger import Pdb
-debug_here = Pdb().set_trace
 import sys
 sys.path.insert(0, "../")
-import custom_conv as cconv
+
 
 
 class PowerDataHandler(object):
