@@ -3,7 +3,6 @@ import scipy.signal as scisig
 import sys
 sys.path.insert(0, "../")
 import custom_cells as ccell
-import custom_conv as cconv
 import custom_optimizers as co
 from RNN_wrapper import ResidualWrapper
 from RNN_wrapper import RnnInputWrapper
