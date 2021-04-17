@@ -7,8 +7,8 @@ import pickle
 import tensorflow as tf
 import numpy as np
 import matplotlib.pyplot as plt
-from mackey_glass_generator import MackeyGenerator
-from power_experiments.prediction_graph import FFTpredictionGraph
+from src.mackey_glass_generator import MackeyGenerator
+from src.power_experiments.prediction_graph import FFTpredictionGraph
 
 
 def np_scalar_to_summary(tag: str, scalar: np.array, np_step: np.array,

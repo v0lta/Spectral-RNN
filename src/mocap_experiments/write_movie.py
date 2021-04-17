@@ -8,8 +8,6 @@ import numpy as np
 import matplotlib.pyplot as plt
 from matplotlib.animation import FFMpegWriter
 import mocap_experiments.viz as viz
-import cv2
-from mpl_toolkits.mplot3d import Axes3D
 
 
 def read_pose(x):

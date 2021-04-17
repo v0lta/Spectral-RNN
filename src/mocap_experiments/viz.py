@@ -5,7 +5,6 @@ Taken from: https://github.com/magnux/MotionGAN/blob/master/utils/viz.py
 import numpy as np
 from mpl_toolkits.mplot3d import Axes3D
 from matplotlib.animation import FuncAnimation
-from PIL import Image
 
 
 H36_BODY_MEMBERS_FULL = {

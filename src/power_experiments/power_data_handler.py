@@ -1,11 +1,9 @@
 import csv
 import os
-import datetime
 import numpy as np
 import random
 import sys
 sys.path.insert(0, "../")
-
 
 
 class PowerDataHandler(object):
@@ -47,7 +45,6 @@ class PowerDataHandler(object):
                                 year_lst.append(day_data[:self._samples_per_day])
 
                                 day_data = []
-                                # ipdb.set_trace()
                                 prev_day = current_day
                                 day_start = i
                             if i == 0:
@@ -63,7 +60,6 @@ class PowerDataHandler(object):
                                 except ValueError:
                                     true_value = 0
                                 day_data.append((forecast, true_value))
-                                # ipdb.set_trace()
 
                     year = name.split('-')[-2].split('_')[-1][:4]
                     # assert root.split('/')[-1] == head[-1].split('|')[-1][3:-1]
@@ -162,7 +158,7 @@ class MergePowerHandler(PowerDataHandler):
 
 
 if __name__ == "__main__":
-    if False:
+    if True:
         import matplotlib.pyplot as plt
         path = './power_data/15m_by_country_by_company/'
         power_handler = PowerDataHandler(path, samples_per_day=96)
@@ -181,16 +177,15 @@ if __name__ == "__main__":
         x1 = np.arange(0, days, sample_distance)
         x = np.concatenate([-np.flip(x1, 0), [0], x1])
         plt.plot(x, c)
-        import matplotlib2tikz as tikz
-        tikz.save('power_autocorr.tex')
+        plt.show()
         plt.cla()
         plt.clf()
 
         x = np.arange(0, 7, sample_distance)
         plt.plot(x, year_complete[(96*7):(96*7)*2])
-        tikz.save('power_tennet_janw2.tex')
-
-    if False:
+        plt.show()
+        
+    if True:
         path = './power_data/1h_by_country_by_company/'
         test_keys = [('france_CTA', '2015'),
                      ('france_CTA', '2018')]
@@ -217,7 +212,7 @@ if __name__ == "__main__":
                                                          power_handler_min15],
                                           testing_keys=testing_keys)
         train_set = power_handler.get_training_set()
-    if True:
+    if False:
         import numpy as np
         import scipy.signal as scisig
         import tensorflow as tf

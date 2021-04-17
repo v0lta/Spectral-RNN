@@ -1,7 +1,5 @@
 import tensorflow as tf
 from tensorflow.contrib.rnn import LSTMStateTuple
-from IPython.core.debugger import Tracer
-debug_here = Tracer()
 
 
 class LinearProjWrapper(tf.nn.rnn_cell.RNNCell):

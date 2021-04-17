@@ -5,8 +5,8 @@ import pickle
 import tensorflow as tf
 import numpy as np
 import matplotlib.pyplot as plt
-from power_experiments.power_data_handler import PowerDataHandler, MergePowerHandler
-from power_experiments.prediction_graph import FFTpredictionGraph
+from power_data_handler import PowerDataHandler, MergePowerHandler
+from prediction_graph import FFTpredictionGraph
 
 
 fifteen_minute_sampling = True
@@ -37,7 +37,7 @@ pd['batch_size'] = 50
 pd['window_function'] = 'learned_gaussian'
 pd['fft_compression_rate'] = None
 pd['conv_fft_bins'] = None
-pd['fully_fft_comp'] = None  #TODO: fixme
+pd['fully_fft_comp'] = None  # TODO: fixme
 pd['freq_loss'] = None
 pd['use_residuals'] = True
 pd['fft'] = True
@@ -54,21 +54,21 @@ def fix_parameters(pd):
 
     if fifteen_minute_sampling is True:
         pd['samples_per_day'] = 96
-        path = './power_experiments/power_data/15m_by_country_by_company/'
+        path = './power_data/15m_by_country_by_company/'
         power_handler = PowerDataHandler(path,
                                          pd['context_days'])
         pd['power_handler'] = power_handler
     else:
         pd['samples_per_day'] = 24
-        path = './power_experiments/power_data/15m_by_country_by_company/'
+        path = './power_data/15m_by_country_by_company/'
         power_handler_min15 = PowerDataHandler(path, pd['context_days'],
                                                samples_per_day=96,
                                                test_keys={})
-        path = './power_experiments/power_data/30m_by_country_by_company/'
+        path = './power_data/30m_by_country_by_company/'
         power_handler_min30 = PowerDataHandler(path, pd['context_days'],
                                                samples_per_day=48,
                                                test_keys={})
-        path = './power_experiments/power_data/1h_by_country_by_company/'
+        path = './power_data/1h_by_country_by_company/'
         power_handler_1h = PowerDataHandler(path, pd['context_days'],
                                             samples_per_day=24,
                                             test_keys={})
@@ -188,7 +188,6 @@ for exp_no, cpd in enumerate(pd_lst):
 
     # do each of the experiments in the parameter dictionary list.
     print(param_str)
-    # icpdb.set_trace()
     summary_writer = tf.summary.FileWriter(cpd['base_dir'] + cpd['time_str'] + param_str,
                                            graph=pgraph.graph)
     # dump the parameters

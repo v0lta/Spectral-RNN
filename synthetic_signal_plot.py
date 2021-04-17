@@ -4,8 +4,8 @@ import pickle
 import tensorflow as tf
 import numpy as np
 import matplotlib.pyplot as plt
-from mackey_glass_generator import MackeyGenerator
-from power_experiments.prediction_graph import FFTpredictionGraph
+from src.mackey_glass_generator import MackeyGenerator
+from src.power_experiments.prediction_graph import FFTpredictionGraph
 import tikzplotlib as tikz
 
 
@@ -69,8 +69,8 @@ _ds_1000_sp_1.0_rc_True_pt_12994_downs_32_linre'
 _lr_0.001_dr_0.9_ds_1000_sp_1.0_rc_True_pt_12737'
     plot(path, restore_step, label='time-gru', gt=True)
     plt.legend()
-    # plt.show()
-    tikz.save('mackey_fit_full.tex', standalone=True)
+    plt.show()
+    # tikz.save('mackey_fit_full.tex', standalone=True)
     # plt.savefig('mackey_fit.pdf')
     print('done')
 

@@ -3,9 +3,8 @@
     tensorflow optimization ops.
 """
 import tensorflow as tf
-from IPython.core.debugger import Tracer
 from tensorflow.python.training import training_ops
-debug_here = Tracer()
+
 
 
 class RMSpropNatGrad(tf.train.Optimizer):

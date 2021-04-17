@@ -1,7 +1,7 @@
 Sequence Prediction using Spectral RNNs
 ------------------------------------
 Source code for spectral RNN learning with optimizable window functions.
-The window functions are available in `window_learning.py`.
+The window functions are available in `src/window_learning.py`.
 The code has been tested using Tensorflow 1.10.0 on Ubuntu-Linux.
 
 ###### Experiments:
@@ -11,11 +11,12 @@ The code has been tested using Tensorflow 1.10.0 on Ubuntu-Linux.
 
  - To run the power prediction experiments, download:
    http://www.wolter.tech/wordpress/wp-content/uploads/2019/02/power_data.zip
-   And extract it in the `power_experiments` folder. Then run `power_train_exp.py`
-   with the desired parameters.
+   And extract it in the `src/power_experiments` folder. Then run `power_train_exp.py`
+   from within the same directory with the desired parameters.
 
  - The mocap experiments use the human3.6m data set available at
-   http://vision.imar.ro/human3.6m/
+   http://vision.imar.ro/human3.6m/ .
+   We use the D3 Position files from the "by subject category". 
    After downloading and pickling the data run `mocap_train_exp.py` to repeat the experiments in the paper.
  
 

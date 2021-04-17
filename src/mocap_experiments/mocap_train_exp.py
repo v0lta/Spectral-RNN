@@ -1,5 +1,3 @@
-import os
-os.environ['TF_CPP_MIN_LOG_LEVEL'] = '2'
 import io
 import copy
 import time
@@ -8,13 +6,10 @@ import tensorflow as tf
 import numpy as np
 import collections
 import matplotlib.pyplot as plt
-from mocap_experiments.load_h36m import H36MDataSet
-from mocap_experiments.prediction_graph import FFTpredictionGraph
-from mocap_experiments.write_movie import write_movie
-from mocap_experiments.util import compute_ent_metrics, organize_into_batches, compute_ent_metrics_splits
-
-from tensorflow.python.util import deprecation
-deprecation._PRINT_DEPRECATION_WARNINGS = False
+from load_h36m import H36MDataSet
+from prediction_graph import FFTpredictionGraph
+from write_movie import write_movie
+from util import compute_ent_metrics, organize_into_batches, compute_ent_metrics_splits
 
 PoseData = collections.namedtuple('PoseData', ['f', 'action', 'actor', 'array'])
 

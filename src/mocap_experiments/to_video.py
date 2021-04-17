@@ -1,15 +1,10 @@
-"""
-Based on https://github.com/magnux/MotionGAN/blob/master/utils/human36_skels_to_h5.py
-Download the D3 Position files from the by subject category in http://vision.imar.ro/human3.6m/filebrowser.php
-extract them and run this code to create pickled versions of the dataset.
-"""
+# Created by moritz (wolter@cs.uni-bonn.de) at 13/02/2020
 
 import os
-import re
-from glob import glob
 import pickle
 import collections
-from mocap_experiments.write_movie import read_pose
+from mocap_experiments.write_movie import read_pose, write_movie
+import mocap_experiments.viz as viz
 os.environ["CDF_LIB"] = '/home/moritz/CDF/cdf37_0-dist/lib'
 from spacepy import pycdf
 PoseData = collections.namedtuple('PoseData', ['f', 'action', 'actor', 'array'])
@@ -44,9 +39,8 @@ if __name__ == "__main__":
         action = training_file_path.split('/')[-1].split('.')[-2]
         actor = training_file_path.split('/')[-4]
         assert actor != 'S5'
-        training_lst.append(PoseData(training_file_path, action, actor, array))
-    pickle.dump(training_lst, open(data_path + '/train_' + dataset + 'v2.pkl', 'wb'))
-    print('wrote to:', data_path + '/train_' + dataset + 'v2.pkl')
+        array = array[viz.H36M_USED_JOINTS, :, :]
+        write_movie(array, name='./test_vids_2/train_' + action + actor + '.mp4')
 
     val_lst = []
     for val_file_path in val_file_path_lst:
@@ -55,6 +49,7 @@ if __name__ == "__main__":
         action = val_file_path.split('/')[-1].split('.')[-2]
         actor = val_file_path.split('/')[-4]
         assert actor == 'S5'
-        val_lst.append(PoseData(val_file_path, action, actor, array))
-    pickle.dump(val_lst, open(data_path + '/val_' + dataset + 'v2.pkl', 'wb'))
-    print('wrote to:', data_path + '/val_' + dataset + 'v2.pkl')
+        array = array[viz.H36M_USED_JOINTS, :, :]
+        write_movie(array, name='./test_vids_2/val_' + action + actor + '.mp4')
+    # pickle.dump(val_lst, open(data_path + '/val_' + dataset + 'v2.pkl', 'wb'))
+    # print('wrote to:', data_path + '/val_' + dataset + 'v2.pkl')

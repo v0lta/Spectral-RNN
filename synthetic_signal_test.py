@@ -1,6 +1,6 @@
 import copy
-from mackey_glass_generator import MackeyGenerator
-from run_synthetics import run_experiemtns
+from src.mackey_glass_generator import MackeyGenerator
+from src.run_synthetics import run_experiemtns
 
 pd = {}
 pd['base_dir'] = 'log/cvpr_workshop_synthetic_5/'
@@ -41,7 +41,7 @@ pd['conv_fft_bins'] = None
 pd['fully_fft_comp'] = None
 
 
-def fix_parameters(pd):
+def adjust_parameters(pd):
     if pd['fft']:
         if pd['fft_compression_rate']:
             pd['num_proj'] = int((pd['window_size']//2 + 1) / pd['fft_compression_rate'])
@@ -62,75 +62,75 @@ def fix_parameters(pd):
     return pd
 
 
-pd = fix_parameters(pd)
+pd = adjust_parameters(pd)
 pd2 = copy.copy(pd)
 pd2['linear_reshape'] = True
 pd2['downsampling'] = 1
-pd2 = fix_parameters(pd2)
+pd2 = adjust_parameters(pd2)
 
 pd3 = copy.copy(pd)
 pd3['linear_reshape'] = True
 pd3['downsampling'] = 8
-pd3 = fix_parameters(pd3)
+pd3 = adjust_parameters(pd3)
 
 pd4 = copy.copy(pd)
 pd4['linear_reshape'] = True
 pd4['downsampling'] = 16
-pd4 = fix_parameters(pd4)
+pd4 = adjust_parameters(pd4)
 
 pd5 = copy.copy(pd)
 pd5['fft'] = True
 pd5['fft_compression_rate'] = 1
-pd5 = fix_parameters(pd5)
+pd5 = adjust_parameters(pd5)
 
 pd6 = copy.copy(pd)
 pd6['fft'] = True
 pd6['fft_compression_rate'] = 8
-pd6 = fix_parameters(pd6)
+pd6 = adjust_parameters(pd6)
 
 pd7 = copy.copy(pd)
 pd7['fft'] = True
 pd7['fft_compression_rate'] = 16
-pd7 = fix_parameters(pd7)
+pd7 = adjust_parameters(pd7)
 
 pd8 = copy.copy(pd)
 pd8['fft'] = True
 pd8['cell_type'] = 'cgRNN'
-pd8 = fix_parameters(pd8)
+pd8 = adjust_parameters(pd8)
 
 pd9 = copy.copy(pd)
 pd9['fft'] = True
 pd9['cell_type'] = 'cgRNN'
 pd9['num_units'] = 54
-pd9 = fix_parameters(pd9)
+pd9 = adjust_parameters(pd9)
 
 pd10 = copy.copy(pd)
 pd10['fft'] = True
 pd10['cell_type'] = 'cgRNN'
 pd10['num_units'] = 32
-pd10 = fix_parameters(pd10)
+pd10 = adjust_parameters(pd10)
 
 pd11 = copy.copy(pd)
 pd11['fft'] = True
 pd11['cell_type'] = 'cgRNN'
 pd11['num_units'] = 32
-pd11 = fix_parameters(pd11)
+pd11 = adjust_parameters(pd11)
 
 pd12 = copy.copy(pd)
 pd12['fft'] = True
 pd12['cell_type'] = 'cgRNN'
 pd12['freq_loss'] = 'complex_square'
-pd12 = fix_parameters(pd12)
+pd12 = adjust_parameters(pd12)
 
 pd13 = copy.copy(pd)
 pd13['fft'] = True
 pd13['fft_compression_rate'] = 32
-pd13 = fix_parameters(pd13)
+pd13 = adjust_parameters(pd13)
 
 pd14 = copy.copy(pd)
 pd14['linear_reshape'] = True
 pd14['downsampling'] = 32
-pd14 = fix_parameters(pd14)
+pd14 = adjust_parameters(pd14)
 
 
 # define a list of experiments.

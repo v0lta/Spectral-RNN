@@ -1,11 +1,9 @@
 import os
-os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
 import tensorflow as tf
 import scipy.signal as scisig
 import sys
-from IPython.core.debugger import Pdb
-debug_here = Pdb().set_trace
 sys.path.insert(0, "../")
+sys.path.insert(0, "src")
 import custom_cells as ccell
 import custom_optimizers as co
 from RNN_wrapper import ResidualWrapper
@@ -15,6 +13,8 @@ import eager_STFT as eagerSTFT
 import tensorflow.nn.rnn_cell as rnn_cell
 from tensorflow.contrib.rnn import LSTMStateTuple
 import window_learning as wl
+
+os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
 
 
 def compute_parameter_total(trainable_variables):

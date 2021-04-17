@@ -8,10 +8,7 @@ import collections
 import numpy as np
 import tensorflow as tf
 from tensorflow import random_uniform_initializer as urnd_init
-from IPython.core.debugger import Tracer
-debug_here = Tracer()
-
-from custom_regularizers import complex_dropout
+from src.custom_regularizers import complex_dropout
 from tensorflow.contrib.rnn import LSTMStateTuple
 
 

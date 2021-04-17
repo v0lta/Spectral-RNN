@@ -3,8 +3,8 @@ import tensorflow as tf
 import tensorflow.contrib.signal as tfsignal
 import scipy.signal as scisig
 import matplotlib.pyplot as plt
-from lorenz_data_generator import LorenzGenerator
-from mackey_glass_generator import MackeyGenerator
+from src.lorenz_data_generator import LorenzGenerator
+from src.mackey_glass_generator import MackeyGenerator
 # from mpl_toolkits.mplot3d import Axes3D
 
 
